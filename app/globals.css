@@ -102,27 +102,31 @@ body {
     transform: scale(0.98);
   }
 
-  /* Vibrant electric neon-green button matching image (1).png */
+  /* Vibrant electric neon-green button matching git-work.png, swap.png, and icon.png */
   .btn-primary {
-    color: #0c1f0d;
-    background: linear-gradient(180deg, #58f871 0%, #3ae455 35%, #2ad546 70%, #20c23c 100%);
-    border-radius: 1.25rem;
-    border: 1px solid rgba(6, 45, 13, 0.85);
+    color: #031005;
+    background:
+      radial-gradient(100% 85% at 50% 105%, #8bfb9d 0%, rgba(139, 251, 157, 0) 70%),
+      linear-gradient(180deg, #38e154 0%, #44ec5b 40%, #54f568 75%, #5ef976 100%);
+    border-radius: 1.35rem;
+    border: 1px solid rgba(6, 60, 18, 0.9);
     box-shadow:
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.5),
-      inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.25),
-      0 0 14px 1px rgba(35, 240, 65, 0.35),
-      0 4px 14px -2px rgba(20, 160, 45, 0.5);
+      inset 0 1px 0 0 rgba(200, 255, 205, 0.85),
+      inset 0 2px 2px 0 rgba(152, 248, 151, 0.45),
+      inset 0 -1.5px 1px 0 rgba(6, 60, 18, 0.35),
+      0 0 18px 1px rgba(45, 225, 75, 0.38),
+      0 6px 18px -2px rgba(10, 65, 22, 0.45);
     font-weight: 600;
     letter-spacing: -0.01em;
   }
   .btn-primary:not(:disabled):hover {
-    filter: brightness(1.05);
+    filter: brightness(1.03);
     box-shadow:
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
-      inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.25),
-      0 0 22px 2px rgba(35, 240, 65, 0.55),
-      0 6px 18px -2px rgba(20, 160, 45, 0.7);
+      inset 0 1px 0 0 rgba(220, 255, 225, 0.95),
+      inset 0 2px 2px 0 rgba(165, 252, 165, 0.55),
+      inset 0 -1.5px 1px 0 rgba(6, 60, 18, 0.35),
+      0 0 26px 3px rgba(45, 225, 75, 0.55),
+      0 8px 22px -2px rgba(10, 65, 22, 0.6);
   }
 
   /* Dark secondary button matching 'Request' on FluxChain */

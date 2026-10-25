@@ -513,19 +513,19 @@ export function AuthPortal({
                 <button
                   type="button"
                   onClick={handleMainAction}
-                  className="btn btn-primary w-full rounded-2xl py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(35,240,65,0.4)]"
+                  className="btn btn-primary w-full rounded-2xl py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {!account ? (
                     <span>Connect Wallet</span>
                   ) : isRegistered ? (
                     <>
                       <span>Login</span>
-                      <ArrowRight size={18} color="#0c1f0d" />
+                      <ArrowRight size={18} color="#051207" />
                     </>
                   ) : (
                     <>
                       <span>Register</span>
-                      <ArrowRight size={18} color="#0c1f0d" />
+                      <ArrowRight size={18} color="#051207" />
                     </>
                   )}
                 </button>
