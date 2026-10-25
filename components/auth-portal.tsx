@@ -472,16 +472,16 @@ export function AuthPortal({
                   <div className="flex-1 px-3 text-left min-w-0">
                     {account ? (
                       <div
-                        className="font-sans text-sm sm:text-base font-normal text-white break-all tracking-normal select-all leading-snug"
+                        className="font-sans text-sm sm:text-base font-normal text-white truncate whitespace-nowrap tracking-normal"
                         title={account}
                       >
-                        {account}
+                        {shortAddr(account)}
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => connect().catch(() => {})}
-                        className="text-left font-sans text-sm sm:text-base font-light text-muted hover:text-neon transition cursor-pointer w-full truncate tracking-normal capitalize"
+                        className="text-left font-sans text-sm sm:text-base font-light text-muted hover:text-neon transition cursor-pointer w-full truncate whitespace-nowrap tracking-normal capitalize"
                       >
                         Connect Your Web3 Wallet
                       </button>
@@ -619,8 +619,8 @@ export function AuthPortal({
           <div className="rounded-2xl bg-[#121914] p-3 border border-white/[0.08] flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <span className="size-2 rounded-full bg-neon animate-pulse shrink-0" />
-              <span className="font-sans text-xs sm:text-sm font-semibold text-white break-all" title={account}>
-                {account ? account : "No wallet"}
+              <span className="font-sans text-xs sm:text-sm font-semibold text-white truncate" title={account}>
+                {account ? shortAddr(account) : "No wallet"}
               </span>
             </div>
             <span className="text-[11px] text-neon-soft font-semibold shrink-0">Ready to Register</span>
