@@ -351,9 +351,9 @@ export function AuthPortal({
             </div>
           </div>
 
-          {/* 3. STICKY BOTTOM CARD: A LITTLE LESS WIDER SO BOTH SIDE CURVED CORNERS ARE PROMINENTLY VISIBLE */}
-          <div className="w-full max-w-[420px] sm:max-w-[440px] mx-auto px-2 sm:px-2.5 relative z-20 flex flex-col sticky bottom-0 shrink-0">
-            {/* SVG Curved Top Cap with Diminishing Green Border & Rounded Outer Corners */}
+          {/* 3. STICKY BOTTOM CARD: A LITTLE MORE WIDE WITH BORDER LIGHTENING EASING OUT ON CURVES */}
+          <div className="w-full max-w-[480px] sm:max-w-[520px] mx-auto px-2 sm:px-3 relative z-20 flex flex-col sticky bottom-0 shrink-0">
+            {/* SVG Curved Top Cap with Diminishing Green Border Active & Easing Out on Curves */}
             <div className="relative w-full overflow-hidden -mb-px">
               <svg
                 viewBox="0 0 1000 85"
@@ -361,26 +361,38 @@ export function AuthPortal({
                 className="w-full h-14 sm:h-16 block"
               >
                 <defs>
-                  {/* Green border gradient easing out on both left & right ends AND center scoop */}
+                  {/* Green border gradient active on outer curves and scoop curves, easing out smoothly */}
                   <linearGradient id="diminishingBorder" x1="0%" y1="0%" x2="100%" y2="0%">
-                    {/* Left corner ease-out */}
+                    {/* Left vertical side easing in */}
                     <stop offset="0%" stopColor="#2eed4c" stopOpacity="0.0" />
-                    <stop offset="4%" stopColor="#2eed4c" stopOpacity="0.35" />
-                    <stop offset="8%" stopColor="#2eed4c" stopOpacity="0.85" />
-                    <stop offset="16%" stopColor="#2eed4c" stopOpacity="1.0" />
+                    <stop offset="1.5%" stopColor="#2eed4c" stopOpacity="0.35" />
+                    {/* Left corner curve (active green glow) */}
+                    <stop offset="3%" stopColor="#2eed4c" stopOpacity="0.75" />
+                    <stop offset="5%" stopColor="#2eed4c" stopOpacity="0.95" />
+                    <stop offset="8%" stopColor="#2eed4c" stopOpacity="1.0" />
 
-                    {/* Middle scoop ease-out */}
-                    <stop offset="28%" stopColor="#2eed4c" stopOpacity="0.75" />
-                    <stop offset="36%" stopColor="#2eed4c" stopOpacity="0.15" />
-                    <stop offset="42%" stopColor="#2eed4c" stopOpacity="0.0" />
-                    <stop offset="58%" stopColor="#2eed4c" stopOpacity="0.0" />
-                    <stop offset="64%" stopColor="#2eed4c" stopOpacity="0.15" />
-                    <stop offset="72%" stopColor="#2eed4c" stopOpacity="0.75" />
+                    {/* Left flat shoulder */}
+                    <stop offset="26%" stopColor="#2eed4c" stopOpacity="1.0" />
 
-                    {/* Right shoulder & Right corner ease-out */}
-                    <stop offset="84%" stopColor="#2eed4c" stopOpacity="1.0" />
-                    <stop offset="92%" stopColor="#2eed4c" stopOpacity="0.85" />
-                    <stop offset="96%" stopColor="#2eed4c" stopOpacity="0.35" />
+                    {/* Scoop entering curve (easing out down into trough) */}
+                    <stop offset="32%" stopColor="#2eed4c" stopOpacity="0.85" />
+                    <stop offset="38%" stopColor="#2eed4c" stopOpacity="0.55" />
+                    <stop offset="44%" stopColor="#2eed4c" stopOpacity="0.2" />
+                    <stop offset="48%" stopColor="#2eed4c" stopOpacity="0.0" />
+                    <stop offset="52%" stopColor="#2eed4c" stopOpacity="0.0" />
+                    {/* Scoop ascending curve (easing in up out of trough) */}
+                    <stop offset="56%" stopColor="#2eed4c" stopOpacity="0.2" />
+                    <stop offset="62%" stopColor="#2eed4c" stopOpacity="0.55" />
+                    <stop offset="68%" stopColor="#2eed4c" stopOpacity="0.85" />
+
+                    {/* Right flat shoulder */}
+                    <stop offset="74%" stopColor="#2eed4c" stopOpacity="1.0" />
+                    <stop offset="92%" stopColor="#2eed4c" stopOpacity="1.0" />
+
+                    {/* Right corner curve (active green glow easing out down side) */}
+                    <stop offset="95%" stopColor="#2eed4c" stopOpacity="0.95" />
+                    <stop offset="97%" stopColor="#2eed4c" stopOpacity="0.75" />
+                    <stop offset="98.5%" stopColor="#2eed4c" stopOpacity="0.35" />
                     <stop offset="100%" stopColor="#2eed4c" stopOpacity="0.0" />
                   </linearGradient>
 
@@ -409,9 +421,9 @@ export function AuthPortal({
                   fill="url(#scoopAura)"
                 />
 
-                {/* Blurred outer neon glow on the border line (with rounded outer corners on both sides) */}
+                {/* Blurred outer neon glow on the border line (extending down curves on both sides) */}
                 <path
-                  d="M 2,42 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,42"
+                  d="M 2,65 L 2,38 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,38 L 998,65"
                   fill="none"
                   stroke="url(#diminishingBorder)"
                   strokeWidth="5"
@@ -420,9 +432,9 @@ export function AuthPortal({
                   opacity="0.85"
                 />
 
-                {/* Crisp Core Top Border with Eased Out Green Glow (with rounded outer corners on both sides) */}
+                {/* Crisp Core Top Border with Eased Out Green Glow (extending down curves on both sides) */}
                 <path
-                  d="M 2,42 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,42"
+                  d="M 2,65 L 2,38 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,38 L 998,65"
                   fill="none"
                   stroke="url(#diminishingBorder)"
                   strokeWidth="2.4"
@@ -432,7 +444,7 @@ export function AuthPortal({
             </div>
 
             {/* Card Body seamlessly joined to the curved top, with visible side borders and rounded base */}
-            <div className="w-full bg-[#0b110d] px-4 sm:px-5 pt-1.5 pb-6 sm:pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col items-center rounded-b-3xl border-x border-b border-white/[0.05]">
+            <div className="w-full bg-[#0b110d] px-4 sm:px-6 pt-1.5 pb-6 sm:pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col items-center rounded-b-3xl border-x border-b border-white/[0.05]">
               <div className="w-full max-w-sm sm:max-w-md mx-auto flex flex-col gap-3.5">
                 {/* Header inside the curved card (font-light, tracking-normal, capitalize) */}
                 <div className="text-center pt-0.5">
@@ -501,7 +513,7 @@ export function AuthPortal({
                 <button
                   type="button"
                   onClick={handleMainAction}
-                  className="btn btn-primary w-full rounded-full py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
+                  className="btn btn-primary w-full rounded-2xl py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(35,240,65,0.4)]"
                 >
                   {!account ? (
                     <span>Connect Wallet</span>
