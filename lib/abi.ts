@@ -1,0 +1,161 @@
+import { parseAbi } from "viem";
+
+export const platformAbi = parseAbi([
+  // Core user functions
+  "function register(address _sponsor, uint256 _leaderCode, uint256 amountUSDT, uint8 lockType)",
+  "function invest(uint256 amountUSDT, uint8 lockType)",
+  "function convertToFiftyFifty(uint256 positionId)",
+  "function withdrawROI()",
+  "function withdrawBooster()",
+  "function withdrawWorkingIncome(uint256 amountUSDT, uint8 vestingOption)",
+  "function harvestLevelIncome()",
+  "function withdrawLeaderIncome()",
+  "function withdrawRankIncome()",
+  "function claimWeeklySalaryBonus()",
+  "function claimVesting(uint256 scheduleId)",
+  "function claimContestReward(uint256 dayId)",
+  "function sweepContestRewards(uint256 maxDays)",
+  "function claimLeaderContestReward(uint256 dayId)",
+  "function sweepLeaderContestRewards(uint256 maxDays)",
+  "function checkLeaderCode()",
+  "function accrueRange(uint256 startIdx, uint256 count)",
+
+  // View methods from PlatformContract and PlatformView delegate
+  "struct Position { uint256 id; address user; uint256 initialPrincipal; uint256 createdAt; uint256 lastUpdateTime; uint8 lockType; uint256 lockedAt; uint256 roiAccrued; uint256 roiWithdrawn; uint256 flexRoiAccrued; uint256 lockRoiAccrued; bool active; bool cappedOut; uint256 lockLevelLastUpdate; }",
+  "struct User { address sponsor; uint256 registrationTime; uint256 firstDepositTime; uint256 totalPersonalDeposit; uint256 totalActiveDeposit; uint256 totalDirectBusiness; uint256 totalTeamBusiness; uint256 activeDirectCount; uint256 boosterTier; uint256 boosterFirstPackageAmount; uint256 boosterAccrued; bool boosterCapReached; uint256 currentRank; address usedLeader; uint256 roiCycleStartTime; uint256 workingIncomePending; uint256 workingIncomeWithdrawn; uint256 roiIncomePending; uint256 roiIncomeWithdrawn; uint256 boosterIncomePending; uint256 boosterIncomeWithdrawn; uint256 leaderIncomePending; uint256 leaderIncomeWithdrawn; uint256 workingCapConsumed; uint256 lastWithdrawalTime; uint256 hourlyWithdrawnAmount; uint256 hourlyWithdrawalResetTime; uint256[] positionIds; }",
+  "struct VestingSchedule { uint256 id; address user; uint256 grossAmount; uint256 netAmount; uint256 claimedAmount; uint256 startTime; uint256 duration; bool completed; }",
+
+  "function getUser(address user) view returns (User)",
+  "function getPosition(uint256 positionId) view returns (Position)",
+  "function getUserPositions(address user) view returns (uint256[])",
+  "function getPositionLiveAccruedRoi(uint256 posId) view returns (uint256 liveAccruedRoi, uint256 maxCap, bool isCapped)",
+  "function getDirectDownlines(address sponsor) view returns (address[])",
+  "function getLegBusiness(address user) view returns (uint256 powerLeg, uint256 weakerLeg)",
+  "function getActiveLegBusiness(address user) view returns (uint256 powerLeg, uint256 weakerLeg)",
+  "function getUserVestingIds(address user) view returns (uint256[])",
+  "function getVestingSchedule(uint256 vId) view returns (VestingSchedule)",
+  "function getPendingDirectBonus(address user) view returns (uint256 availableToUnlock, uint256 pendingLocked)",
+  "function getPendingLeaderBonus(address user) view returns (uint256 availableToUnlock, uint256 pendingLocked)",
+  "function getUserWorkingCapHeadroom(address user) view returns (uint256)",
+  "function getUserPersonalDeposit(address user) view returns (uint256)",
+  "function getUserActiveDeposit(address user) view returns (uint256)",
+  "function getUserCurrentRank(address user) view returns (uint256)",
+  "function leaderCodeOf(address user) view returns (uint256)",
+  "function getActiveLhrTier() view returns (uint8)",
+  "function topId() view returns (address)",
+  "function totalPlatformActiveDeposit() view returns (uint256)",
+  "function usdtToken() view returns (address)",
+  "function carbonToken() view returns (address)",
+  "function lhrEngine() view returns (address)",
+  "function treasuryFeeBps() view returns (uint256)",
+  "function getDynamicTreasuryFeeBps() view returns (uint256)",
+  "function adminWallet() view returns (address)",
+  "function treasuryWallet() view returns (address)",
+  "function rewardPoolWallet() view returns (address)",
+  "function deploymentStartTime() view returns (uint256)",
+  "function getTotalActuarialLiabilities() view returns (uint256)",
+  "function getPendingLeaderContestRewards(address user) view returns (uint256)",
+  "function getPendingContestRewards(address user) view returns (uint256)",
+
+  // Events
+  "event Registered(address indexed user, address indexed sponsor, uint256 leaderCodeUsed)",
+  "event InvestmentCreated(uint256 indexed positionId, address indexed user, uint256 amountUSDT, uint8 lockType)",
+  "event ROIWithdrawn(address indexed user, uint256 grossUSDT, uint256 adminFeeUSDT, uint256 poolFeeUSDT, uint256 netTokensMinted, uint256 surplusRetained)",
+  "event BoosterIncomeAccrued(address indexed user, uint256 amount)",
+  "event RankUpgraded(address indexed user, uint256 previousRank, uint256 newRank)",
+]);
+
+export const tokenContractAbi = parseAbi([
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+  "function totalSupply() view returns (uint256)",
+  "function balanceOf(address account) view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function sellTaxBps() view returns (uint256)",
+  "function getEffectiveSellTaxBps() view returns (uint256)",
+  "function isTaxManualOverride() view returns (bool)",
+  "function manualSellTaxBps() view returns (uint256)",
+  "function publicPoolBuyEnabled() view returns (bool)",
+  "function dexPair() view returns (address)",
+  "function dexRouter() view returns (address)",
+  "function platformContract() view returns (address)",
+  "function liquidityFarmingContract() view returns (address)",
+  "function lhrEngine() view returns (address)",
+  "function platformDexRouter() view returns (address)",
+  "function twapOracle() view returns (address)",
+  "function farmingContractLocked() view returns (bool)",
+  "function platformContractLocked() view returns (bool)",
+]);
+
+export const lhrRoutingEngineAbi = parseAbi([
+  "struct LHRMetrics { uint256 snapshotReserveUSDT; uint256 realizableReserveUSDT; uint256 totalActuarialLiabilitiesUSDT; uint256 lhrRatioBps; uint8 activeTier; uint256 lastSnapshotTime; }",
+  "struct Day15InterventionState { bool active; uint256 startTime; uint256 totalUsdtBudget; uint256 usdtPerTranche; uint8 nextTrancheIndex; uint256 lastTrancheTime; }",
+  "function getActiveTier() view returns (uint8 tierIndex, string tierName, uint256 ratioBps)",
+  "function getMetrics() view returns (LHRMetrics)",
+  "function getDynamicTreasuryFeeBps() view returns (uint256)",
+  "function lhrResetThresholdBps() view returns (uint256)",
+  "function buybackLhrThresholdBps() view returns (uint256)",
+  "function buybackPoolUSDT() view returns (uint256)",
+  "function getBuybackCap() view returns (uint256)",
+  "function snapshotInterval() view returns (uint256)",
+  "function liabilityHorizonMonths() view returns (uint256)",
+  "function safetyDiscountBps() view returns (uint256)",
+  "function routingSlippageFactorBps() view returns (uint256)",
+  "function isNonAlgoMode() view returns (bool)",
+  "function algoStartTime() view returns (uint256)",
+  "function basePrice() view returns (uint256)",
+  "function currentTargetPrice() view returns (uint256)",
+  "function initialPrice() view returns (uint256)",
+  "function nonAlgoStartTime() view returns (uint256)",
+  "function nonAlgoCurrentTarget() view returns (uint256)",
+  "function day15Intervention() view returns (Day15InterventionState)",
+  "function calculateRequiredBuyback() view returns (uint256 deltaUSDT)",
+  "function lpTokenBurn() view returns (bool)",
+  "function buybackFixedCapUSDT() view returns (uint256)",
+  "function peakPoolUSDT() view returns (uint256)",
+]);
+
+export const platformDexRouterAbi = parseAbi([
+  "struct PanicState { bool isTriggered; uint32 triggerTimestamp; uint224 benchmarkPrice; uint224 triggerPrice; uint16 activeTaxBps; uint224 recoveryPrice; uint224 endPrice; uint32 endTime; }",
+  "function panicState() view returns (PanicState)",
+  "function getDynamicSellTaxBps() view returns (uint256)",
+  "function isBenchmarkHealthy() view returns (bool)",
+  "function getObservationStatus() view returns (uint16 cardinality, uint32 oldestTimestamp, uint32 newestTimestamp, uint32 maxGap, bool healthy)",
+  "function getPanicReferencePrice() view returns (uint256 price, bool reliable)",
+]);
+
+export const erc20Abi = parseAbi([
+  "function balanceOf(address owner) view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+  "function totalSupply() view returns (uint256)",
+  "function mint(address to, uint256 amount) external",
+]);
+
+export const oracleAbi = parseAbi([
+  "function getLatestTwap() view returns (uint256 price, bool fresh)",
+  "function getValidatedPrice() view returns (uint256)",
+  "function getSpotPrice() view returns (uint256)",
+  "function twapWindow() view returns (uint256)",
+  "function maxTwapAveragingWindow() view returns (uint256)",
+  "function isTwapStale() view returns (bool)",
+  "function getEffectiveMaxPriceDeviationBps() view returns (uint256)",
+  "function lastTwapTime() view returns (uint32)",
+]);
+
+export const pairAbi = parseAbi([
+  "function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
+  "function token0() view returns (address)",
+  "function token1() view returns (address)",
+  "function totalSupply() view returns (uint256)",
+]);
+
+export const pancakeRouterAbi = parseAbi([
+  "function swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external",
+  "function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external returns (uint256[] memory amounts)",
+  "function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts)",
+]);
