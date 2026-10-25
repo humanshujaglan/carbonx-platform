@@ -49,7 +49,7 @@ export function Header({
 
         <div className="flex flex-col">
           <span className="text-[11px] font-medium text-muted">Welcome back!</span>
-          <span className="font-mono text-xs sm:text-sm font-bold text-white tracking-tight">
+          <span className="font-sans text-xs sm:text-sm font-semibold text-white tracking-tight">
             {account ? shortAddr(account) : "Guest Member"}
           </span>
         </div>
