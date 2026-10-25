@@ -2,33 +2,111 @@
 export function Backdrop() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#040705]">
-      {/* Top Center Emerald Radial Atmosphere (matches FluxChain hero glow) */}
-      <div
-        className="absolute -top-32 left-1/2 -translate-x-1/2 w-[120vw] max-w-[900px] h-[550px] opacity-75 blur-3xl pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse at center, rgba(31, 224, 58, 0.28) 0%, rgba(16, 185, 129, 0.12) 35%, rgba(4, 7, 5, 0) 70%)",
-        }}
-      />
+      {/* ========================================================= */}
+      {/* TOP-LEFT 45° LIGHTING BEAM                                */}
+      {/* Originates at screen corner (0,0), shoots along 45° ray  */}
+      {/* Maximum strength in corner, progressively low in middle   */}
+      {/* ========================================================= */}
+      <div className="pointer-events-none fixed top-0 left-0 z-0">
+        <div
+          className="relative"
+          style={{
+            transformOrigin: "0 0",
+            transform: "rotate(45deg)",
+          }}
+        >
+          {/* Central high-intensity beam core */}
+          <div
+            className="absolute top-[-30px] left-0 w-[65vw] max-w-[560px] h-[60px]"
+            style={{
+              background:
+                "linear-gradient(to right, rgba(46, 240, 75, 1) 0%, rgba(35, 230, 65, 0.85) 22%, rgba(31, 224, 58, 0.3) 55%, transparent 95%)",
+              filter: "blur(16px)",
+            }}
+          />
+          {/* Broad volumetric lighting cone */}
+          <div
+            className="absolute top-[-110px] left-0 w-[78vw] max-w-[680px] h-[220px]"
+            style={{
+              background:
+                "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.9) 0%, rgba(31, 224, 58, 0.5) 28%, rgba(31, 224, 58, 0.12) 60%, transparent 80%)",
+              filter: "blur(32px)",
+            }}
+          />
+          {/* Secondary bright ray shaft */}
+          <div
+            className="absolute top-[-50px] left-0 w-[55vw] max-w-[480px] h-[100px]"
+            style={{
+              background:
+                "linear-gradient(to right, rgba(80, 255, 110, 0.95) 0%, rgba(31, 224, 58, 0.55) 35%, transparent 80%)",
+              filter: "blur(22px)",
+            }}
+          />
+        </div>
 
-      {/* Top Left Volumetric Angled Glow (matches Neon Eco-Tech CO₂ graphic) */}
-      <div
-        className="absolute -top-24 -left-20 w-[480px] h-[480px] pointer-events-none opacity-60"
-        style={{
-          background:
-            "radial-gradient(ellipse at 25% 25%, rgba(31, 224, 58, 0.45) 0%, rgba(16, 185, 129, 0.2) 35%, rgba(31, 224, 58, 0.05) 60%, transparent 80%)",
-          filter: "blur(40px)",
-        }}
-      />
-      {/* Top Right Volumetric Angled Glow (matches Neon Eco-Tech CO₂ graphic) */}
-      <div
-        className="absolute -top-24 -right-20 w-[480px] h-[480px] pointer-events-none opacity-60"
-        style={{
-          background:
-            "radial-gradient(ellipse at 75% 25%, rgba(31, 224, 58, 0.45) 0%, rgba(16, 185, 129, 0.2) 35%, rgba(31, 224, 58, 0.05) 60%, transparent 80%)",
-          filter: "blur(40px)",
-        }}
-      />
+        {/* Corner Apex Glow (Top-Left) */}
+        <div
+          className="absolute -top-14 -left-14 w-52 h-52 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle at 35% 35%, rgba(65, 255, 100, 0.95) 0%, rgba(31, 224, 58, 0.65) 40%, transparent 72%)",
+            filter: "blur(24px)",
+          }}
+        />
+      </div>
+
+      {/* ========================================================= */}
+      {/* TOP-RIGHT 125° LIGHTING BEAM                               */}
+      {/* Originates at screen corner (100%,0), shoots into screen */}
+      {/* Maximum strength in corner, progressively low in middle   */}
+      {/* ========================================================= */}
+      <div className="pointer-events-none fixed top-0 right-0 z-0">
+        <div
+          className="relative"
+          style={{
+            transformOrigin: "0 0",
+            transform: "rotate(135deg)",
+          }}
+        >
+          {/* Central high-intensity beam core */}
+          <div
+            className="absolute top-[-30px] left-0 w-[65vw] max-w-[560px] h-[60px]"
+            style={{
+              background:
+                "linear-gradient(to right, rgba(46, 240, 75, 1) 0%, rgba(35, 230, 65, 0.85) 22%, rgba(31, 224, 58, 0.3) 55%, transparent 95%)",
+              filter: "blur(16px)",
+            }}
+          />
+          {/* Broad volumetric lighting cone */}
+          <div
+            className="absolute top-[-110px] left-0 w-[78vw] max-w-[680px] h-[220px]"
+            style={{
+              background:
+                "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.9) 0%, rgba(31, 224, 58, 0.5) 28%, rgba(31, 224, 58, 0.12) 60%, transparent 80%)",
+              filter: "blur(32px)",
+            }}
+          />
+          {/* Secondary bright ray shaft */}
+          <div
+            className="absolute top-[-50px] left-0 w-[55vw] max-w-[480px] h-[100px]"
+            style={{
+              background:
+                "linear-gradient(to right, rgba(80, 255, 110, 0.95) 0%, rgba(31, 224, 58, 0.55) 35%, transparent 80%)",
+              filter: "blur(22px)",
+            }}
+          />
+        </div>
+
+        {/* Corner Apex Glow (Top-Right) */}
+        <div
+          className="absolute -top-14 -right-14 w-52 h-52 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle at 65% 35%, rgba(65, 255, 100, 0.95) 0%, rgba(31, 224, 58, 0.65) 40%, transparent 72%)",
+            filter: "blur(24px)",
+          }}
+        />
+      </div>
 
       {/* Subtle Bottom Ambient Green Glow */}
       <div

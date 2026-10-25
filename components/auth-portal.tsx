@@ -193,72 +193,138 @@ export function AuthPortal({
   };
 
   return (
-    <div className={viewStep === "starter" ? "fixed inset-0 z-30 flex flex-col justify-between items-center overflow-hidden bg-[#040705] px-3 pt-2 pb-0 select-none" : "relative mx-auto flex w-full max-w-sm sm:max-w-md flex-col items-center px-3 pt-3 pb-24 sm:pt-6 sm:pb-28"}>
+    <div className={viewStep === "starter" ? "fixed inset-0 z-30 flex flex-col justify-between items-center overflow-hidden bg-[#040705] p-0 select-none w-full" : "relative mx-auto flex w-full max-w-sm sm:max-w-md flex-col items-center px-3 pt-3 pb-24 sm:pt-6 sm:pb-28"}>
       {/* ------------------------------------------------------------- */}
       {/* VIEW 1: THE STARTER PAGE                                      */}
-      {/* Non-scrollable viewport, sticky bottom card, curvy scoop      */}
-      {/* Eased-out green border on both ends & middle                  */}
+      {/* Non-scrollable viewport, FULL WIDTH sticky bottom card        */}
+      {/* 45° and 125° corner lighting beams, pitch black center        */}
       {/* Plus Jakarta Sans, low weight, no tracking, capitalize        */}
-      {/* Official CarbonX logo + top dual green glow effect            */}
+      {/* Official CarbonX logo + greeny.png graphic                    */}
       {/* ------------------------------------------------------------- */}
       {viewStep === "starter" && (
-        <div className="relative flex w-full h-full max-w-sm sm:max-w-md flex-col justify-between items-center">
-          {/* Top Left Volumetric Angled Glow (exactly as in Neon Eco-Tech CO₂ Reduction Interface.png) */}
-          <div
-            className="pointer-events-none absolute -top-20 -left-20 w-96 h-96 opacity-95 blur-3xl z-0"
-            style={{
-              background:
-                "radial-gradient(ellipse at 15% 15%, rgba(31, 224, 58, 0.65) 0%, rgba(16, 185, 129, 0.35) 30%, rgba(31, 224, 58, 0.1) 55%, transparent 75%)",
-            }}
-          />
-          <div
-            className="pointer-events-none absolute -top-10 -left-10 w-72 h-72 opacity-60 blur-xl z-0"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(31, 224, 58, 0.6) 0%, rgba(31, 224, 58, 0.15) 45%, transparent 70%)",
-            }}
-          />
-
-          {/* Top Right Volumetric Angled Glow (exactly as in Neon Eco-Tech CO₂ Reduction Interface.png) */}
-          <div
-            className="pointer-events-none absolute -top-20 -right-20 w-96 h-96 opacity-95 blur-3xl z-0"
-            style={{
-              background:
-                "radial-gradient(ellipse at 85% 15%, rgba(31, 224, 58, 0.65) 0%, rgba(16, 185, 129, 0.35) 30%, rgba(31, 224, 58, 0.1) 55%, transparent 75%)",
-            }}
-          />
-          <div
-            className="pointer-events-none absolute -top-10 -right-10 w-72 h-72 opacity-60 blur-xl z-0"
-            style={{
-              background:
-                "linear-gradient(225deg, rgba(31, 224, 58, 0.6) 0%, rgba(31, 224, 58, 0.15) 45%, transparent 70%)",
-            }}
-          />
-
-          {/* 1. TOP HEADER GROUP */}
-          <div className="relative z-10 flex w-full flex-col items-center pt-1 shrink-0">
-            {/* Top Status Bar indicator simulation */}
-            <div className="flex w-full items-center justify-between text-[11px] font-normal text-muted px-2 pb-1.5 tracking-normal">
-              <span>9:41</span>
-              <div className="flex items-center gap-1.5">
-                <span>●●●</span>
-                <span>📶</span>
-                <span>🔋</span>
-              </div>
+        <div className="relative flex w-full h-full flex-col justify-between items-center">
+          {/* ========================================================= */}
+          {/* TOP-LEFT 45° LIGHTING BEAM                                */}
+          {/* Originates at screen corner (0,0), shoots along 45° ray  */}
+          {/* Maximum strength in corner, progressively low in middle   */}
+          {/* ========================================================= */}
+          <div className="pointer-events-none fixed top-0 left-0 z-0">
+            {/* 45° Rotated Beam Container */}
+            <div
+              className="relative"
+              style={{
+                transformOrigin: "0 0",
+                transform: "rotate(45deg)",
+              }}
+            >
+              {/* Central high-intensity beam core */}
+              <div
+                className="absolute top-[-30px] left-0 w-[65vw] max-w-[560px] h-[60px]"
+                style={{
+                  background:
+                    "linear-gradient(to right, rgba(46, 240, 75, 1) 0%, rgba(35, 230, 65, 0.85) 22%, rgba(31, 224, 58, 0.3) 55%, transparent 95%)",
+                  filter: "blur(16px)",
+                }}
+              />
+              {/* Broad volumetric lighting cone */}
+              <div
+                className="absolute top-[-110px] left-0 w-[78vw] max-w-[680px] h-[220px]"
+                style={{
+                  background:
+                    "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.9) 0%, rgba(31, 224, 58, 0.5) 28%, rgba(31, 224, 58, 0.12) 60%, transparent 80%)",
+                  filter: "blur(32px)",
+                }}
+              />
+              {/* Secondary bright ray shaft */}
+              <div
+                className="absolute top-[-50px] left-0 w-[55vw] max-w-[480px] h-[100px]"
+                style={{
+                  background:
+                    "linear-gradient(to right, rgba(80, 255, 110, 0.95) 0%, rgba(31, 224, 58, 0.55) 35%, transparent 80%)",
+                  filter: "blur(22px)",
+                }}
+              />
             </div>
 
+            {/* Corner Apex Glow (Top-Left) */}
+            <div
+              className="absolute -top-14 -left-14 w-52 h-52 pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(circle at 35% 35%, rgba(65, 255, 100, 0.95) 0%, rgba(31, 224, 58, 0.65) 40%, transparent 72%)",
+                filter: "blur(24px)",
+              }}
+            />
+          </div>
+
+          {/* ========================================================= */}
+          {/* TOP-RIGHT 125° LIGHTING BEAM                               */}
+          {/* Originates at screen corner (100%,0), shoots into screen */}
+          {/* Maximum strength in corner, progressively low in middle   */}
+          {/* ========================================================= */}
+          <div className="pointer-events-none fixed top-0 right-0 z-0">
+            {/* 135°/125° Rotated Beam Container */}
+            <div
+              className="relative"
+              style={{
+                transformOrigin: "0 0",
+                transform: "rotate(135deg)",
+              }}
+            >
+              {/* Central high-intensity beam core */}
+              <div
+                className="absolute top-[-30px] left-0 w-[65vw] max-w-[560px] h-[60px]"
+                style={{
+                  background:
+                    "linear-gradient(to right, rgba(46, 240, 75, 1) 0%, rgba(35, 230, 65, 0.85) 22%, rgba(31, 224, 58, 0.3) 55%, transparent 95%)",
+                  filter: "blur(16px)",
+                }}
+              />
+              {/* Broad volumetric lighting cone */}
+              <div
+                className="absolute top-[-110px] left-0 w-[78vw] max-w-[680px] h-[220px]"
+                style={{
+                  background:
+                    "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.9) 0%, rgba(31, 224, 58, 0.5) 28%, rgba(31, 224, 58, 0.12) 60%, transparent 80%)",
+                  filter: "blur(32px)",
+                }}
+              />
+              {/* Secondary bright ray shaft */}
+              <div
+                className="absolute top-[-50px] left-0 w-[55vw] max-w-[480px] h-[100px]"
+                style={{
+                  background:
+                    "linear-gradient(to right, rgba(80, 255, 110, 0.95) 0%, rgba(31, 224, 58, 0.55) 35%, transparent 80%)",
+                  filter: "blur(22px)",
+                }}
+              />
+            </div>
+
+            {/* Corner Apex Glow (Top-Right) */}
+            <div
+              className="absolute -top-14 -right-14 w-52 h-52 pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(circle at 65% 35%, rgba(65, 255, 100, 0.95) 0%, rgba(31, 224, 58, 0.65) 40%, transparent 72%)",
+                filter: "blur(24px)",
+              }}
+            />
+          </div>
+
+          {/* 1. TOP HEADER GROUP */}
+          <div className="relative z-10 flex w-full max-w-sm sm:max-w-md mx-auto flex-col items-center pt-3 sm:pt-4 px-4 shrink-0">
             {/* Official CarbonX Logo */}
             <div className="flex items-center justify-center my-1.5">
               <Image
                 src={headerLogo}
                 alt="CarbonX"
                 priority
-                className="h-8 sm:h-9 w-auto object-contain drop-shadow-[0_0_22px_rgba(31,224,58,0.5)]"
+                className="h-8 sm:h-9 w-auto object-contain"
               />
             </div>
 
             {/* Pill Badge: 'Trade Crypto Anytime' (font-light, tracking-normal, capitalize) */}
-            <div className="my-1.5 inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-light text-neon-soft border border-neon/30 tracking-normal capitalize shadow-[0_0_16px_rgba(31,224,58,0.2)]">
+            <div className="my-1.5 inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-light text-neon-soft border border-neon/30 tracking-normal capitalize shadow-[0_0_12px_rgba(31,224,58,0.15)]">
               <MagicStar size={13} color="#1fe03a" variant="Bold" />
               <span>Trade Crypto Anytime</span>
             </div>
@@ -267,7 +333,7 @@ export function AuthPortal({
             <div className="mt-1 text-center">
               <h1 className="text-3xl sm:text-4xl font-light text-white leading-[1.18] tracking-normal capitalize">
                 Power Up Your <br />
-                <span className="font-normal text-neon drop-shadow-[0_0_18px_rgba(31,224,58,0.55)]">
+                <span className="font-normal text-neon">
                   Crypto Journey
                 </span>
               </h1>
@@ -278,9 +344,9 @@ export function AuthPortal({
           </div>
 
           {/* 2. MIDDLE GRAPHIC (Brought down directly into the curve scoop) */}
-          <div className="relative w-full max-w-sm sm:max-w-md -mb-16 sm:-mb-20 z-0 pointer-events-none select-none flex-1 flex flex-col justify-end items-center">
+          <div className="relative w-full max-w-sm sm:max-w-md mx-auto -mb-16 sm:-mb-20 z-0 pointer-events-none select-none flex-1 flex flex-col justify-end items-center">
             <div
-              className="relative w-full aspect-[1672/940] overflow-hidden scale-[1.18] origin-bottom"
+              className="relative w-full aspect-[1672/941] overflow-hidden scale-[1.18] origin-bottom"
               style={{
                 maskImage:
                   "linear-gradient(to bottom, black 65%, transparent 100%), linear-gradient(to right, transparent, black 15%, black 85%, transparent)",
@@ -291,8 +357,8 @@ export function AuthPortal({
               }}
             >
               <Image
-                src="/eco-tech-co2.png"
-                alt="Neon Eco-Tech CO2 Reduction"
+                src="/greeny.png"
+                alt="CarbonX Eco-Tech CO2 Graphic"
                 fill
                 priority
                 className="object-contain transform-gpu mix-blend-screen drop-shadow-[0_0_40px_rgba(31,224,58,0.5)]"
@@ -300,12 +366,12 @@ export function AuthPortal({
             </div>
           </div>
 
-          {/* 3. STICKY BOTTOM CARD: MORE CURVY SCOOP + DUAL EASED-OUT GREEN BORDER */}
+          {/* 3. 100% FULL WIDTH STICKY BOTTOM CARD: MORE CURVY SCOOP + DUAL EASED-OUT GREEN BORDER */}
           <div className="w-full relative z-20 flex flex-col sticky bottom-0 shrink-0">
-            {/* SVG Curved Top Cap with Diminishing & Eased-Out Green Border */}
+            {/* SVG Curved Top Cap with Diminishing & Eased-Out Green Border (Flushed 100% to screen edges) */}
             <div className="relative w-full overflow-hidden -mb-px">
               <svg
-                viewBox="0 0 500 85"
+                viewBox="0 0 1000 85"
                 preserveAspectRatio="none"
                 className="w-full h-14 sm:h-16 block"
               >
@@ -315,7 +381,7 @@ export function AuthPortal({
                     {/* Left end ease-out */}
                     <stop offset="0%" stopColor="#2eed4c" stopOpacity="0.0" />
                     <stop offset="5%" stopColor="#2eed4c" stopOpacity="0.3" />
-                    <stop offset="12%" stopColor="#2eed4c" stopOpacity="0.85" />
+                    <stop offset="10%" stopColor="#2eed4c" stopOpacity="0.85" />
                     <stop offset="18%" stopColor="#2eed4c" stopOpacity="1.0" />
 
                     {/* Middle scoop ease-out */}
@@ -328,7 +394,7 @@ export function AuthPortal({
 
                     {/* Right shoulder & Right end ease-out */}
                     <stop offset="82%" stopColor="#2eed4c" stopOpacity="1.0" />
-                    <stop offset="88%" stopColor="#2eed4c" stopOpacity="0.85" />
+                    <stop offset="90%" stopColor="#2eed4c" stopOpacity="0.85" />
                     <stop offset="95%" stopColor="#2eed4c" stopOpacity="0.3" />
                     <stop offset="100%" stopColor="#2eed4c" stopOpacity="0.0" />
                   </linearGradient>
@@ -346,21 +412,21 @@ export function AuthPortal({
                   </filter>
                 </defs>
 
-                {/* Card Fill: Flat shoulders + Deep Curvaceous Concave Scoop in middle (depth 58px) */}
+                {/* Card Fill: Full-width Flat shoulders (flushed to x=0 and x=1000) + Deep Curvaceous Concave Scoop in middle (depth 58px) */}
                 <path
-                  d="M 0,85 L 0,38 A 28,28 0 0 1 28,10 L 92,10 C 158,10 182,68 250,68 C 318,68 342,10 408,10 L 472,10 A 28,28 0 0 1 500,38 L 500,85 Z"
+                  d="M 0,85 L 0,10 L 280,10 C 370,10 410,68 500,68 C 590,68 630,10 720,10 L 1000,10 L 1000,85 Z"
                   fill="#0b110d"
                 />
 
                 {/* Ambient glow inside the scoop matching image.png */}
                 <path
-                  d="M 0,85 L 0,38 A 28,28 0 0 1 28,10 L 92,10 C 158,10 182,68 250,68 C 318,68 342,10 408,10 L 472,10 A 28,28 0 0 1 500,38 L 500,85 Z"
+                  d="M 0,85 L 0,10 L 280,10 C 370,10 410,68 500,68 C 590,68 630,10 720,10 L 1000,10 L 1000,85 Z"
                   fill="url(#scoopAura)"
                 />
 
                 {/* Blurred outer neon glow on the border line (fades in the scoop and at both ends) */}
                 <path
-                  d="M 0,38 A 28,28 0 0 1 28,10 L 92,10 C 158,10 182,68 250,68 C 318,68 342,10 408,10 L 472,10 A 28,28 0 0 1 500,38"
+                  d="M 0,10 L 280,10 C 370,10 410,68 500,68 C 590,68 630,10 720,10 L 1000,10"
                   fill="none"
                   stroke="url(#diminishingBorder)"
                   strokeWidth="5"
@@ -371,7 +437,7 @@ export function AuthPortal({
 
                 {/* Crisp Core Top Border with Eased Out Green Glow */}
                 <path
-                  d="M 0,38 A 28,28 0 0 1 28,10 L 92,10 C 158,10 182,68 250,68 C 318,68 342,10 408,10 L 472,10 A 28,28 0 0 1 500,38"
+                  d="M 0,10 L 280,10 C 370,10 410,68 500,68 C 590,68 630,10 720,10 L 1000,10"
                   fill="none"
                   stroke="url(#diminishingBorder)"
                   strokeWidth="2.4"
@@ -380,119 +446,121 @@ export function AuthPortal({
               </svg>
             </div>
 
-            {/* Card Body seamlessly joined to the curved top, sticking flush to the bottom */}
-            <div className="w-full bg-[#0b110d] px-5 sm:px-6 pt-1 pb-6 sm:pb-8 border-x border-white/[0.08] shadow-[0_24px_60px_rgba(0,0,0,0.9)] flex flex-col gap-3.5">
-              {/* Header inside the curved card (font-light, tracking-normal, capitalize) */}
-              <div className="text-center pt-0.5">
-                <span className="text-xs sm:text-sm font-light text-white tracking-normal capitalize">
-                  {account && isRegistered
-                    ? "Welcome Back To CarbonX!"
-                    : "Don't Have An Account Yet?"}
-                </span>
-              </div>
+            {/* Card Body seamlessly joined to the curved top, 100% FULL WIDTH across the entire screen */}
+            <div className="w-full bg-[#0b110d] px-4 sm:px-6 pt-2 pb-6 sm:pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col items-center">
+              <div className="w-full max-w-sm sm:max-w-md mx-auto flex flex-col gap-3.5">
+                {/* Header inside the curved card (font-light, tracking-normal, capitalize) */}
+                <div className="text-center pt-0.5">
+                  <span className="text-xs sm:text-sm font-light text-white tracking-normal capitalize">
+                    {account && isRegistered
+                      ? "Welcome Back To CarbonX!"
+                      : "Don't Have An Account Yet?"}
+                  </span>
+                </div>
 
-              {/* WALLET ADDRESS INPUT BOX (Replacing phone number field) */}
-              <div className="flex items-center rounded-2xl bg-[#121914] p-1.5 border border-white/[0.08] focus-within:border-neon/50 transition">
-                {/* Left Selector Pill (styled like the country code dropdown +1 v) */}
-                <button
-                  type="button"
-                  onClick={() => connect().catch(() => {})}
-                  className="flex items-center gap-1.5 rounded-xl bg-[#19241c] px-3 py-2.5 text-xs font-normal text-white border border-white/[0.06] hover:bg-[#202e24] transition cursor-pointer shrink-0 tracking-normal"
-                >
-                  <span className="text-sm">⚡</span>
-                  <span>BSC</span>
-                  <span className="text-[10px] text-muted">▼</span>
-                </button>
+                {/* WALLET ADDRESS INPUT BOX (Replacing phone number field) */}
+                <div className="flex items-center rounded-2xl bg-[#121914] p-1.5 border border-white/[0.08] focus-within:border-neon/50 transition">
+                  {/* Left Selector Pill (styled like the country code dropdown +1 v) */}
+                  <button
+                    type="button"
+                    onClick={() => connect().catch(() => {})}
+                    className="flex items-center gap-1.5 rounded-xl bg-[#19241c] px-3 py-2.5 text-xs font-normal text-white border border-white/[0.06] hover:bg-[#202e24] transition cursor-pointer shrink-0 tracking-normal"
+                  >
+                    <span className="text-sm">⚡</span>
+                    <span>BSC</span>
+                    <span className="text-[10px] text-muted">▼</span>
+                  </button>
 
-                {/* Right Address Display */}
-                <div className="flex-1 px-3 text-left min-w-0">
+                  {/* Right Address Display */}
+                  <div className="flex-1 px-3 text-left min-w-0">
+                    {account ? (
+                      <div className="font-mono text-xs sm:text-sm font-normal text-white truncate tracking-normal">
+                        {shortAddr(account)}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => connect().catch(() => {})}
+                        className="text-left text-xs sm:text-sm font-light text-muted hover:text-neon transition cursor-pointer w-full truncate tracking-normal capitalize"
+                      >
+                        Connect Your Web3 Wallet
+                      </button>
+                    )}
+                  </div>
+
                   {account ? (
-                    <div className="font-mono text-xs sm:text-sm font-normal text-white truncate tracking-normal">
-                      {shortAddr(account)}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyAddress(account)}
+                      className="p-2 text-muted hover:text-neon transition cursor-pointer shrink-0"
+                      title="Copy Address"
+                    >
+                      {copiedAddr ? (
+                        <TickCircle size={18} color="#1fe03a" variant="Bold" />
+                      ) : (
+                        <Copy size={18} variant="Linear" />
+                      )}
+                    </button>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => connect().catch(() => {})}
-                      className="text-left text-xs sm:text-sm font-light text-muted hover:text-neon transition cursor-pointer w-full truncate tracking-normal capitalize"
+                      onClick={() => setViewStep("login_wallets")}
+                      className="rounded-lg bg-neon/15 px-2.5 py-1 text-[11px] font-normal text-neon border border-neon/30 hover:bg-neon/25 transition cursor-pointer shrink-0 tracking-normal capitalize"
                     >
-                      Connect Your Web3 Wallet
+                      Wallets
                     </button>
                   )}
                 </div>
 
-                {account ? (
-                  <button
-                    type="button"
-                    onClick={() => copyAddress(account)}
-                    className="p-2 text-muted hover:text-neon transition cursor-pointer shrink-0"
-                    title="Copy Address"
-                  >
-                    {copiedAddr ? (
-                      <TickCircle size={18} color="#1fe03a" variant="Bold" />
-                    ) : (
-                      <Copy size={18} variant="Linear" />
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setViewStep("login_wallets")}
-                    className="rounded-lg bg-neon/15 px-2.5 py-1 text-[11px] font-normal text-neon border border-neon/30 hover:bg-neon/25 transition cursor-pointer shrink-0 tracking-normal capitalize"
-                  >
-                    Wallets
-                  </button>
-                )}
-              </div>
+                {/* DYNAMIC ACTION BUTTON: "Register" if not registered, "Login" if already registered */}
+                <button
+                  type="button"
+                  onClick={handleMainAction}
+                  className="btn btn-primary w-full py-3.5 sm:py-4 text-base font-normal tracking-normal capitalize shadow-[0_8px_25px_-4px_rgba(31,224,58,0.65)] flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {!account ? (
+                    <span>Connect Wallet</span>
+                  ) : isRegistered ? (
+                    <>
+                      <span>Login</span>
+                      <ArrowRight size={18} color="#03140a" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Register</span>
+                      <ArrowRight size={18} color="#03140a" />
+                    </>
+                  )}
+                </button>
 
-              {/* DYNAMIC ACTION BUTTON: "Register" if not registered, "Login" if already registered */}
-              <button
-                type="button"
-                onClick={handleMainAction}
-                className="btn btn-primary w-full py-3.5 sm:py-4 text-base font-normal tracking-normal capitalize shadow-[0_8px_25px_-4px_rgba(31,224,58,0.65)] flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {!account ? (
-                  <span>Connect Wallet</span>
-                ) : isRegistered ? (
-                  <>
-                    <span>Login</span>
-                    <ArrowRight size={18} color="#03140a" />
-                  </>
-                ) : (
-                  <>
-                    <span>Register</span>
-                    <ArrowRight size={18} color="#03140a" />
-                  </>
-                )}
-              </button>
-
-              {/* Subtext: font-light, tracking-normal, capitalize */}
-              <div className="text-center text-xs font-light text-muted tracking-normal capitalize pt-0.5">
-                {!account ? (
-                  <span>Connect Your Web3 Wallet To Start</span>
-                ) : isRegistered ? (
-                  <span>
-                    Detected Active Registered Member ·{" "}
-                    <button
-                      type="button"
-                      onClick={() => disconnect()}
-                      className="text-danger hover:underline font-normal cursor-pointer"
-                    >
-                      Disconnect
-                    </button>
-                  </span>
-                ) : (
-                  <span>
-                    Already Have An Account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setViewStep("login_wallets")}
-                      className="text-neon font-normal hover:underline cursor-pointer"
-                    >
-                      Log In
-                    </button>
-                  </span>
-                )}
+                {/* Subtext: font-light, tracking-normal, capitalize */}
+                <div className="text-center text-xs font-light text-muted tracking-normal capitalize pt-0.5">
+                  {!account ? (
+                    <span>Connect Your Web3 Wallet To Start</span>
+                  ) : isRegistered ? (
+                    <span>
+                      Detected Active Registered Member ·{" "}
+                      <button
+                        type="button"
+                        onClick={() => disconnect()}
+                        className="text-danger hover:underline font-normal cursor-pointer"
+                      >
+                        Disconnect
+                      </button>
+                    </span>
+                  ) : (
+                    <span>
+                      Already Have An Account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => setViewStep("login_wallets")}
+                        className="text-neon font-normal hover:underline cursor-pointer"
+                      >
+                        Log In
+                      </button>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
