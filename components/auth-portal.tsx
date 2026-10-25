@@ -310,19 +310,19 @@ export function AuthPortal({
               {/* Pill Badge: 'Trade Crypto Anytime' (font-light, tracking-normal, capitalize) */}
               <div className="inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-light text-neon-soft border border-neon/30 tracking-normal capitalize shadow-[0_0_12px_rgba(31,224,58,0.15)]">
                 <MagicStar size={13} color="#1fe03a" variant="Bold" />
-                <span>Trade Crypto Anytime</span>
+                <span>Carbon Credit Ecosystem</span>
               </div>
 
               {/* Hero Typography (Plus Jakarta Sans, font-light, tracking-normal, capitalize) - BIGGER TITLE */}
               <div className="mt-3.5 sm:mt-4 text-center">
                 <h1 className="text-4xl sm:text-5xl font-light text-white leading-[1.12] tracking-normal capitalize">
-                  Power Up Your <br />
+                  Powering Carbon <br />
                   <span className="font-normal text-neon">
-                    Crypto Journey
+                    Negative Future
                   </span>
                 </h1>
                 <p className="mt-2 text-xs sm:text-sm font-light text-muted tracking-normal capitalize">
-                  Empowering The Future Of Finance
+                  Tokenizing nature into digital assets
                 </p>
               </div>
             </div>
