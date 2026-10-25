@@ -204,11 +204,11 @@ export function AuthPortal({
       {viewStep === "starter" && (
         <div className="relative flex w-full h-full flex-col justify-between items-center">
           {/* ========================================================= */}
-          {/* TOP-LEFT 45° LIGHTING BEAM                                */}
+          {/* TOP-LEFT 45° LIGHTING BEAM (INTENSE & RADIANT)            */}
           {/* Originates at screen corner (0,0), shoots along 45° ray  */}
-          {/* Maximum strength in corner, progressively low in middle   */}
+          {/* More intense corner lighting, progressively low in middle */}
           {/* ========================================================= */}
-          <div className="pointer-events-none fixed top-0 left-0 z-0">
+          <div className="pointer-events-none fixed top-0 left-0 z-0 opacity-70">
             {/* 45° Rotated Beam Container */}
             <div
               className="relative"
@@ -219,29 +219,20 @@ export function AuthPortal({
             >
               {/* Central high-intensity beam core */}
               <div
-                className="absolute top-[-30px] left-0 w-[65vw] max-w-[560px] h-[60px]"
+                className="absolute top-[-28px] left-0 w-[62vw] max-w-[540px] h-[56px]"
                 style={{
                   background:
-                    "linear-gradient(to right, rgba(46, 240, 75, 1) 0%, rgba(35, 230, 65, 0.85) 22%, rgba(31, 224, 58, 0.3) 55%, transparent 95%)",
-                  filter: "blur(16px)",
+                    "linear-gradient(to right, rgba(50, 245, 80, 0.9) 0%, rgba(35, 230, 65, 0.55) 25%, rgba(31, 224, 58, 0.16) 55%, transparent 88%)",
+                  filter: "blur(18px)",
                 }}
               />
               {/* Broad volumetric lighting cone */}
               <div
-                className="absolute top-[-110px] left-0 w-[78vw] max-w-[680px] h-[220px]"
+                className="absolute top-[-100px] left-0 w-[76vw] max-w-[660px] h-[200px]"
                 style={{
                   background:
-                    "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.9) 0%, rgba(31, 224, 58, 0.5) 28%, rgba(31, 224, 58, 0.12) 60%, transparent 80%)",
-                  filter: "blur(32px)",
-                }}
-              />
-              {/* Secondary bright ray shaft */}
-              <div
-                className="absolute top-[-50px] left-0 w-[55vw] max-w-[480px] h-[100px]"
-                style={{
-                  background:
-                    "linear-gradient(to right, rgba(80, 255, 110, 0.95) 0%, rgba(31, 224, 58, 0.55) 35%, transparent 80%)",
-                  filter: "blur(22px)",
+                    "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.65) 0%, rgba(31, 224, 58, 0.28) 30%, transparent 75%)",
+                  filter: "blur(36px)",
                 }}
               />
             </div>
@@ -251,18 +242,18 @@ export function AuthPortal({
               className="absolute -top-14 -left-14 w-52 h-52 pointer-events-none"
               style={{
                 background:
-                  "radial-gradient(circle at 35% 35%, rgba(65, 255, 100, 0.95) 0%, rgba(31, 224, 58, 0.65) 40%, transparent 72%)",
-                filter: "blur(24px)",
+                  "radial-gradient(circle at 35% 35%, rgba(65, 255, 100, 0.7) 0%, rgba(31, 224, 58, 0.32) 40%, transparent 70%)",
+                filter: "blur(26px)",
               }}
             />
           </div>
 
           {/* ========================================================= */}
-          {/* TOP-RIGHT 125° LIGHTING BEAM                               */}
+          {/* TOP-RIGHT 125° LIGHTING BEAM (INTENSE & RADIANT)          */}
           {/* Originates at screen corner (100%,0), shoots into screen */}
-          {/* Maximum strength in corner, progressively low in middle   */}
+          {/* More intense corner lighting, progressively low in middle */}
           {/* ========================================================= */}
-          <div className="pointer-events-none fixed top-0 right-0 z-0">
+          <div className="pointer-events-none fixed top-0 right-0 z-0 opacity-70">
             {/* 135°/125° Rotated Beam Container */}
             <div
               className="relative"
@@ -273,29 +264,20 @@ export function AuthPortal({
             >
               {/* Central high-intensity beam core */}
               <div
-                className="absolute top-[-30px] left-0 w-[65vw] max-w-[560px] h-[60px]"
+                className="absolute top-[-28px] left-0 w-[62vw] max-w-[540px] h-[56px]"
                 style={{
                   background:
-                    "linear-gradient(to right, rgba(46, 240, 75, 1) 0%, rgba(35, 230, 65, 0.85) 22%, rgba(31, 224, 58, 0.3) 55%, transparent 95%)",
-                  filter: "blur(16px)",
+                    "linear-gradient(to right, rgba(50, 245, 80, 0.9) 0%, rgba(35, 230, 65, 0.55) 25%, rgba(31, 224, 58, 0.16) 55%, transparent 88%)",
+                  filter: "blur(18px)",
                 }}
               />
               {/* Broad volumetric lighting cone */}
               <div
-                className="absolute top-[-110px] left-0 w-[78vw] max-w-[680px] h-[220px]"
+                className="absolute top-[-100px] left-0 w-[76vw] max-w-[660px] h-[200px]"
                 style={{
                   background:
-                    "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.9) 0%, rgba(31, 224, 58, 0.5) 28%, rgba(31, 224, 58, 0.12) 60%, transparent 80%)",
-                  filter: "blur(32px)",
-                }}
-              />
-              {/* Secondary bright ray shaft */}
-              <div
-                className="absolute top-[-50px] left-0 w-[55vw] max-w-[480px] h-[100px]"
-                style={{
-                  background:
-                    "linear-gradient(to right, rgba(80, 255, 110, 0.95) 0%, rgba(31, 224, 58, 0.55) 35%, transparent 80%)",
-                  filter: "blur(22px)",
+                    "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.65) 0%, rgba(31, 224, 58, 0.28) 30%, transparent 75%)",
+                  filter: "blur(36px)",
                 }}
               />
             </div>
@@ -305,41 +287,44 @@ export function AuthPortal({
               className="absolute -top-14 -right-14 w-52 h-52 pointer-events-none"
               style={{
                 background:
-                  "radial-gradient(circle at 65% 35%, rgba(65, 255, 100, 0.95) 0%, rgba(31, 224, 58, 0.65) 40%, transparent 72%)",
-                filter: "blur(24px)",
+                  "radial-gradient(circle at 65% 35%, rgba(65, 255, 100, 0.7) 0%, rgba(31, 224, 58, 0.32) 40%, transparent 70%)",
+                filter: "blur(26px)",
               }}
             />
           </div>
 
           {/* 1. TOP HEADER GROUP */}
-          <div className="relative z-10 flex w-full max-w-sm sm:max-w-md mx-auto flex-col items-center pt-3 sm:pt-4 px-4 shrink-0">
-            {/* Official CarbonX Logo */}
-            <div className="flex items-center justify-center my-1.5">
+          <div className="relative z-10 flex w-full max-w-sm sm:max-w-md mx-auto flex-col items-center pt-5 sm:pt-7 px-4 shrink-0">
+            {/* Official CarbonX Logo (Bigger) */}
+            <div className="flex items-center justify-center">
               <Image
                 src={headerLogo}
                 alt="CarbonX"
                 priority
-                className="h-8 sm:h-9 w-auto object-contain"
+                className="h-12 sm:h-14 md:h-16 w-auto object-contain"
               />
             </div>
 
-            {/* Pill Badge: 'Trade Crypto Anytime' (font-light, tracking-normal, capitalize) */}
-            <div className="my-1.5 inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-light text-neon-soft border border-neon/30 tracking-normal capitalize shadow-[0_0_12px_rgba(31,224,58,0.15)]">
-              <MagicStar size={13} color="#1fe03a" variant="Bold" />
-              <span>Trade Crypto Anytime</span>
-            </div>
+            {/* SPACER: CONTENT BELOW LOGO IS LOWER DOWN */}
+            <div className="mt-6 sm:mt-8 flex flex-col items-center w-full">
+              {/* Pill Badge: 'Trade Crypto Anytime' (font-light, tracking-normal, capitalize) */}
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-light text-neon-soft border border-neon/30 tracking-normal capitalize shadow-[0_0_12px_rgba(31,224,58,0.15)]">
+                <MagicStar size={13} color="#1fe03a" variant="Bold" />
+                <span>Trade Crypto Anytime</span>
+              </div>
 
-            {/* Hero Typography (Plus Jakarta Sans, font-light, tracking-normal, capitalize) */}
-            <div className="mt-1 text-center">
-              <h1 className="text-3xl sm:text-4xl font-light text-white leading-[1.18] tracking-normal capitalize">
-                Power Up Your <br />
-                <span className="font-normal text-neon">
-                  Crypto Journey
-                </span>
-              </h1>
-              <p className="mt-1 text-xs font-light text-muted tracking-normal capitalize">
-                Empowering The Future Of Finance
-              </p>
+              {/* Hero Typography (Plus Jakarta Sans, font-light, tracking-normal, capitalize) - BIGGER TITLE */}
+              <div className="mt-3.5 sm:mt-4 text-center">
+                <h1 className="text-4xl sm:text-5xl font-light text-white leading-[1.12] tracking-normal capitalize">
+                  Power Up Your <br />
+                  <span className="font-normal text-neon">
+                    Crypto Journey
+                  </span>
+                </h1>
+                <p className="mt-2 text-xs sm:text-sm font-light text-muted tracking-normal capitalize">
+                  Empowering The Future Of Finance
+                </p>
+              </div>
             </div>
           </div>
 
@@ -366,9 +351,9 @@ export function AuthPortal({
             </div>
           </div>
 
-          {/* 3. 100% FULL WIDTH STICKY BOTTOM CARD: MORE CURVY SCOOP + DUAL EASED-OUT GREEN BORDER */}
-          <div className="w-full relative z-20 flex flex-col sticky bottom-0 shrink-0">
-            {/* SVG Curved Top Cap with Diminishing & Eased-Out Green Border (Flushed 100% to screen edges) */}
+          {/* 3. STICKY BOTTOM CARD: A LITTLE LESS WIDER SO BOTH SIDE CURVED CORNERS ARE PROMINENTLY VISIBLE */}
+          <div className="w-full max-w-[420px] sm:max-w-[440px] mx-auto px-2 sm:px-2.5 relative z-20 flex flex-col sticky bottom-0 shrink-0">
+            {/* SVG Curved Top Cap with Diminishing Green Border & Rounded Outer Corners */}
             <div className="relative w-full overflow-hidden -mb-px">
               <svg
                 viewBox="0 0 1000 85"
@@ -378,11 +363,11 @@ export function AuthPortal({
                 <defs>
                   {/* Green border gradient easing out on both left & right ends AND center scoop */}
                   <linearGradient id="diminishingBorder" x1="0%" y1="0%" x2="100%" y2="0%">
-                    {/* Left end ease-out */}
+                    {/* Left corner ease-out */}
                     <stop offset="0%" stopColor="#2eed4c" stopOpacity="0.0" />
-                    <stop offset="5%" stopColor="#2eed4c" stopOpacity="0.3" />
-                    <stop offset="10%" stopColor="#2eed4c" stopOpacity="0.85" />
-                    <stop offset="18%" stopColor="#2eed4c" stopOpacity="1.0" />
+                    <stop offset="4%" stopColor="#2eed4c" stopOpacity="0.35" />
+                    <stop offset="8%" stopColor="#2eed4c" stopOpacity="0.85" />
+                    <stop offset="16%" stopColor="#2eed4c" stopOpacity="1.0" />
 
                     {/* Middle scoop ease-out */}
                     <stop offset="28%" stopColor="#2eed4c" stopOpacity="0.75" />
@@ -392,10 +377,10 @@ export function AuthPortal({
                     <stop offset="64%" stopColor="#2eed4c" stopOpacity="0.15" />
                     <stop offset="72%" stopColor="#2eed4c" stopOpacity="0.75" />
 
-                    {/* Right shoulder & Right end ease-out */}
-                    <stop offset="82%" stopColor="#2eed4c" stopOpacity="1.0" />
-                    <stop offset="90%" stopColor="#2eed4c" stopOpacity="0.85" />
-                    <stop offset="95%" stopColor="#2eed4c" stopOpacity="0.3" />
+                    {/* Right shoulder & Right corner ease-out */}
+                    <stop offset="84%" stopColor="#2eed4c" stopOpacity="1.0" />
+                    <stop offset="92%" stopColor="#2eed4c" stopOpacity="0.85" />
+                    <stop offset="96%" stopColor="#2eed4c" stopOpacity="0.35" />
                     <stop offset="100%" stopColor="#2eed4c" stopOpacity="0.0" />
                   </linearGradient>
 
@@ -412,21 +397,21 @@ export function AuthPortal({
                   </filter>
                 </defs>
 
-                {/* Card Fill: Full-width Flat shoulders (flushed to x=0 and x=1000) + Deep Curvaceous Concave Scoop in middle (depth 58px) */}
+                {/* Card Fill: Rounded Outer Corners (A 28,28) + Deep Concave Scoop in middle (depth 58px) */}
                 <path
-                  d="M 0,85 L 0,10 L 280,10 C 370,10 410,68 500,68 C 590,68 630,10 720,10 L 1000,10 L 1000,85 Z"
+                  d="M 2,85 L 2,38 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,38 L 998,85 Z"
                   fill="#0b110d"
                 />
 
                 {/* Ambient glow inside the scoop matching image.png */}
                 <path
-                  d="M 0,85 L 0,10 L 280,10 C 370,10 410,68 500,68 C 590,68 630,10 720,10 L 1000,10 L 1000,85 Z"
+                  d="M 2,85 L 2,38 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,38 L 998,85 Z"
                   fill="url(#scoopAura)"
                 />
 
-                {/* Blurred outer neon glow on the border line (fades in the scoop and at both ends) */}
+                {/* Blurred outer neon glow on the border line (with rounded outer corners on both sides) */}
                 <path
-                  d="M 0,10 L 280,10 C 370,10 410,68 500,68 C 590,68 630,10 720,10 L 1000,10"
+                  d="M 2,42 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,42"
                   fill="none"
                   stroke="url(#diminishingBorder)"
                   strokeWidth="5"
@@ -435,9 +420,9 @@ export function AuthPortal({
                   opacity="0.85"
                 />
 
-                {/* Crisp Core Top Border with Eased Out Green Glow */}
+                {/* Crisp Core Top Border with Eased Out Green Glow (with rounded outer corners on both sides) */}
                 <path
-                  d="M 0,10 L 280,10 C 370,10 410,68 500,68 C 590,68 630,10 720,10 L 1000,10"
+                  d="M 2,42 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,42"
                   fill="none"
                   stroke="url(#diminishingBorder)"
                   strokeWidth="2.4"
@@ -446,8 +431,8 @@ export function AuthPortal({
               </svg>
             </div>
 
-            {/* Card Body seamlessly joined to the curved top, 100% FULL WIDTH across the entire screen */}
-            <div className="w-full bg-[#0b110d] px-4 sm:px-6 pt-2 pb-6 sm:pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col items-center">
+            {/* Card Body seamlessly joined to the curved top, with visible side borders and rounded base */}
+            <div className="w-full bg-[#0b110d] px-4 sm:px-5 pt-1.5 pb-6 sm:pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col items-center rounded-b-3xl border-x border-b border-white/[0.05]">
               <div className="w-full max-w-sm sm:max-w-md mx-auto flex flex-col gap-3.5">
                 {/* Header inside the curved card (font-light, tracking-normal, capitalize) */}
                 <div className="text-center pt-0.5">
@@ -516,19 +501,19 @@ export function AuthPortal({
                 <button
                   type="button"
                   onClick={handleMainAction}
-                  className="btn btn-primary w-full py-3.5 sm:py-4 text-base font-normal tracking-normal capitalize shadow-[0_8px_25px_-4px_rgba(31,224,58,0.65)] flex items-center justify-center gap-2 cursor-pointer"
+                  className="btn btn-primary w-full rounded-full py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {!account ? (
                     <span>Connect Wallet</span>
                   ) : isRegistered ? (
                     <>
                       <span>Login</span>
-                      <ArrowRight size={18} color="#03140a" />
+                      <ArrowRight size={18} color="#0c1f0d" />
                     </>
                   ) : (
                     <>
                       <span>Register</span>
-                      <ArrowRight size={18} color="#03140a" />
+                      <ArrowRight size={18} color="#0c1f0d" />
                     </>
                   )}
                 </button>
