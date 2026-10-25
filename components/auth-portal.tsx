@@ -356,9 +356,9 @@ export function AuthPortal({
             {/* SVG Curved Top Cap with Diminishing Green Border Active & Easing Out on Curves */}
             <div className="relative w-full overflow-hidden -mb-px">
               <svg
-                viewBox="0 0 1000 85"
+                viewBox="0 0 1000 95"
                 preserveAspectRatio="none"
-                className="w-full h-14 sm:h-16 block"
+                className="w-full h-16 sm:h-[4.25rem] block"
               >
                 <defs>
                   {/* Green border gradient active on outer curves and scoop curves, easing out smoothly */}
@@ -367,31 +367,31 @@ export function AuthPortal({
                     <stop offset="0%" stopColor="#2eed4c" stopOpacity="0.0" />
                     <stop offset="1.5%" stopColor="#2eed4c" stopOpacity="0.35" />
                     {/* Left corner curve (active green glow) */}
-                    <stop offset="3%" stopColor="#2eed4c" stopOpacity="0.75" />
-                    <stop offset="5%" stopColor="#2eed4c" stopOpacity="0.95" />
+                    <stop offset="3.5%" stopColor="#2eed4c" stopOpacity="0.75" />
+                    <stop offset="5.5%" stopColor="#2eed4c" stopOpacity="0.95" />
                     <stop offset="8%" stopColor="#2eed4c" stopOpacity="1.0" />
 
                     {/* Left flat shoulder */}
-                    <stop offset="26%" stopColor="#2eed4c" stopOpacity="1.0" />
+                    <stop offset="24%" stopColor="#2eed4c" stopOpacity="1.0" />
 
                     {/* Scoop entering curve (easing out down into trough) */}
-                    <stop offset="32%" stopColor="#2eed4c" stopOpacity="0.85" />
-                    <stop offset="38%" stopColor="#2eed4c" stopOpacity="0.55" />
-                    <stop offset="44%" stopColor="#2eed4c" stopOpacity="0.2" />
-                    <stop offset="48%" stopColor="#2eed4c" stopOpacity="0.0" />
-                    <stop offset="52%" stopColor="#2eed4c" stopOpacity="0.0" />
+                    <stop offset="30%" stopColor="#2eed4c" stopOpacity="0.85" />
+                    <stop offset="36%" stopColor="#2eed4c" stopOpacity="0.55" />
+                    <stop offset="42%" stopColor="#2eed4c" stopOpacity="0.2" />
+                    <stop offset="47%" stopColor="#2eed4c" stopOpacity="0.0" />
+                    <stop offset="53%" stopColor="#2eed4c" stopOpacity="0.0" />
                     {/* Scoop ascending curve (easing in up out of trough) */}
-                    <stop offset="56%" stopColor="#2eed4c" stopOpacity="0.2" />
-                    <stop offset="62%" stopColor="#2eed4c" stopOpacity="0.55" />
-                    <stop offset="68%" stopColor="#2eed4c" stopOpacity="0.85" />
+                    <stop offset="58%" stopColor="#2eed4c" stopOpacity="0.2" />
+                    <stop offset="64%" stopColor="#2eed4c" stopOpacity="0.55" />
+                    <stop offset="70%" stopColor="#2eed4c" stopOpacity="0.85" />
 
                     {/* Right flat shoulder */}
-                    <stop offset="74%" stopColor="#2eed4c" stopOpacity="1.0" />
+                    <stop offset="76%" stopColor="#2eed4c" stopOpacity="1.0" />
                     <stop offset="92%" stopColor="#2eed4c" stopOpacity="1.0" />
 
                     {/* Right corner curve (active green glow easing out down side) */}
-                    <stop offset="95%" stopColor="#2eed4c" stopOpacity="0.95" />
-                    <stop offset="97%" stopColor="#2eed4c" stopOpacity="0.75" />
+                    <stop offset="94.5%" stopColor="#2eed4c" stopOpacity="0.95" />
+                    <stop offset="96.5%" stopColor="#2eed4c" stopOpacity="0.75" />
                     <stop offset="98.5%" stopColor="#2eed4c" stopOpacity="0.35" />
                     <stop offset="100%" stopColor="#2eed4c" stopOpacity="0.0" />
                   </linearGradient>
@@ -409,21 +409,21 @@ export function AuthPortal({
                   </filter>
                 </defs>
 
-                {/* Card Fill: Rounded Outer Corners (A 28,28) + Deep Concave Scoop in middle (depth 58px) */}
+                {/* Card Fill: Rounded Outer Corners (A 36,36) + Deep Concave Scoop in middle (depth 68px) */}
                 <path
-                  d="M 2,85 L 2,38 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,38 L 998,85 Z"
+                  d="M 2,95 L 2,46 A 36,36 0 0 1 38,10 L 245,10 C 340,10 395,78 500,78 C 605,78 660,10 755,10 L 962,10 A 36,36 0 0 1 998,46 L 998,95 Z"
                   fill="#0b110d"
                 />
 
                 {/* Ambient glow inside the scoop matching image.png */}
                 <path
-                  d="M 2,85 L 2,38 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,38 L 998,85 Z"
+                  d="M 2,95 L 2,46 A 36,36 0 0 1 38,10 L 245,10 C 340,10 395,78 500,78 C 605,78 660,10 755,10 L 962,10 A 36,36 0 0 1 998,46 L 998,95 Z"
                   fill="url(#scoopAura)"
                 />
 
                 {/* Blurred outer neon glow on the border line (extending down curves on both sides) */}
                 <path
-                  d="M 2,65 L 2,38 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,38 L 998,65"
+                  d="M 2,75 L 2,46 A 36,36 0 0 1 38,10 L 245,10 C 340,10 395,78 500,78 C 605,78 660,10 755,10 L 962,10 A 36,36 0 0 1 998,46 L 998,75"
                   fill="none"
                   stroke="url(#diminishingBorder)"
                   strokeWidth="5"
@@ -434,7 +434,7 @@ export function AuthPortal({
 
                 {/* Crisp Core Top Border with Eased Out Green Glow (extending down curves on both sides) */}
                 <path
-                  d="M 2,65 L 2,38 A 28,28 0 0 1 30,10 L 260,10 C 350,10 400,68 500,68 C 600,68 650,10 740,10 L 970,10 A 28,28 0 0 1 998,38 L 998,65"
+                  d="M 2,75 L 2,46 A 36,36 0 0 1 38,10 L 245,10 C 340,10 395,78 500,78 C 605,78 660,10 755,10 L 962,10 A 36,36 0 0 1 998,46 L 998,75"
                   fill="none"
                   stroke="url(#diminishingBorder)"
                   strokeWidth="2.4"
@@ -444,7 +444,7 @@ export function AuthPortal({
             </div>
 
             {/* Card Body seamlessly joined to the curved top, with visible side borders and rounded base */}
-            <div className="w-full bg-[#0b110d] px-4 sm:px-6 pt-1.5 pb-6 sm:pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col items-center rounded-b-3xl border-x border-b border-white/[0.05]">
+            <div className="w-full bg-[#0b110d] px-4 sm:px-6 pt-1.5 pb-6 sm:pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col items-center rounded-b-[2rem] sm:rounded-b-[2.5rem] border-x border-b border-white/[0.05]">
               <div className="w-full max-w-sm sm:max-w-md mx-auto flex flex-col gap-3.5">
                 {/* Header inside the curved card (font-light, tracking-normal, capitalize) */}
                 <div className="text-center pt-0.5">
