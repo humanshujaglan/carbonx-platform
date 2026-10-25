@@ -21,6 +21,7 @@ import {
   useChainId,
   useSwitchChain,
   useWalletClient,
+  useDisconnect,
 } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -39,6 +40,7 @@ export type WalletState = {
   wrongNetwork: boolean;
   hasWallet: boolean;
   connect: () => Promise<void>;
+  disconnect: () => void;
   switchNetwork: () => Promise<void>;
   openAccountModal?: () => void;
   openChainModal?: () => void;
@@ -63,6 +65,7 @@ function InnerWalletProvider({ children }: { children: ReactNode }) {
   const { openConnectModal } = useConnectModal();
   const { openAccountModal } = useAccountModal();
   const { openChainModal } = useChainModal();
+  const { disconnect } = useDisconnect();
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -141,6 +144,7 @@ function InnerWalletProvider({ children }: { children: ReactNode }) {
     wrongNetwork,
     hasWallet: true,
     connect,
+    disconnect: () => disconnect(),
     switchNetwork,
     openAccountModal,
     openChainModal,

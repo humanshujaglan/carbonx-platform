@@ -125,16 +125,16 @@ export function InvestCard({
         </div>
 
         {/* Preset Chips */}
-        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+        <div className="grid grid-cols-5 gap-1.5">
           {PRESET_AMOUNTS.map((amt) => (
             <button
               key={amt}
               type="button"
               onClick={() => setAmountStr(String(amt))}
-              className={`rounded-xl py-1.5 text-xs font-medium transition cursor-pointer ${
+              className={`rounded-xl py-2 text-xs font-semibold transition cursor-pointer ${
                 amountStr === String(amt)
-                  ? "bg-neon/15 text-neon border border-neon/40 shadow-[0_0_8px_rgba(31,224,58,0.2)]"
-                  : "well text-muted hover:text-text"
+                  ? "bg-neon text-[#03140a] shadow-[0_0_12px_rgba(31,224,58,0.4)]"
+                  : "well text-muted hover:text-white"
               }`}
             >
               ${amt.toLocaleString()}

@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from "react";
 import walletImage from "@/public/wallet.png";
+import {
+  ArrowLeft,
+  ArrowSwapHorizontal,
+  Copy,
+  InfoCircle,
+  TickCircle,
+  Wallet3,
+} from "iconsax-react";
 import { formatUnits, parseUnits, type Address, maxUint256 } from "viem";
 import {
   chain,
@@ -439,18 +447,20 @@ export function SwapCard({
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] gap-6 items-start">
         {/* Left Column: Sell Card */}
         <section className="card p-5 sm:p-6" aria-label="Sell CARB for USDT">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-4 border-b border-white/[0.06]">
-            <div>
-              <h3 className="text-base font-semibold text-text flex items-center gap-2">
-                <span className="size-2 rounded-full bg-danger shadow-[0_0_6px_#ff3344]" />
-                Sell CARB Tokens for USDT
-              </h3>
-              <p className="text-xs text-muted font-light mt-0.5">
-                Swap CARB token directly for USDT via PancakeSwap V2 Router with dynamic panic-tax burn telemetry.
-              </p>
+          {/* Exchange Top Bar matching right screen */}
+          <div className="flex items-center justify-between mb-5 pb-3 border-b border-white/[0.06]">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-9 items-center justify-center rounded-xl bg-[#121914] text-muted border border-white/[0.08]">
+                <ArrowLeft size={16} />
+              </div>
+              <h3 className="text-base font-bold text-white">Exchange</h3>
             </div>
-            <Pill tone="warn">100% Tax Burn</Pill>
+            <div className="flex items-center gap-2">
+              <Pill tone="green">PancakeSwap V2</Pill>
+              <div className="flex size-9 items-center justify-center rounded-xl bg-[#121914] text-muted border border-white/[0.08]">
+                <InfoCircle size={16} />
+              </div>
+            </div>
           </div>
 
           {/* Buying Disabled Notice */}
@@ -629,12 +639,56 @@ export function SwapCard({
                   type="button"
                   disabled={Boolean(tx.busy)}
                   onClick={handleSellCarb}
-                  className="btn bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white font-bold w-full text-sm py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(255,51,68,0.25)] flex items-center justify-center gap-2 cursor-pointer"
+                  className="btn btn-primary w-full text-base font-bold py-4 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {tx.busy ? <Spinner /> : null}
-                  Sell {Number(formatUnits(sellCarbParsed, 18)).toFixed(2)} CARB for USDT
+                  {tx.busy ? <Spinner /> : <ArrowSwapHorizontal size={20} color="#03140a" variant="Bold" />}
+                  <span>Swap (Sell for USDT)</span>
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Recent Transfers matching right screen */}
+          <div className="mt-6 pt-5 border-t border-white/[0.06] flex flex-col gap-3">
+            <div className="flex items-center justify-between text-xs font-semibold">
+              <span className="text-white">Recent Transfers</span>
+              <span className="text-muted text-[11px] hover:text-neon cursor-pointer">View All</span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between rounded-2xl bg-[#121914] p-3 border border-white/[0.05]">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-9 items-center justify-center rounded-xl bg-neon/15 text-neon font-black text-xs border border-neon/30">
+                    CX
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white">CARB to USDT</div>
+                    <div className="text-[10px] text-muted">BSC · Automated Liquidity</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs font-bold text-neon">
+                    +${Number(formatUnits(expectedUsdtOut, 18) || "250").toFixed(2)} USDT
+                  </div>
+                  <div className="text-[10px] text-muted">Live Estimate</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl bg-[#121914] p-3 border border-white/[0.05]">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 font-black text-xs border border-emerald-500/30">
+                    ₮
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white">USDT to Package</div>
+                    <div className="text-[10px] text-muted">12 Feb, 02:00 PM</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs font-bold text-emerald-400">+1,000.00 USDT</div>
+                  <div className="text-[10px] text-muted">Completed</div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
