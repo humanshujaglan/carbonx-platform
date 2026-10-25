@@ -10,7 +10,11 @@ import {
   ArrowRight,
   Copy,
   MagicStar,
+  Profile2User,
+  ShieldTick,
   TickCircle,
+  TrendUp,
+  Wallet3,
 } from "iconsax-react";
 import { erc20Abi, platformAbi } from "@/lib/abi";
 import {
@@ -58,14 +62,21 @@ export function AuthPortal({
   const tx = useTx(onRefresh);
 
   // View state: 'starter' (matching reference image) | 'register_form' | 'login_wallets'
-  const [viewStep, setViewStep] = useState<"starter" | "register_form" | "login_wallets">("starter");
+  const [viewStep, setViewStep] = useState<"starter" | "register_form" | "login_wallets">(() => {
+    if (typeof window !== "undefined") {
+      const v = new URLSearchParams(window.location.search).get("view");
+      if (v === "register") return "register_form";
+      if (v === "wallets") return "login_wallets";
+    }
+    return "starter";
+  });
   const [sponsorInput, setSponsorInput] = useState<string>("");
   const [leaderCodeInput, setLeaderCodeInput] = useState<string>("0");
   const [amountStr, setAmountStr] = useState<string>("1000");
   const [selectedLock, setSelectedLock] = useState<LockType>(LockType.LOCKED_100);
   const [copiedAddr, setCopiedAddr] = useState(false);
 
-  // Auto-detect referral sponsor from URL query param ?ref=0x...
+  // Auto-detect referral sponsor from URL query param ?ref=0x... or ?view=register
   useEffect(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -73,6 +84,9 @@ export function AuthPortal({
       if (ref && isAddress(ref)) {
         setSponsorInput(ref);
       }
+      const v = urlParams.get("view");
+      if (v === "register") setViewStep("register_form");
+      if (v === "wallets") setViewStep("login_wallets");
     }
   }, []);
 
@@ -193,106 +207,91 @@ export function AuthPortal({
   };
 
   return (
-    <div className={viewStep === "starter" ? "fixed inset-0 z-30 flex flex-col justify-between items-center overflow-hidden bg-[#040705] p-0 select-none w-full" : "relative mx-auto flex w-full max-w-sm sm:max-w-md flex-col items-center px-3 pt-3 pb-24 sm:pt-6 sm:pb-28"}>
+    <div className="fixed inset-0 z-30 flex flex-col items-center overflow-x-hidden overflow-y-auto bg-[#040705] p-0 select-none w-full">
+      {/* ========================================================= */}
+      {/* CORNER NEON LIGHTING BEAMS (UNIVERSAL TO ALL AUTH VIEWS)  */}
+      {/* 45° (Top-Left) and 125° (Top-Right) intense beam lighting */}
+      {/* ========================================================= */}
+      {/* Top-Left 45° Beam */}
+      <div className="pointer-events-none fixed top-0 left-0 z-0 opacity-70">
+        <div
+          className="relative"
+          style={{
+            transformOrigin: "0 0",
+            transform: "rotate(45deg)",
+          }}
+        >
+          <div
+            className="absolute top-[-28px] left-0 w-[62vw] max-w-[540px] h-[56px]"
+            style={{
+              background:
+                "linear-gradient(to right, rgba(50, 245, 80, 0.9) 0%, rgba(35, 230, 65, 0.55) 25%, rgba(31, 224, 58, 0.16) 55%, transparent 88%)",
+              filter: "blur(18px)",
+            }}
+          />
+          <div
+            className="absolute top-[-100px] left-0 w-[76vw] max-w-[660px] h-[200px]"
+            style={{
+              background:
+                "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.65) 0%, rgba(31, 224, 58, 0.28) 30%, transparent 75%)",
+              filter: "blur(36px)",
+            }}
+          />
+        </div>
+        <div
+          className="absolute -top-14 -left-14 w-52 h-52 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle at 35% 35%, rgba(65, 255, 100, 0.7) 0%, rgba(31, 224, 58, 0.32) 40%, transparent 70%)",
+            filter: "blur(26px)",
+          }}
+        />
+      </div>
+
+      {/* Top-Right 125° Beam */}
+      <div className="pointer-events-none fixed top-0 right-0 z-0 opacity-70">
+        <div
+          className="relative"
+          style={{
+            transformOrigin: "0 0",
+            transform: "rotate(135deg)",
+          }}
+        >
+          <div
+            className="absolute top-[-28px] left-0 w-[62vw] max-w-[540px] h-[56px]"
+            style={{
+              background:
+                "linear-gradient(to right, rgba(50, 245, 80, 0.9) 0%, rgba(35, 230, 65, 0.55) 25%, rgba(31, 224, 58, 0.16) 55%, transparent 88%)",
+              filter: "blur(18px)",
+            }}
+          />
+          <div
+            className="absolute top-[-100px] left-0 w-[76vw] max-w-[660px] h-[200px]"
+            style={{
+              background:
+                "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.65) 0%, rgba(31, 224, 58, 0.28) 30%, transparent 75%)",
+              filter: "blur(36px)",
+            }}
+          />
+        </div>
+        <div
+          className="absolute -top-14 -right-14 w-52 h-52 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle at 65% 35%, rgba(65, 255, 100, 0.7) 0%, rgba(31, 224, 58, 0.32) 40%, transparent 70%)",
+            filter: "blur(26px)",
+          }}
+        />
+      </div>
+
       {/* ------------------------------------------------------------- */}
       {/* VIEW 1: THE STARTER PAGE                                      */}
       {/* Non-scrollable viewport, FULL WIDTH sticky bottom card        */}
-      {/* 45° and 125° corner lighting beams, pitch black center        */}
       {/* Plus Jakarta Sans, low weight, no tracking, capitalize        */}
       {/* Official CarbonX logo + greeny.png graphic                    */}
       {/* ------------------------------------------------------------- */}
       {viewStep === "starter" && (
-        <div className="relative flex w-full h-full flex-col justify-between items-center">
-          {/* ========================================================= */}
-          {/* TOP-LEFT 45° LIGHTING BEAM (INTENSE & RADIANT)            */}
-          {/* Originates at screen corner (0,0), shoots along 45° ray  */}
-          {/* More intense corner lighting, progressively low in middle */}
-          {/* ========================================================= */}
-          <div className="pointer-events-none fixed top-0 left-0 z-0 opacity-70">
-            {/* 45° Rotated Beam Container */}
-            <div
-              className="relative"
-              style={{
-                transformOrigin: "0 0",
-                transform: "rotate(45deg)",
-              }}
-            >
-              {/* Central high-intensity beam core */}
-              <div
-                className="absolute top-[-28px] left-0 w-[62vw] max-w-[540px] h-[56px]"
-                style={{
-                  background:
-                    "linear-gradient(to right, rgba(50, 245, 80, 0.9) 0%, rgba(35, 230, 65, 0.55) 25%, rgba(31, 224, 58, 0.16) 55%, transparent 88%)",
-                  filter: "blur(18px)",
-                }}
-              />
-              {/* Broad volumetric lighting cone */}
-              <div
-                className="absolute top-[-100px] left-0 w-[76vw] max-w-[660px] h-[200px]"
-                style={{
-                  background:
-                    "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.65) 0%, rgba(31, 224, 58, 0.28) 30%, transparent 75%)",
-                  filter: "blur(36px)",
-                }}
-              />
-            </div>
-
-            {/* Corner Apex Glow (Top-Left) */}
-            <div
-              className="absolute -top-14 -left-14 w-52 h-52 pointer-events-none"
-              style={{
-                background:
-                  "radial-gradient(circle at 35% 35%, rgba(65, 255, 100, 0.7) 0%, rgba(31, 224, 58, 0.32) 40%, transparent 70%)",
-                filter: "blur(26px)",
-              }}
-            />
-          </div>
-
-          {/* ========================================================= */}
-          {/* TOP-RIGHT 125° LIGHTING BEAM (INTENSE & RADIANT)          */}
-          {/* Originates at screen corner (100%,0), shoots into screen */}
-          {/* More intense corner lighting, progressively low in middle */}
-          {/* ========================================================= */}
-          <div className="pointer-events-none fixed top-0 right-0 z-0 opacity-70">
-            {/* 135°/125° Rotated Beam Container */}
-            <div
-              className="relative"
-              style={{
-                transformOrigin: "0 0",
-                transform: "rotate(135deg)",
-              }}
-            >
-              {/* Central high-intensity beam core */}
-              <div
-                className="absolute top-[-28px] left-0 w-[62vw] max-w-[540px] h-[56px]"
-                style={{
-                  background:
-                    "linear-gradient(to right, rgba(50, 245, 80, 0.9) 0%, rgba(35, 230, 65, 0.55) 25%, rgba(31, 224, 58, 0.16) 55%, transparent 88%)",
-                  filter: "blur(18px)",
-                }}
-              />
-              {/* Broad volumetric lighting cone */}
-              <div
-                className="absolute top-[-100px] left-0 w-[76vw] max-w-[660px] h-[200px]"
-                style={{
-                  background:
-                    "radial-gradient(ellipse 70% 50% at 0% 50%, rgba(35, 240, 65, 0.65) 0%, rgba(31, 224, 58, 0.28) 30%, transparent 75%)",
-                  filter: "blur(36px)",
-                }}
-              />
-            </div>
-
-            {/* Corner Apex Glow (Top-Right) */}
-            <div
-              className="absolute -top-14 -right-14 w-52 h-52 pointer-events-none"
-              style={{
-                background:
-                  "radial-gradient(circle at 65% 35%, rgba(65, 255, 100, 0.7) 0%, rgba(31, 224, 58, 0.32) 40%, transparent 70%)",
-                filter: "blur(26px)",
-              }}
-            />
-          </div>
-
+        <div className="relative flex w-full h-full flex-col justify-between items-center overflow-hidden z-10">
           {/* 1. TOP HEADER GROUP */}
           <div className="relative z-10 flex w-full max-w-sm sm:max-w-md mx-auto flex-col items-center pt-5 sm:pt-7 px-4 shrink-0">
             {/* Official CarbonX Logo (Bigger) */}
@@ -569,230 +568,356 @@ export function AuthPortal({
 
       {/* ------------------------------------------------------------- */}
       {/* VIEW 2: REGISTRATION FORM (WHEN CLICKING REGISTER)           */}
-      {/* Referral, Leaderboard, Amount, Strategy                      */}
+      {/* Cohesive CarbonX design language, atmospheric layout          */}
       {/* ------------------------------------------------------------- */}
       {viewStep === "register_form" && (
-        <div className="w-full flex flex-col gap-5">
-          {/* Header with Back button */}
-          <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+        <div className="relative flex w-full flex-col items-center px-3 sm:px-4 pt-4 sm:pt-6 pb-14 sm:pb-20 z-10 min-h-full">
+          {/* Top Bar: Back button + CarbonX Logo + BSC Mainnet Pill */}
+          <div className="w-full max-w-[500px] flex items-center justify-between pb-3 sm:pb-4 border-b border-white/[0.08]">
             <button
               type="button"
               onClick={() => setViewStep("starter")}
-              className="flex items-center gap-2 text-xs font-semibold text-muted hover:text-white transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-[#121914] px-3 py-2 text-xs font-medium text-muted hover:text-white border border-white/[0.08] hover:border-white/20 transition cursor-pointer"
             >
-              <div className="flex size-8 items-center justify-center rounded-xl bg-[#121914] border border-white/[0.08]">
-                <ArrowLeft size={16} />
-              </div>
+              <ArrowLeft size={15} />
               <span>Back</span>
             </button>
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-              Account Registration
-            </h2>
-            <Pill tone="green">BSC Chain</Pill>
+
+            <div className="flex items-center justify-center">
+              <Image
+                src={headerLogo}
+                alt="CarbonX"
+                priority
+                className="h-8 sm:h-9 w-auto object-contain"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 rounded-full bg-[#121914] px-3 py-1.5 text-xs text-neon-soft border border-neon/20">
+              <span className="size-2 rounded-full bg-neon animate-pulse" />
+              <span>BSC</span>
+            </div>
           </div>
 
-          {wrongNetwork && (
-            <Notice tone="warn">
-              <div className="flex items-center justify-between gap-2">
-                <span>Switch wallet network to {chain.name}</span>
+          {/* Page Hero Header */}
+          <div className="w-full max-w-[500px] text-center pt-5 pb-3 px-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#0c1610] px-3.5 py-1 text-[11px] font-light text-neon-soft border border-neon/25 shadow-[0_0_12px_rgba(31,224,58,0.12)]">
+              <MagicStar size={12} color="#1fe03a" variant="Bold" />
+              <span>On-Chain Registration</span>
+            </div>
+            <h1 className="mt-2.5 text-2xl sm:text-3xl font-light text-white tracking-normal capitalize">
+              Activate Your <span className="font-normal text-neon">Yield Account</span>
+            </h1>
+            <p className="mt-1 text-xs sm:text-sm font-light text-muted tracking-normal">
+              Deposit USDT, configure your strategy, and unlock decentralized earnings
+            </p>
+          </div>
+
+          {/* Notices */}
+          <div className="w-full max-w-[500px] flex flex-col gap-2.5 mb-2">
+            {wrongNetwork && (
+              <Notice tone="warn">
+                <div className="flex items-center justify-between gap-2">
+                  <span>Switch wallet network to {chain.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => switchNetwork().catch(() => {})}
+                    className="btn btn-primary text-xs !py-1 !px-2.5 shrink-0"
+                  >
+                    Switch
+                  </button>
+                </div>
+              </Notice>
+            )}
+
+            {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
+            {isBelowMin && <Notice tone="warn">Minimum registration deposit is 100 USDT.</Notice>}
+            {isAboveMax && <Notice tone="error">Maximum registration deposit is 5,000 USDT.</Notice>}
+            {hasInsufficientBalance && (
+              <Notice tone="warn">
+                Insufficient USDT balance ({usd(user?.usdtBalance ?? 0n)} available in wallet).
+              </Notice>
+            )}
+          </div>
+
+          {/* Main Registration Card */}
+          <div className="w-full max-w-[500px] rounded-3xl bg-[#0b110d] p-4 sm:p-7 border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.85)] flex flex-col gap-4 sm:gap-5">
+            {/* Connected Wallet & Balance Header */}
+            <div className="rounded-2xl bg-[#121914] p-3 sm:p-3.5 border border-white/[0.08] flex items-center justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                <div className="size-8 rounded-xl bg-neon/10 flex items-center justify-center text-neon border border-neon/25 shrink-0">
+                  <Wallet3 size={16} variant="Bold" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] uppercase text-muted font-medium">Connected Wallet</span>
+                  <span className="font-sans text-xs sm:text-sm font-semibold text-white truncate" title={account}>
+                    {account ? shortAddr(account) : "No wallet connected"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] uppercase text-muted font-medium">USDT Balance</span>
+                  <span className="font-sans text-xs sm:text-sm font-bold text-neon-soft">
+                    {usd(user?.usdtBalance ?? 0n)}
+                  </span>
+                </div>
+                {account && (
+                  <button
+                    type="button"
+                    onClick={() => copyAddress(account)}
+                    className="p-1 text-muted hover:text-neon transition cursor-pointer"
+                    title="Copy Address"
+                  >
+                    {copiedAddr ? (
+                      <TickCircle size={15} color="#1fe03a" variant="Bold" />
+                    ) : (
+                      <Copy size={15} variant="Linear" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Step 1: Referral / Sponsor ID */}
+            <div className="flex flex-col gap-1.5 text-left">
+              <div className="flex items-center justify-between gap-1">
+                <label className="text-xs font-semibold text-white flex items-center gap-1.5 shrink-0">
+                  <span>1. Referral / Sponsor ID</span>
+                </label>
+                <span
+                  className={`text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                    sponsorInput && isAddress(sponsorInput)
+                      ? "bg-neon/15 text-neon border border-neon/30"
+                      : "bg-white/[0.05] text-muted border border-white/[0.08]"
+                  }`}
+                >
+                  {sponsorInput && isAddress(sponsorInput) ? "✓ Verified Sponsor" : "Genesis Top ID (Default)"}
+                </span>
+              </div>
+              <div className="relative flex items-center rounded-2xl bg-[#121914] border border-white/[0.08] focus-within:border-neon/50 focus-within:ring-2 focus-within:ring-neon/15 transition overflow-hidden">
+                <div className="pl-3.5 pr-1 text-muted">
+                  <Profile2User size={18} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="0x... (leave blank for Genesis Top ID)"
+                  value={sponsorInput}
+                  onChange={(e) => setSponsorInput(e.target.value.trim())}
+                  className="w-full bg-transparent py-3 px-2 text-xs font-sans text-white placeholder:text-muted/60 outline-none"
+                />
                 <button
                   type="button"
-                  onClick={() => switchNetwork().catch(() => {})}
-                  className="btn btn-primary text-xs !py-1 !px-2.5 shrink-0"
+                  onClick={async () => {
+                    if (typeof navigator !== "undefined" && navigator.clipboard) {
+                      try {
+                        const t = await navigator.clipboard.readText();
+                        if (t) setSponsorInput(t.trim());
+                      } catch {}
+                    }
+                  }}
+                  className="mr-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] px-3 py-1.5 text-[11px] font-medium text-white transition cursor-pointer shrink-0"
                 >
-                  Switch
+                  Paste
                 </button>
               </div>
-            </Notice>
-          )}
-
-          {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
-          {isBelowMin && <Notice tone="warn">Minimum registration deposit is 100 USDT.</Notice>}
-          {isAboveMax && <Notice tone="error">Maximum registration deposit is 5,000 USDT.</Notice>}
-          {hasInsufficientBalance && (
-            <Notice tone="warn">
-              Insufficient USDT balance ({usd(user?.usdtBalance ?? 0n)} available).
-            </Notice>
-          )}
-
-          {/* Connected Wallet Indicator */}
-          <div className="rounded-2xl bg-[#121914] p-3 border border-white/[0.08] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="size-2 rounded-full bg-neon animate-pulse shrink-0" />
-              <span className="font-sans text-xs sm:text-sm font-semibold text-white truncate" title={account}>
-                {account ? shortAddr(account) : "No wallet"}
-              </span>
             </div>
-            <span className="text-[11px] text-neon-soft font-semibold shrink-0">Ready to Register</span>
-          </div>
 
-          {/* 1. Referral Sponsor Input */}
-          <div className="flex flex-col gap-1 text-left">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-muted">1. Referral / Sponsor</span>
-              <span className="text-neon-soft">
-                {sponsorInput && isAddress(sponsorInput) ? "✓ Valid" : "Genesis Top ID default"}
-              </span>
+            {/* Step 2: Leaderboard Team Code (Optional) */}
+            <div className="flex flex-col gap-1.5 text-left">
+              <div className="flex items-center justify-between gap-1">
+                <label className="text-xs font-semibold text-white">2. Leaderboard Team Code</label>
+                <span className="text-[10px] text-muted shrink-0">Optional (Default: 0)</span>
+              </div>
+              <div className="relative flex items-center rounded-2xl bg-[#121914] border border-white/[0.08] focus-within:border-neon/50 focus-within:ring-2 focus-within:ring-neon/15 transition overflow-hidden">
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={leaderCodeInput}
+                  onChange={(e) => setLeaderCodeInput(e.target.value)}
+                  className="w-full bg-transparent py-3 px-3.5 text-xs font-sans text-white placeholder:text-muted/60 outline-none"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="0x... (leave blank for Genesis Top ID)"
-                value={sponsorInput}
-                onChange={(e) => setSponsorInput(e.target.value.trim())}
-                className="w-full rounded-2xl bg-[#121914] py-3 pl-3.5 pr-14 text-xs font-mono text-white outline-none border border-white/[0.08] focus:border-neon/50"
-              />
+
+            {/* Step 3: Deposit Amount (USDT) */}
+            <div className="flex flex-col gap-2 text-left">
+              <div className="flex items-center justify-between gap-1">
+                <label className="text-xs font-semibold text-white">3. Deposit Amount (USDT)</label>
+                <span className="text-[10px] sm:text-[11px] text-muted shrink-0">Min: $100 · Max: $5,000</span>
+              </div>
+
+              <div className="relative flex items-center rounded-2xl bg-[#121914] border border-white/[0.08] focus-within:border-neon/50 focus-within:ring-2 focus-within:ring-neon/15 transition overflow-hidden px-4 py-2">
+                <span className="text-xl font-bold text-muted select-none mr-2">$</span>
+                <input
+                  type="number"
+                  min="100"
+                  max="5000"
+                  step="50"
+                  value={amountStr}
+                  onChange={(e) => setAmountStr(e.target.value)}
+                  className="w-full bg-transparent py-2 text-2xl font-bold text-white placeholder:text-muted/40 outline-none font-sans"
+                />
+                <div className="flex items-center gap-1.5 rounded-xl bg-[#19241c] px-3 py-1.5 text-xs font-bold text-neon-soft border border-neon/25 shrink-0">
+                  <span>USDT</span>
+                </div>
+              </div>
+
+              {/* Preset Chips */}
+              <div className="grid grid-cols-5 gap-1.5 pt-1">
+                {PRESET_AMOUNTS.map((amt) => {
+                  const isSelected = amountStr === String(amt);
+                  return (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setAmountStr(String(amt))}
+                      className={`rounded-xl py-2 px-1 text-[11px] sm:text-xs font-semibold transition cursor-pointer text-center ${
+                        isSelected
+                          ? "btn-primary !border-0 text-[#031005] font-bold shadow-[0_0_12px_rgba(45,225,75,0.4)]"
+                          : "bg-[#121914] text-muted hover:text-white hover:bg-[#162319] border border-white/[0.06]"
+                      }`}
+                    >
+                      ${amt}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 4: Yield Strategy Selection */}
+            <div className="flex flex-col gap-2 text-left pt-1">
+              <div className="flex items-center justify-between gap-1">
+                <label className="text-xs font-semibold text-white">4. Select Yield Strategy</label>
+                <span className="text-[10px] sm:text-[11px] text-muted shrink-0">Capital lock duration</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                {(
+                  [
+                    LockType.FLEXIBLE,
+                    LockType.LOCKED_100,
+                    LockType.LOCKED_50,
+                  ] as const
+                ).map((type) => {
+                  const item = LOCK_DETAILS[type];
+                  const isSelected = selectedLock === type;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setSelectedLock(type)}
+                      className={`relative flex flex-col justify-between rounded-2xl p-2.5 sm:p-3 transition cursor-pointer text-left border ${
+                        isSelected
+                          ? "bg-gradient-to-b from-[#18291d] to-[#0f1a13] border-neon/60 shadow-[0_0_16px_rgba(31,224,58,0.25)]"
+                          : "bg-[#121914] border-white/[0.07] hover:border-white/15 hover:bg-[#162119]"
+                      }`}
+                    >
+                      {type === LockType.LOCKED_100 && (
+                        <span className="absolute -top-2 right-1.5 rounded-full bg-neon px-1.5 py-0.5 text-[8px] font-bold text-[#031005] shadow-[0_0_8px_rgba(31,224,58,0.5)]">
+                          Popular
+                        </span>
+                      )}
+                      <div>
+                        <div className="text-[11px] sm:text-xs font-bold text-white truncate">{item.name}</div>
+                        <div className="text-[9px] sm:text-[10px] text-muted mt-0.5 truncate">
+                          {type === LockType.FLEXIBLE ? "Daily Access" : type === LockType.LOCKED_100 ? "365d Lock" : "180d Lock"}
+                        </div>
+                      </div>
+                      <div className="mt-2.5 sm:mt-3">
+                        <div className="text-xs sm:text-sm font-bold text-neon-soft">
+                          {item.monthlyRatePercent}%<span className="text-[9px] sm:text-[10px] font-normal text-muted">/mo</span>
+                        </div>
+                        <div className="text-[9px] sm:text-[10px] text-muted/80">
+                          {(item.dailyRate * 100).toFixed(2)}%/day
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 5: Yield & Capital Projection Summary */}
+            <div className="rounded-2xl bg-[#121914] p-3.5 sm:p-4 text-xs text-left flex flex-col gap-2.5 border border-white/[0.07] shadow-inner">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/[0.05]">
+                <span className="text-muted flex items-center gap-1.5 shrink-0">
+                  <TrendUp size={14} color="#1fe03a" />
+                  <span>Estimated Daily:</span>
+                </span>
+                <span className="font-bold text-neon-soft text-xs sm:text-sm shrink-0 text-right">
+                  ~${estDailyUsd.toFixed(2)} USDT <span className="text-[10px] font-normal text-muted">({lockInfo.monthlyRatePercent}%/mo)</span>
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/[0.05]">
+                <span className="text-muted shrink-0">Maximum Cap (2.5x):</span>
+                <span className="font-bold text-white shrink-0 text-right">${maxCapUsd.toLocaleString()} USDT</span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="text-muted shrink-0">Smart Contract:</span>
+                <span className="text-neon flex items-center gap-1 font-medium shrink-0 text-right">
+                  <ShieldTick size={13} color="#1fe03a" variant="Bold" /> Verified BEP-20
+                </span>
+              </div>
+            </div>
+
+            {/* Step 6: Action Button (Approve / Register) */}
+            {!account ? (
               <button
                 type="button"
-                onClick={async () => {
-                  if (typeof navigator !== "undefined" && navigator.clipboard) {
-                    try {
-                      const t = await navigator.clipboard.readText();
-                      if (t) setSponsorInput(t.trim());
-                    } catch {}
-                  }
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-white/[0.08] px-2.5 py-1 text-[10px] text-muted hover:text-white"
+                onClick={() => connect().catch(() => {})}
+                className="btn btn-primary w-full py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
               >
-                Paste
+                <span>Connect Wallet</span>
+                <ArrowRight size={18} color="#031005" />
               </button>
+            ) : needsApproval ? (
+              <button
+                type="button"
+                disabled={Boolean(tx.busy) || isBelowMin || isAboveMax}
+                onClick={handleApprove}
+                className="btn btn-primary w-full py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {tx.busy === "Approving USDT..." ? (
+                  <>
+                    <Spinner /> Approving USDT On-Chain...
+                  </>
+                ) : (
+                  <>
+                    <span>Step 1: Approve USDT</span>
+                    <ArrowRight size={18} color="#031005" />
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={Boolean(tx.busy) || isBelowMin || isAboveMax || hasInsufficientBalance}
+                onClick={handleRegister}
+                className="btn btn-primary w-full py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {tx.busy === "Registering on platform..." ? (
+                  <>
+                    <Spinner /> Processing Registration...
+                  </>
+                ) : hasInsufficientBalance ? (
+                  "Insufficient USDT in Wallet"
+                ) : (
+                  <>
+                    <span>Register & Deposit ${Number(depositUsdt / 10n ** 18n).toLocaleString()} USDT</span>
+                    <ArrowRight size={18} color="#031005" />
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Footer Trust Note */}
+            <div className="text-center text-[11px] text-muted/70 font-light pt-0.5">
+              Non-custodial smart contract deposit · Secured by BSC Network
             </div>
           </div>
-
-          {/* 2. Leaderboard Code Input */}
-          <div className="flex flex-col gap-1 text-left">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-muted">2. Leaderboard Code</span>
-              <span className="text-muted text-[10px]">Optional (0 for standard)</span>
-            </div>
-            <input
-              type="number"
-              min="0"
-              placeholder="0"
-              value={leaderCodeInput}
-              onChange={(e) => setLeaderCodeInput(e.target.value)}
-              className="w-full rounded-2xl bg-[#121914] px-3.5 py-3 text-xs text-white outline-none border border-white/[0.08] focus:border-neon/50"
-            />
-          </div>
-
-          {/* 3. Deposit Amount (USDT) */}
-          <div className="flex flex-col gap-1.5 text-left">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-muted">3. Deposit Amount (USDT)</span>
-              {user && (
-                <span className="text-muted text-[10px]">
-                  Balance: <strong className="text-white">{usd(user.usdtBalance)}</strong>
-                </span>
-              )}
-            </div>
-
-            <div className="relative">
-              <input
-                type="number"
-                min="100"
-                max="5000"
-                step="50"
-                value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
-                className="w-full rounded-2xl bg-[#121914] py-3.5 pl-4 pr-16 text-lg font-bold text-white outline-none border border-white/[0.08] focus:border-neon/50"
-              />
-              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-lg bg-white/[0.08] px-2 py-1 text-xs font-bold text-white">
-                USDT
-              </span>
-            </div>
-
-            {/* Preset chips matching FluxChain pills */}
-            <div className="grid grid-cols-5 gap-1.5 pt-1">
-              {PRESET_AMOUNTS.map((amt) => (
-                <button
-                  key={amt}
-                  type="button"
-                  onClick={() => setAmountStr(String(amt))}
-                  className={`rounded-xl py-2 text-xs font-bold transition cursor-pointer ${
-                    amountStr === String(amt)
-                      ? "bg-neon text-[#03140a] shadow-[0_0_12px_rgba(31,224,58,0.4)]"
-                      : "bg-[#121914] text-muted hover:text-white border border-white/[0.05]"
-                  }`}
-                >
-                  ${amt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Strategy selection */}
-          <div className="grid grid-cols-3 gap-1.5 text-left pt-1">
-            {(
-              [
-                LockType.FLEXIBLE,
-                LockType.LOCKED_100,
-                LockType.LOCKED_50,
-              ] as const
-            ).map((type) => {
-              const item = LOCK_DETAILS[type];
-              const isSelected = selectedLock === type;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setSelectedLock(type)}
-                  className={`rounded-2xl p-2.5 transition cursor-pointer text-left ${
-                    isSelected
-                      ? "bg-[#162319] border border-neon/50 shadow-[0_0_14px_rgba(31,224,58,0.2)]"
-                      : "bg-[#121914] border border-white/[0.06] hover:border-white/15"
-                  }`}
-                >
-                  <div className="text-xs font-bold text-white">{item.name}</div>
-                  <div className="text-[10px] text-neon-soft mt-0.5">
-                    {item.monthlyRatePercent}% / mo
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Projections */}
-          <div className="rounded-2xl bg-[#121914] p-3.5 text-xs text-left flex flex-col gap-1.5 border border-white/[0.06]">
-            <div className="flex justify-between">
-              <span className="text-muted">Estimated Base ROI:</span>
-              <span className="font-bold text-neon-soft">
-                ~${estDailyUsd.toFixed(2)}/day ({lockInfo.monthlyRatePercent}%/mo)
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted">Maximum Total Cap (2.5x):</span>
-              <span className="font-bold text-white">${maxCapUsd.toLocaleString()} USDT</span>
-            </div>
-          </div>
-
-          {/* Action Button: Approve / Register */}
-          {needsApproval ? (
-            <button
-              type="button"
-              disabled={Boolean(tx.busy) || isBelowMin || isAboveMax}
-              onClick={handleApprove}
-              className="btn btn-primary w-full py-4 text-base font-bold cursor-pointer"
-            >
-              {tx.busy === "Approving USDT..." ? <Spinner /> : "Step 1: Approve USDT"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={Boolean(tx.busy) || isBelowMin || isAboveMax || hasInsufficientBalance}
-              onClick={handleRegister}
-              className="btn btn-primary w-full py-4 text-base font-bold cursor-pointer"
-            >
-              {tx.busy === "Registering on platform..." ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Spinner /> Processing Registration...
-                </span>
-              ) : hasInsufficientBalance ? (
-                "Insufficient USDT in Wallet"
-              ) : (
-                `Register & Deposit $${Number(depositUsdt / 10n ** 18n).toLocaleString()} USDT`
-              )}
-            </button>
-          )}
         </div>
       )}
 
@@ -800,27 +925,43 @@ export function AuthPortal({
       {/* VIEW 3: FLEXIBLE WALLET LOGIN OPTIONS                         */}
       {/* ------------------------------------------------------------- */}
       {viewStep === "login_wallets" && (
-        <div className="w-full flex flex-col gap-4">
-          <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+        <div className="relative flex w-full flex-col items-center px-4 py-6 sm:py-8 z-10 min-h-full">
+          {/* Top Bar */}
+          <div className="w-full max-w-[480px] flex items-center justify-between pb-3 sm:pb-4 border-b border-white/[0.08]">
             <button
               type="button"
               onClick={() => setViewStep("starter")}
-              className="flex items-center gap-2 text-xs font-semibold text-muted hover:text-white transition cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-[#121914] px-3 py-2 text-xs font-medium text-muted hover:text-white border border-white/[0.08] hover:border-white/20 transition cursor-pointer"
             >
-              <div className="flex size-8 items-center justify-center rounded-xl bg-[#121914] border border-white/[0.08]">
-                <ArrowLeft size={16} />
-              </div>
+              <ArrowLeft size={16} />
               <span>Back</span>
             </button>
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-              Connect Web3 Wallet
-            </h2>
-            <Pill tone="gold">Multi-Wallet</Pill>
+            <div className="flex items-center justify-center">
+              <Image
+                src={headerLogo}
+                alt="CarbonX"
+                priority
+                className="h-8 sm:h-9 w-auto object-contain"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full bg-[#121914] px-3 py-1.5 text-xs text-neon-soft border border-neon/20">
+              <span className="size-2 rounded-full bg-neon animate-pulse" />
+              <span>Multi-Wallet</span>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-2.5">
+          <div className="w-full max-w-[480px] text-center pt-5 pb-4">
+            <h1 className="text-2xl sm:text-3xl font-light text-white tracking-normal capitalize">
+              Connect Your <span className="font-normal text-neon">Web3 Wallet</span>
+            </h1>
+            <p className="mt-1 text-xs sm:text-sm font-light text-muted tracking-normal">
+              Select your preferred Binance Smart Chain provider
+            </p>
+          </div>
+
+          <div className="w-full max-w-[480px] rounded-3xl bg-[#0b110d] p-5 sm:p-7 border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.85)] flex flex-col gap-3">
             {[
-              { id: "metamask", name: "MetaMask", sub: "Extension & Mobile" },
+              { id: "metamask", name: "MetaMask", sub: "Extension & Mobile App" },
               { id: "binance", name: "Binance Web3 Wallet", sub: "Native BSC Integration" },
               { id: "trust", name: "Trust Wallet", sub: "Official Web3 App" },
               { id: "rabby", name: "Rabby Wallet", sub: "DeFi Multi-Chain" },
@@ -833,18 +974,20 @@ export function AuthPortal({
                   handleConnectWallet(wallet.id);
                   setViewStep("starter");
                 }}
-                className="flex items-center justify-between rounded-2xl bg-[#121914] p-3 border border-white/[0.06] hover:border-neon/40 hover:bg-[#162319] transition cursor-pointer"
+                className="flex items-center justify-between rounded-2xl bg-[#121914] p-3.5 border border-white/[0.06] hover:border-neon/50 hover:bg-[#162319] hover:shadow-[0_0_16px_rgba(31,224,58,0.2)] transition cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex size-9 items-center justify-center rounded-xl bg-neon/10 text-neon border border-neon/20 font-bold text-xs">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-neon/10 text-neon border border-neon/20 font-bold text-sm">
                     {wallet.name[0]}
                   </div>
                   <div className="text-left">
                     <div className="text-xs font-bold text-white">{wallet.name}</div>
-                    <div className="text-[10px] text-muted">{wallet.sub}</div>
+                    <div className="text-[11px] text-muted">{wallet.sub}</div>
                   </div>
                 </div>
-                <span className="text-xs font-semibold text-neon">Connect →</span>
+                <span className="text-xs font-semibold text-neon flex items-center gap-1">
+                  Connect <ArrowRight size={14} />
+                </span>
               </button>
             ))}
 
@@ -854,7 +997,7 @@ export function AuthPortal({
                 connect().catch(() => {});
                 setViewStep("starter");
               }}
-              className="btn btn-secondary w-full py-3 text-xs mt-1"
+              className="btn btn-secondary w-full py-3.5 text-xs mt-2 rounded-2xl cursor-pointer"
             >
               Browse All Supported Wallets (RainbowKit)
             </button>
