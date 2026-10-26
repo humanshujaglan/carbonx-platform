@@ -307,7 +307,7 @@ export function AuthPortal({
             {/* SPACER: CONTENT BELOW LOGO IS LOWER DOWN */}
             <div className="mt-6 sm:mt-8 flex flex-col items-center w-full">
               {/* Pill Badge: 'Trade Crypto Anytime' (font-light, tracking-normal, capitalize) */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-light text-neon-soft border border-neon/30 tracking-normal capitalize shadow-[0_0_12px_rgba(31,224,58,0.15)]">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-light text-neon-soft tracking-normal capitalize shadow-[0_0_12px_rgba(31,224,58,0.15)]">
                 <MagicStar size={13} color="#1fe03a" variant="Bold" />
                 <span>Carbon Credit Ecosystem</span>
               </div>

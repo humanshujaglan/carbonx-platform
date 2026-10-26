@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  Activity,
   Copy,
   ExportSquare,
   Notification,
@@ -20,10 +19,9 @@ export type NavTab =
   | "dashboard"
   | "invest"
   | "incomes"
+  | "withdraw"
   | "team"
-  | "structure"
-  | "operations"
-  | "trade";
+  | "structure";
 
 export function Header({
   activeTab,
@@ -62,16 +60,6 @@ export function Header({
           <span className="size-1.5 rounded-full bg-neon shadow-[0_0_6px_#1fe03a]" />
           {chain.name}
         </span>
-
-        {/* Activity / Chart square button */}
-        <button
-          type="button"
-          onClick={() => onTabChange?.("operations")}
-          title="Protocol Operations & Telemetry"
-          className="flex size-10 items-center justify-center rounded-2xl bg-[#121914] text-muted hover:text-white hover:border-neon/40 transition border border-white/[0.06] cursor-pointer"
-        >
-          <Activity size={18} color="currentColor" />
-        </button>
 
         {/* Notification bell square button with green dot */}
         <button

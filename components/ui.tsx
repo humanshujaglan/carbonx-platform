@@ -45,11 +45,11 @@ export function Pill({
   children: ReactNode;
 }) {
   const styles = {
-    green: "bg-neon/15 text-neon border border-neon/30",
-    neutral: "bg-panel-3 text-muted border border-white/[0.04]",
-    warn: "bg-danger/15 text-danger border border-danger/30",
-    gold: "bg-neon-soft/15 text-neon-soft border border-neon-soft/30",
-    cyan: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
+    green: "bg-neon/15 text-neon",
+    neutral: "bg-panel-3 text-muted",
+    warn: "bg-danger/15 text-danger",
+    gold: "bg-neon-soft/15 text-neon-soft",
+    cyan: "bg-emerald-500/15 text-emerald-400",
   }[tone];
   return (
     <span
@@ -81,7 +81,7 @@ export function Countdown({ seconds, compact = false }: { seconds: number; compa
         <div
           key={p.label}
           className={`relative overflow-hidden rounded-xl text-center ${compact ? "px-1 py-1.5" : "px-2 py-2.5"} ${
-            i === 3 ? "border border-neon/30 bg-panel-2 shadow-[0_0_12px_rgba(31,224,58,0.15)]" : "well"
+            i === 3 ? "bg-panel-2 shadow-[0_0_12px_rgba(31,224,58,0.15)]" : "well"
           }`}
         >
           <span
@@ -125,9 +125,9 @@ export function Notice({
   children: ReactNode;
 }) {
   const styles = {
-    info: "bg-neon/10 text-neon-soft border border-neon/20",
-    warn: "bg-amber-500/10 text-amber-300 border border-amber-500/20",
-    error: "bg-danger/10 text-[#ff8f8f] border border-danger/20",
+    info: "bg-neon/10 text-neon-soft",
+    warn: "bg-amber-500/10 text-amber-300",
+    error: "bg-danger/10 text-[#ff8f8f]",
   }[tone];
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`rounded-xl px-3.5 py-2.5 text-xs font-light leading-relaxed ${styles}`}>

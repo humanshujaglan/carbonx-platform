@@ -5,9 +5,30 @@ const numFmt = (digits: number) => new Intl.NumberFormat("en-US", { maximumFract
 
 /** 18-decimal USD amount -> "$1,234.56" */
 export const usd = (v: bigint) => {
-  if (v >= 10n ** 30n) return "Unlimited";
+  if (v >= 10n ** 30n) return "$0.00";
   return usdFmt.format(Number(formatUnits(v, 18)));
 };
+
+/**
+ * Calculates and formats working cap headroom in USD.
+ * Never returns "Unlimited" — if the contract returns type(uint256).max (such as for topId / genesis root),
+ * it calculates the sustainable 300% (3x) cap based on the user's active deposit base.
+ */
+export function formatWorkingCapHeadroom(user?: {
+  workingCapHeadroom: bigint;
+  totalActiveDeposit: bigint;
+  workingCapConsumed: bigint;
+}): string {
+  if (!user) return "—";
+  if (user.workingCapHeadroom > 0n && user.workingCapHeadroom < 10n ** 30n) {
+    return usd(user.workingCapHeadroom);
+  }
+  // If contract returned uint256.max (e.g. for topId) or headroom wasn't provided,
+  // compute the real 300% (3x) working cap based on totalActiveDeposit:
+  const maxWorkingCap = user.totalActiveDeposit * 3n;
+  const headroom = maxWorkingCap > user.workingCapConsumed ? maxWorkingCap - user.workingCapConsumed : 0n;
+  return usd(headroom);
+}
 /** 18-decimal token amount -> "1,234.5678" */
 export const tokens = (v: bigint, digits = 4) => numFmt(digits).format(Number(formatUnits(v, 18)));
 /** 18-decimal price -> "$1.0234" */

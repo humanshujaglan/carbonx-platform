@@ -3,16 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
-  ArrowDown2,
-  ArrowSwapHorizontal,
-  CardAdd,
   Copy,
-  DirectSend,
-  Eye,
-  EyeSlash,
+  Share,
   TickCircle,
-  TrendUp,
-  Wallet3,
 } from "iconsax-react";
 import leafImage from "@/public/leave.png";
 import walletImage from "@/public/wallet.png";
@@ -23,14 +16,13 @@ import { shortAddr, usd } from "@/lib/format";
 import { usePlatform } from "@/lib/platform";
 import { Header, type NavTab } from "./header";
 import { IncomesDashboard } from "./incomes-dashboard";
+import { WithdrawDashboard } from "./withdraw-dashboard";
 import { InvestCard } from "./invest-card";
 import { MarketRibbon } from "./market-ribbon";
 import { PackagesList } from "./packages-list";
 import { RegisterCard } from "./register-card";
 import { TeamTree } from "./team-tree";
 import { StructureView } from "./structure-view";
-import { OperationsDashboard } from "./operations-dashboard";
-import { SwapCard } from "./swap-card";
 import { BottomNavbar } from "./bottom-navbar";
 import { CardHeader, Notice, Pill } from "./ui";
 import { useWallet } from "./wallet";
@@ -41,12 +33,9 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
   const { addresses, market, user, error, refresh, loading } = usePlatform(account);
   const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
 
-  const [hideBalance, setHideBalance] = useState<boolean>(false);
-  const [copiedAddr, setCopiedAddr] = useState<boolean>(false);
-  const [activeCategory, setActiveCategory] = useState<string>("Top");
-
   const isUserRegistered = user?.isRegistered ?? false;
   const [hasEnteredDashboard, setHasEnteredDashboard] = useState<boolean>(false);
+  const [copiedRef, setCopiedRef] = useState<boolean>(false);
 
   // Sync entered state with sessionStorage per account
   useEffect(() => {
@@ -72,6 +61,22 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
     setHasEnteredDashboard(false);
   };
 
+  const refUrl =
+    typeof window !== "undefined" && account
+      ? `${window.location.origin}/?ref=${account}`
+      : account
+      ? `https://carbonx.finance/?ref=${account}`
+      : "";
+
+  const copyReferralLink = () => {
+    if (refUrl && typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(refUrl).then(() => {
+        setCopiedRef(true);
+        setTimeout(() => setCopiedRef(false), 2000);
+      });
+    }
+  };
+
   // STRICT GATING: Without registration or login (or prior to clicking "Enter Dashboard"), show AuthPortal
   if (!account || !isUserRegistered || !hasEnteredDashboard) {
     return (
@@ -85,23 +90,6 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
       />
     );
   }
-
-  // Calculate total portfolio balance
-  const totalBalanceRaw = user
-    ? user.totalActiveDeposit +
-      user.workingIncomePending +
-      user.roiIncomePending +
-      user.boosterIncomePending
-    : 0n;
-
-  const copyAddress = () => {
-    if (account && typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(account).then(() => {
-        setCopiedAddr(true);
-        setTimeout(() => setCopiedAddr(false), 2000);
-      });
-    }
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -119,183 +107,100 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
           {/* Protocol & Market Overview */}
           <MarketRibbon market={market} addresses={addresses} />
 
-          {/* FluxChain-inspired Total Balance & Quick Action Hero Section */}
-          <section className="card relative overflow-hidden p-6 sm:p-7 flex flex-col gap-5 border border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.7)]">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-xs font-medium text-muted">Total Balance</span>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-                    {hideBalance ? "••••••••" : usd(totalBalanceRaw)}
-                  </h2>
-                  <span className="text-xs font-semibold text-muted">USD</span>
+          {/* Referral Link & Network Invitation Hero */}
+          <section className="card relative overflow-hidden p-5 sm:p-6 flex flex-col gap-4 border border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.7)]" aria-label="Referral link">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1fe03a]/20 to-[#0a150c] border border-neon/40 text-neon shadow-[0_0_15px_rgba(31,224,58,0.2)]">
+                  <Share size={20} color="#1fe03a" variant="Bold" />
                 </div>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <span className="text-xs font-semibold text-neon-soft">
-                    +{user ? usd(user.roiIncomePending) : "$0.00"}
-                  </span>
-                  <span className="rounded-full bg-neon/15 px-2 py-0.5 text-[10px] font-bold text-neon border border-neon/30">
-                    16.16%
-                  </span>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                    <span>My Referral Link</span>
+                  </h3>
+                  <p className="text-xs text-muted">
+                    Share your unique link to earn 5% direct commission, unilevel matchings & unlock daily booster yields.
+                  </p>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <Pill tone="green">5% Direct Commission</Pill>
+              </div>
+            </div>
 
-              {/* Eye Toggle button in rounded dark pill */}
+            {/* Referral URL Input & Copy Button Row */}
+            <div className="flex flex-col sm:flex-row items-stretch gap-2.5 pt-1">
+              <div className="well flex-1 flex items-center gap-2 px-3.5 py-3 border border-neon/20 bg-[#0c120e]">
+                <span className="size-2 rounded-full bg-neon shrink-0 shadow-[0_0_6px_#1fe03a]" />
+                <input
+                  type="text"
+                  readOnly
+                  value={refUrl || "Connect wallet to generate referral link"}
+                  className="w-full bg-transparent font-mono text-xs sm:text-sm text-neon-soft outline-none truncate select-all"
+                />
+              </div>
               <button
                 type="button"
-                onClick={() => setHideBalance((v) => !v)}
-                className="flex size-10 items-center justify-center rounded-2xl bg-[#121914] text-muted hover:text-white hover:border-neon/40 transition border border-white/[0.06] cursor-pointer"
-                title={hideBalance ? "Show Balance" : "Hide Balance"}
+                disabled={!account}
+                onClick={copyReferralLink}
+                className="btn btn-primary px-5 py-3 text-xs font-bold flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-[0_0_15px_rgba(31,224,58,0.25)]"
               >
-                {hideBalance ? (
-                  <EyeSlash size={18} color="currentColor" />
+                {copiedRef ? (
+                  <>
+                    <TickCircle size={16} color="#050806" variant="Bold" />
+                    <span>Copied Link!</span>
+                  </>
                 ) : (
-                  <Eye size={18} color="currentColor" />
+                  <>
+                    <Copy size={16} color="#050806" variant="Bold" />
+                    <span>Copy Referral Link</span>
+                  </>
                 )}
               </button>
             </div>
 
-            {/* Wallet Selection Pills Carousel matching left screen */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-              <div className="rounded-full bg-[#121914] px-3.5 py-1.5 text-xs font-semibold text-muted border border-white/[0.06]">
-                Wallet 1
-              </div>
-              <button
-                type="button"
-                onClick={copyAddress}
-                className="flex items-center gap-2 rounded-full bg-[#152319] px-3.5 py-1.5 text-xs font-mono font-semibold text-neon border border-neon/30 shadow-[0_0_10px_rgba(31,224,58,0.15)] cursor-pointer"
-              >
-                <span>{account ? shortAddr(account) : "0x000...000"}</span>
-                {copiedAddr ? (
-                  <TickCircle size={14} color="#1fe03a" variant="Bold" />
-                ) : (
-                  <Copy size={14} color="#1fe03a" variant="Linear" />
-                )}
-              </button>
-              <div className="rounded-full bg-[#121914] px-3.5 py-1.5 text-xs font-semibold text-muted border border-white/[0.06]">
-                BSC Network
-              </div>
-            </div>
-
-            {/* Action Buttons: Request (Dark) & Transfer/Invest (Vibrant Green) */}
-            <div className="grid grid-cols-[1fr_1.2fr_auto] gap-2.5 pt-1">
-              {/* Request / Withdraw */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("incomes")}
-                className="btn btn-secondary !rounded-2xl py-3.5 text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
-              >
-                <ArrowDown2 size={16} className="-rotate-45" />
-                <span>Withdraw</span>
-              </button>
-
-              {/* Transfer / Invest (Electric Green) */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("invest")}
-                className="btn btn-primary !rounded-2xl py-3.5 text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
-              >
-                <DirectSend size={16} color="#03140a" variant="Bold" />
-                <span>Invest USDT</span>
-              </button>
-
-              {/* More / Swap action */}
-              <button
-                type="button"
-                onClick={() => setActiveTab("trade")}
-                className="btn btn-secondary !rounded-2xl !px-3.5 flex items-center justify-center"
-                title="Exchange / Swap"
-              >
-                <ArrowSwapHorizontal size={18} />
-              </button>
-            </div>
-
-            {/* Filter Tabs matching reference image: Favorites, Top, New, Gainers, Hot */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-white/[0.06]">
-              {["Favorites", "Top", "New", "Gainers", "Hot"].map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setActiveCategory(cat)}
-                  className={`pill-tab ${
-                    activeCategory === cat ? "pill-tab-active" : "pill-tab-inactive"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            {/* My Funds / Token Balances List matching left screen */}
-            <div className="flex flex-col gap-2 pt-1">
-              <div className="flex items-center justify-between text-xs font-semibold">
-                <span className="text-white">My Funds</span>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("trade")}
-                  className="text-muted hover:text-neon transition cursor-pointer"
-                >
-                  View All
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {/* CARB Token Card */}
-                <div className="rounded-2xl bg-[#121914] p-3.5 border border-white/[0.06] flex items-center justify-between hover:border-neon/30 transition">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-2xl bg-neon/15 text-neon font-black text-sm border border-neon/30 shadow-[0_0_12px_rgba(31,224,58,0.2)]">
-                      CX
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white">CARB</div>
-                      <div className="text-[11px] text-muted">CarbonX Token</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-white">
-                      {user ? (Number(user.carbBalance) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0.00"}
-                    </div>
-                    <div className="text-[10px] font-semibold text-neon-soft">
-                      {market ? usd(market.spotPrice) : "$1.00"} · ↑ 2.64%
-                    </div>
-                  </div>
+            {/* Quick Network Sponsor Telemetry */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-white/[0.04]">
+              <div className="well p-3">
+                <div className="text-[10px] uppercase font-semibold text-muted tracking-wider">Active Directs</div>
+                <div className="mt-1 text-sm font-bold text-white">
+                  {user?.activeDirectCount ?? 0} Partners
                 </div>
-
-                {/* USDT Token Card */}
-                <div className="rounded-2xl bg-[#121914] p-3.5 border border-white/[0.06] flex items-center justify-between hover:border-neon/30 transition">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400 font-black text-sm border border-emerald-500/30">
-                      ₮
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white">USDT</div>
-                      <div className="text-[11px] text-muted">Tether USD</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-white">
-                      {user ? usd(user.usdtBalance) : "$0.00"}
-                    </div>
-                    <div className="text-[10px] font-semibold text-muted">
-                      $1.00 · Stable
-                    </div>
-                  </div>
+              </div>
+              <div className="well p-3">
+                <div className="text-[10px] uppercase font-semibold text-muted tracking-wider">Direct Business</div>
+                <div className="mt-1 text-sm font-bold text-neon-soft font-mono">
+                  {user ? usd(user.totalDirectBusiness) : "$0.00"}
+                </div>
+              </div>
+              <div className="well p-3">
+                <div className="text-[10px] uppercase font-semibold text-muted tracking-wider">Direct Rewards Ready</div>
+                <div className="mt-1 text-sm font-bold text-white font-mono">
+                  {user ? usd(user.pendingDirectBonusAvailable) : "$0.00"}
+                </div>
+              </div>
+              <div className="well p-3">
+                <div className="text-[10px] uppercase font-semibold text-muted tracking-wider">Team Unilevel Volume</div>
+                <div className="mt-1 text-sm font-bold text-neon-soft font-mono">
+                  {user ? usd(user.totalTeamBusiness) : "$0.00"}
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Quick Action Grid: InvestCard & PackagesList */}
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-            <InvestCard addresses={addresses} user={user} onDone={refresh} />
-            <div className="flex flex-col gap-6">
-              <PackagesList positions={user?.positions ?? []} addresses={addresses} onDone={refresh} />
-            </div>
-          </div>
+          {/* Home Page: All Income Streams with Live Streaming ROI, Booster & Level Yield */}
+          <IncomesDashboard
+            user={user}
+            addresses={addresses}
+            market={market}
+            onDone={refresh}
+            isHome={true}
+            onNavigateTab={setActiveTab}
+          />
         </div>
       )}
 
-      {/* Tab 2: Invest & Packages */}
+      {/* Tab: Invest & Packages (Dedicated Investment Page) */}
       {activeTab === "invest" && (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
           <div className="flex flex-col gap-6">
@@ -307,9 +212,19 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
         </div>
       )}
 
-      {/* Tab 3: Detailed Incomes & Withdrawals */}
+      {/* Tab: Withdrawals & Yield Payout Portal (Dedicated Withdrawal Page) */}
+      {activeTab === "withdraw" && (
+        <WithdrawDashboard user={user} addresses={addresses} onDone={refresh} />
+      )}
+
+      {/* Tab: Detailed Incomes (Alias to IncomesDashboard) */}
       {activeTab === "incomes" && (
-        <IncomesDashboard user={user} addresses={addresses} onDone={refresh} />
+        <IncomesDashboard
+          user={user}
+          addresses={addresses}
+          market={market}
+          onDone={refresh}
+        />
       )}
 
       {/* Tab 4: Team & Network */}
@@ -320,14 +235,6 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
       {/* Tab 5: Complete Downline Structure */}
       {activeTab === "structure" && (
         <StructureView user={user} addresses={addresses} onDone={refresh} />
-      )}
-
-      {/* Tab 6: Protocol Operations & Telemetry */}
-      {activeTab === "operations" && <OperationsDashboard />}
-
-      {/* Tab 7: Balances & Token Exchange (Trade/Sell) */}
-      {activeTab === "trade" && (
-        <SwapCard addresses={addresses} onDone={refresh} />
       )}
 
       {/* Floating Designer Bottom Navbar */}
