@@ -471,10 +471,15 @@ export function AuthPortal({
                   <div className="flex-1 px-3 text-left min-w-0">
                     {account ? (
                       <div
-                        className="font-mono text-xs sm:text-sm font-medium text-white truncate whitespace-nowrap tracking-tight select-all w-full"
+                        className="font-sans text-sm sm:text-base font-normal text-white truncate whitespace-nowrap tracking-normal"
                         title={account}
                       >
-                        {account}
+                        <span className="sm:hidden">
+                          {account.length > 26 ? `${account.slice(0, 13)}...${account.slice(-9)}` : account}
+                        </span>
+                        <span className="hidden sm:inline">
+                          {account.length > 32 ? `${account.slice(0, 17)}...${account.slice(-12)}` : account}
+                        </span>
                       </div>
                     ) : (
                       <button
@@ -649,8 +654,8 @@ export function AuthPortal({
                 </div>
                 <div className="flex flex-col min-w-0">
                   <span className="text-[10px] uppercase text-muted font-medium">Connected Wallet</span>
-                  <span className="font-mono text-xs sm:text-sm font-semibold text-white truncate" title={account}>
-                    {account ? account : "No wallet connected"}
+                  <span className="font-sans text-xs sm:text-sm font-semibold text-white truncate" title={account}>
+                    {account ? `${account.slice(0, 10)}...${account.slice(-8)}` : "No wallet connected"}
                   </span>
                 </div>
               </div>
