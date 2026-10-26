@@ -471,10 +471,10 @@ export function AuthPortal({
                   <div className="flex-1 px-3 text-left min-w-0">
                     {account ? (
                       <div
-                        className="font-sans text-sm sm:text-base font-normal text-white truncate whitespace-nowrap tracking-normal"
+                        className="font-mono text-xs sm:text-sm font-medium text-white truncate whitespace-nowrap tracking-tight select-all w-full"
                         title={account}
                       >
-                        {shortAddr(account)}
+                        {account}
                       </div>
                     ) : (
                       <button
@@ -649,8 +649,8 @@ export function AuthPortal({
                 </div>
                 <div className="flex flex-col min-w-0">
                   <span className="text-[10px] uppercase text-muted font-medium">Connected Wallet</span>
-                  <span className="font-sans text-xs sm:text-sm font-semibold text-white truncate" title={account}>
-                    {account ? shortAddr(account) : "No wallet connected"}
+                  <span className="font-mono text-xs sm:text-sm font-semibold text-white truncate" title={account}>
+                    {account ? account : "No wallet connected"}
                   </span>
                 </div>
               </div>
