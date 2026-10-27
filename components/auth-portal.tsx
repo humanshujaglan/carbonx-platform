@@ -26,12 +26,12 @@ import {
   MAX_DEPOSIT_USDT,
 } from "@/lib/config";
 import { shortAddr, usd } from "@/lib/format";
+import { packageRates } from "@/lib/roi";
 import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
 import { Notice, Pill, Spinner, useTx } from "./ui";
 import { useWallet } from "./wallet";
 
 const PRESET_AMOUNTS = [100, 500, 1000, 2500, 5000];
-const GENESIS_TOP_ID = "0x98528F6bF0d2E8497e6827096538E885Fce88029" as Address;
 
 export function AuthPortal({
   addresses,
@@ -106,13 +106,14 @@ export function AuthPortal({
   const isBelowMin = depositUsdt < MIN_DEPOSIT_USDT;
   const isAboveMax = depositUsdt > MAX_DEPOSIT_USDT;
   const lockInfo = LOCK_DETAILS[selectedLock];
-  const estDailyUsd = (Number(depositUsdt) / 1e18) * lockInfo.dailyRate;
+  const lhrTier = market?.lhrTier ?? 0;
+  const lockRates = packageRates(selectedLock, lhrTier);
+  const estDailyUsd = ((Number(depositUsdt) / 1e18) * lockRates.avgDailyPct) / 100;
   const maxCapUsd = (Number(depositUsdt) / 1e18) * lockInfo.capMultiplier;
 
-  const resolvedSponsor: Address =
-    sponsorInput && isAddress(sponsorInput)
-      ? (sponsorInput as Address)
-      : (addresses?.topId ?? GENESIS_TOP_ID);
+  const onChainTopId = addresses?.topId && addresses.topId !== "0x0000000000000000000000000000000000000000" ? addresses.topId : undefined;
+  const resolvedSponsor: Address | undefined =
+    sponsorInput && isAddress(sponsorInput) ? (sponsorInput as Address) : onChainTopId;
 
   const needsApproval =
     !!addresses && !!user && user.usdtAllowance < depositUsdt && depositUsdt > 0n;
@@ -136,7 +137,7 @@ export function AuthPortal({
   }
 
   async function handleRegister() {
-    if (!addresses || !account || isBelowMin || isAboveMax) return;
+    if (!addresses || !account || !resolvedSponsor || isBelowMin || isAboveMax) return;
     const leaderCodeNum = BigInt(leaderCodeInput.trim() || "0");
 
     await tx.run(
@@ -306,21 +307,21 @@ export function AuthPortal({
 
             {/* SPACER: CONTENT BELOW LOGO IS LOWER DOWN */}
             <div className="mt-6 sm:mt-8 flex flex-col items-center w-full">
-              {/* Pill Badge: 'Trade Crypto Anytime' (font-light, tracking-normal, capitalize) */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-light text-neon-soft tracking-normal capitalize shadow-[0_0_12px_rgba(31,224,58,0.15)]">
+              {/* Pill Badge: 'Trade Crypto Anytime' (font-normal, tracking-normal, capitalize) */}
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-normal text-neon-soft tracking-normal capitalize shadow-[0_0_12px_rgba(31,224,58,0.15)]">
                 <MagicStar size={13} color="#1fe03a" variant="Bold" />
                 <span>Carbon Credit Ecosystem</span>
               </div>
 
-              {/* Hero Typography (Plus Jakarta Sans, font-light, tracking-normal, capitalize) - BIGGER TITLE */}
+              {/* Hero Typography (Plus Jakarta Sans, font-normal, tracking-normal, capitalize) - BIGGER TITLE */}
               <div className="mt-3.5 sm:mt-4 text-center">
-                <h1 className="text-4xl sm:text-5xl font-light text-white leading-[1.12] tracking-normal capitalize">
+                <h1 className="text-3xl font-normal text-white leading-[1.12] tracking-normal capitalize">
                   Powering Carbon <br />
                   <span className="font-normal text-neon">
                     Negative Future
                   </span>
                 </h1>
-                <p className="mt-2 text-xs sm:text-sm font-light text-muted tracking-normal capitalize">
+                <p className="mt-2 text-xs font-normal text-muted tracking-normal capitalize">
                   Tokenizing nature into digital assets
                 </p>
               </div>
@@ -445,9 +446,9 @@ export function AuthPortal({
             {/* Card Body seamlessly joined to the curved top, with visible side borders and rounded base */}
             <div className="w-full bg-[#0b110d] px-4 sm:px-6 pt-1.5 pb-6 sm:pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col items-center rounded-b-[2rem] sm:rounded-b-[2.5rem] border-x border-b border-white/[0.05]">
               <div className="w-full max-w-sm sm:max-w-md mx-auto flex flex-col gap-3.5">
-                {/* Header inside the curved card (font-light, tracking-normal, capitalize) */}
+                {/* Header inside the curved card (font-normal, tracking-normal, capitalize) */}
                 <div className="text-center pt-0.5">
-                  <span className="text-xs sm:text-sm font-light text-white tracking-normal capitalize">
+                  <span className="text-xs font-normal text-white tracking-normal capitalize">
                     {account && isRegistered
                       ? "Welcome Back To CarbonX!"
                       : "Don't Have An Account Yet?"}
@@ -464,14 +465,14 @@ export function AuthPortal({
                   >
                     <span className="text-sm">⚡</span>
                     <span>BSC</span>
-                    <span className="text-[10px] text-muted">▼</span>
+                    <span className="text-2xs text-muted">▼</span>
                   </button>
 
                   {/* Right Address Display */}
                   <div className="flex-1 px-3 text-left min-w-0">
                     {account ? (
                       <div
-                        className="font-sans text-sm sm:text-base font-normal text-white truncate whitespace-nowrap tracking-normal"
+                        className="font-sans text-sm font-normal text-white truncate whitespace-nowrap tracking-normal"
                         title={account}
                       >
                         <span className="sm:hidden">
@@ -485,7 +486,7 @@ export function AuthPortal({
                       <button
                         type="button"
                         onClick={() => connect().catch(() => {})}
-                        className="text-left font-sans text-sm sm:text-base font-light text-muted hover:text-neon transition cursor-pointer w-full truncate whitespace-nowrap tracking-normal capitalize"
+                        className="text-left font-sans text-sm font-normal text-muted hover:text-neon transition cursor-pointer w-full truncate whitespace-nowrap tracking-normal capitalize"
                       >
                         Connect Your Web3 Wallet
                       </button>
@@ -509,7 +510,7 @@ export function AuthPortal({
                     <button
                       type="button"
                       onClick={() => setViewStep("login_wallets")}
-                      className="rounded-lg bg-neon/15 px-2.5 py-1 text-[11px] font-normal text-neon border border-neon/30 hover:bg-neon/25 transition cursor-pointer shrink-0 tracking-normal capitalize"
+                      className="rounded-lg bg-neon/15 px-2.5 py-1 text-2xs font-normal text-neon border border-neon/30 hover:bg-neon/25 transition cursor-pointer shrink-0 tracking-normal capitalize"
                     >
                       Wallets
                     </button>
@@ -537,8 +538,8 @@ export function AuthPortal({
                   )}
                 </button>
 
-                {/* Subtext: font-light, tracking-normal, capitalize */}
-                <div className="text-center text-xs font-light text-muted tracking-normal capitalize pt-0.5">
+                {/* Subtext: font-normal, tracking-normal, capitalize */}
+                <div className="text-center text-xs font-normal text-muted tracking-normal capitalize pt-0.5">
                   {!account ? (
                     <span>Connect Your Web3 Wallet To Start</span>
                   ) : isRegistered ? (
@@ -605,14 +606,14 @@ export function AuthPortal({
 
           {/* Page Hero Header */}
           <div className="w-full max-w-[500px] text-center pt-5 pb-3 px-2">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#0c1610] px-3.5 py-1 text-[11px] font-light text-neon-soft border border-neon/25 shadow-[0_0_12px_rgba(31,224,58,0.12)]">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#0c1610] px-3.5 py-1 text-2xs font-normal text-neon-soft border border-neon/25 shadow-[0_0_12px_rgba(31,224,58,0.12)]">
               <MagicStar size={12} color="#1fe03a" variant="Bold" />
               <span>On-Chain Registration</span>
             </div>
-            <h1 className="mt-2.5 text-2xl sm:text-3xl font-light text-white tracking-normal capitalize">
+            <h1 className="mt-2.5 text-3xl font-normal text-white tracking-normal capitalize">
               Activate Your <span className="font-normal text-neon">Yield Account</span>
             </h1>
-            <p className="mt-1 text-xs sm:text-sm font-light text-muted tracking-normal">
+            <p className="mt-1 text-xs font-normal text-muted tracking-normal">
               Deposit USDT, configure your strategy, and unlock decentralized earnings
             </p>
           </div>
@@ -653,16 +654,16 @@ export function AuthPortal({
                   <Wallet3 size={16} variant="Bold" />
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-[10px] uppercase text-muted font-medium">Connected Wallet</span>
-                  <span className="font-sans text-xs sm:text-sm font-semibold text-white truncate" title={account}>
+                  <span className="text-2xs uppercase text-muted font-medium">Connected Wallet</span>
+                  <span className="font-sans text-xs font-semibold text-white truncate" title={account}>
                     {account ? `${account.slice(0, 10)}...${account.slice(-8)}` : "No wallet connected"}
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] uppercase text-muted font-medium">USDT Balance</span>
-                  <span className="font-sans text-xs sm:text-sm font-bold text-neon-soft">
+                  <span className="text-2xs uppercase text-muted font-medium">USDT Balance</span>
+                  <span className="font-sans text-xs font-semibold text-neon-soft">
                     {usd(user?.usdtBalance ?? 0n)}
                   </span>
                 </div>
@@ -690,13 +691,13 @@ export function AuthPortal({
                   <span>1. Referral / Sponsor ID</span>
                 </label>
                 <span
-                  className={`text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                  className={`text-2xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
                     sponsorInput && isAddress(sponsorInput)
                       ? "bg-neon/15 text-neon border border-neon/30"
                       : "bg-white/[0.05] text-muted border border-white/[0.08]"
                   }`}
                 >
-                  {sponsorInput && isAddress(sponsorInput) ? "✓ Verified Sponsor" : "Genesis Top ID (Default)"}
+                  {sponsorInput && isAddress(sponsorInput) ? "✓ Verified Sponsor" : "Top ID (Default)"}
                 </span>
               </div>
               <div className="relative flex items-center rounded-2xl bg-[#121914] border border-white/[0.08] focus-within:border-neon/50 focus-within:ring-2 focus-within:ring-neon/15 transition overflow-hidden">
@@ -705,7 +706,7 @@ export function AuthPortal({
                 </div>
                 <input
                   type="text"
-                  placeholder="0x... (leave blank for Genesis Top ID)"
+                  placeholder="0x... (leave blank for Top ID)"
                   value={sponsorInput}
                   onChange={(e) => setSponsorInput(e.target.value.trim())}
                   className="w-full bg-transparent py-3 px-2 text-xs font-sans text-white placeholder:text-muted/60 outline-none"
@@ -720,7 +721,7 @@ export function AuthPortal({
                       } catch {}
                     }
                   }}
-                  className="mr-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] px-3 py-1.5 text-[11px] font-medium text-white transition cursor-pointer shrink-0"
+                  className="mr-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] px-3 py-1.5 text-2xs font-medium text-white transition cursor-pointer shrink-0"
                 >
                   Paste
                 </button>
@@ -731,7 +732,7 @@ export function AuthPortal({
             <div className="flex flex-col gap-1.5 text-left">
               <div className="flex items-center justify-between gap-1">
                 <label className="text-xs font-semibold text-white">2. Leaderboard Team Code</label>
-                <span className="text-[10px] text-muted shrink-0">Optional (Default: 0)</span>
+                <span className="text-2xs text-muted shrink-0">Optional (Default: 0)</span>
               </div>
               <div className="relative flex items-center rounded-2xl bg-[#121914] border border-white/[0.08] focus-within:border-neon/50 focus-within:ring-2 focus-within:ring-neon/15 transition overflow-hidden">
                 <input
@@ -749,11 +750,11 @@ export function AuthPortal({
             <div className="flex flex-col gap-2 text-left">
               <div className="flex items-center justify-between gap-1">
                 <label className="text-xs font-semibold text-white">3. Deposit Amount (USDT)</label>
-                <span className="text-[10px] sm:text-[11px] text-muted shrink-0">Min: $100 · Max: $5,000</span>
+                <span className="text-2xs text-muted shrink-0">Min: $100 · Max: $5,000</span>
               </div>
 
               <div className="relative flex items-center rounded-2xl bg-[#121914] border border-white/[0.08] focus-within:border-neon/50 focus-within:ring-2 focus-within:ring-neon/15 transition overflow-hidden px-4 py-2">
-                <span className="text-xl font-bold text-muted select-none mr-2">$</span>
+                <span className="text-xl font-semibold text-muted select-none mr-2">$</span>
                 <input
                   type="number"
                   min="100"
@@ -761,9 +762,9 @@ export function AuthPortal({
                   step="50"
                   value={amountStr}
                   onChange={(e) => setAmountStr(e.target.value)}
-                  className="w-full bg-transparent py-2 text-2xl font-bold text-white placeholder:text-muted/40 outline-none font-sans"
+                  className="w-full bg-transparent py-2 text-3xl font-semibold text-white placeholder:text-muted/40 outline-none font-sans"
                 />
-                <div className="flex items-center gap-1.5 rounded-xl bg-[#19241c] px-3 py-1.5 text-xs font-bold text-neon-soft border border-neon/25 shrink-0">
+                <div className="flex items-center gap-1.5 rounded-xl bg-[#19241c] px-3 py-1.5 text-xs font-semibold text-neon-soft border border-neon/25 shrink-0">
                   <span>USDT</span>
                 </div>
               </div>
@@ -777,9 +778,9 @@ export function AuthPortal({
                       key={amt}
                       type="button"
                       onClick={() => setAmountStr(String(amt))}
-                      className={`rounded-xl py-2 px-1 text-[11px] sm:text-xs font-semibold transition cursor-pointer text-center ${
+                      className={`rounded-xl py-2 px-1 text-2xs font-semibold transition cursor-pointer text-center ${
                         isSelected
-                          ? "btn-primary !border-0 text-[#031005] font-bold shadow-[0_0_12px_rgba(45,225,75,0.4)]"
+                          ? "btn-primary !border-0 text-[#031005] font-semibold shadow-[0_0_12px_rgba(45,225,75,0.4)]"
                           : "bg-[#121914] text-muted hover:text-white hover:bg-[#162319] border border-white/[0.06]"
                       }`}
                     >
@@ -794,7 +795,7 @@ export function AuthPortal({
             <div className="flex flex-col gap-2 text-left pt-1">
               <div className="flex items-center justify-between gap-1">
                 <label className="text-xs font-semibold text-white">4. Select Yield Strategy</label>
-                <span className="text-[10px] sm:text-[11px] text-muted shrink-0">Capital lock duration</span>
+                <span className="text-2xs text-muted shrink-0">Capital lock duration</span>
               </div>
 
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
@@ -806,6 +807,7 @@ export function AuthPortal({
                   ] as const
                 ).map((type) => {
                   const item = LOCK_DETAILS[type];
+                  const itemRates = packageRates(type, lhrTier);
                   const isSelected = selectedLock === type;
                   return (
                     <button
@@ -819,22 +821,24 @@ export function AuthPortal({
                       }`}
                     >
                       {type === LockType.LOCKED_100 && (
-                        <span className="absolute -top-2 right-1.5 rounded-full bg-neon px-1.5 py-0.5 text-[8px] font-bold text-[#031005] shadow-[0_0_8px_rgba(31,224,58,0.5)]">
+                        <span className="absolute -top-2 right-1.5 rounded-full bg-neon px-1.5 py-0.5 text-2xs font-semibold text-[#031005] shadow-[0_0_8px_rgba(31,224,58,0.5)]">
                           Popular
                         </span>
                       )}
                       <div>
-                        <div className="text-[11px] sm:text-xs font-bold text-white truncate">{item.name}</div>
-                        <div className="text-[9px] sm:text-[10px] text-muted mt-0.5 truncate">
-                          {type === LockType.FLEXIBLE ? "Daily Access" : type === LockType.LOCKED_100 ? "365d Lock" : "180d Lock"}
+                        <div className="text-2xs font-semibold text-white truncate">{item.name}</div>
+                        <div className="text-2xs text-muted mt-0.5 truncate">
+                          {type === LockType.FLEXIBLE ? "Daily Access" : `${item.lockDays}d Lock`}
                         </div>
                       </div>
                       <div className="mt-2.5 sm:mt-3">
-                        <div className="text-xs sm:text-sm font-bold text-neon-soft">
-                          {item.monthlyRatePercent}%<span className="text-[9px] sm:text-[10px] font-normal text-muted">/mo</span>
+                        <div className="text-xs font-semibold text-neon-soft">
+                          {itemRates.monthlyPct.toFixed(1)}%<span className="text-2xs font-normal text-muted">/mo</span>
                         </div>
-                        <div className="text-[9px] sm:text-[10px] text-muted/80">
-                          {(item.dailyRate * 100).toFixed(2)}%/day
+                        <div className="text-2xs text-muted/80">
+                          {itemRates.firstDailyPct === itemRates.lastDailyPct
+                            ? `${itemRates.firstDailyPct.toFixed(2)}%/day`
+                            : `${itemRates.firstDailyPct.toFixed(2)}–${itemRates.lastDailyPct.toFixed(2)}%/day`}
                         </div>
                       </div>
                     </button>
@@ -850,17 +854,17 @@ export function AuthPortal({
                   <TrendUp size={14} color="#1fe03a" />
                   <span>Estimated Daily:</span>
                 </span>
-                <span className="font-bold text-neon-soft text-xs sm:text-sm shrink-0 text-right">
-                  ~${estDailyUsd.toFixed(2)} USDT <span className="text-[10px] font-normal text-muted">({lockInfo.monthlyRatePercent}%/mo)</span>
+                <span className="font-semibold text-neon-soft text-xs shrink-0 text-right">
+                  ~${estDailyUsd.toFixed(2)} USDT <span className="text-2xs font-normal text-muted">(avg · {lockRates.monthlyPct.toFixed(2)}%/mo)</span>
                 </span>
               </div>
 
               <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/[0.05]">
                 <span className="text-muted shrink-0">Maximum Cap (2.5x):</span>
-                <span className="font-bold text-white shrink-0 text-right">${maxCapUsd.toLocaleString()} USDT</span>
+                <span className="font-semibold text-white shrink-0 text-right">${maxCapUsd.toLocaleString()} USDT</span>
               </div>
 
-              <div className="flex items-center justify-between gap-2 text-[11px]">
+              <div className="flex items-center justify-between gap-2 text-2xs">
                 <span className="text-muted shrink-0">Smart Contract:</span>
                 <span className="text-neon flex items-center gap-1 font-medium shrink-0 text-right">
                   <ShieldTick size={13} color="#1fe03a" variant="Bold" /> Verified BEP-20
@@ -919,7 +923,7 @@ export function AuthPortal({
             )}
 
             {/* Footer Trust Note */}
-            <div className="text-center text-[11px] text-muted/70 font-light pt-0.5">
+            <div className="text-center text-2xs text-muted/70 font-normal pt-0.5">
               Non-custodial smart contract deposit · Secured by BSC Network
             </div>
           </div>
@@ -956,10 +960,10 @@ export function AuthPortal({
           </div>
 
           <div className="w-full max-w-[480px] text-center pt-5 pb-4">
-            <h1 className="text-2xl sm:text-3xl font-light text-white tracking-normal capitalize">
+            <h1 className="text-3xl font-normal text-white tracking-normal capitalize">
               Connect Your <span className="font-normal text-neon">Web3 Wallet</span>
             </h1>
-            <p className="mt-1 text-xs sm:text-sm font-light text-muted tracking-normal">
+            <p className="mt-1 text-xs font-normal text-muted tracking-normal">
               Select your preferred Binance Smart Chain provider
             </p>
           </div>
@@ -982,12 +986,12 @@ export function AuthPortal({
                 className="flex items-center justify-between rounded-2xl bg-[#121914] p-3.5 border border-white/[0.06] hover:border-neon/50 hover:bg-[#162319] hover:shadow-[0_0_16px_rgba(31,224,58,0.2)] transition cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-neon/10 text-neon border border-neon/20 font-bold text-sm">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-neon/10 text-neon border border-neon/20 font-semibold text-sm">
                     {wallet.name[0]}
                   </div>
                   <div className="text-left">
-                    <div className="text-xs font-bold text-white">{wallet.name}</div>
-                    <div className="text-[11px] text-muted">{wallet.sub}</div>
+                    <div className="text-xs font-semibold text-white">{wallet.name}</div>
+                    <div className="text-2xs text-muted">{wallet.sub}</div>
                   </div>
                 </div>
                 <span className="text-xs font-semibold text-neon flex items-center gap-1">

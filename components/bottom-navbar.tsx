@@ -56,8 +56,8 @@ export function BottomNavbar({
                 className={`transition-transform duration-150 ${isActive ? "scale-105" : ""}`}
               />
               <span
-                className={`text-[10px] sm:text-[11px] font-medium tracking-tight mt-0.5 ${
-                  isActive ? "text-white font-bold" : "text-[#7e8d83]"
+                className={`text-2xs font-medium tracking-tight mt-0.5 ${
+                  isActive ? "text-white font-semibold" : "text-[#7e8d83]"
                 }`}
               >
                 {tab.name}

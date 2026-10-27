@@ -10,25 +10,20 @@ export const usd = (v: bigint) => {
 };
 
 /**
- * Calculates and formats working cap headroom in USD.
- * Never returns "Unlimited" — if the contract returns type(uint256).max (such as for topId / genesis root),
- * it calculates the sustainable 300% (3x) cap based on the user's active deposit base.
+ * Formats working cap headroom exactly as `getUserWorkingCapHeadroom` returns it:
+ * 2.5x personal deposit minus consumed, or type(uint256).max for the Top ID (no working cap).
  */
-export function formatWorkingCapHeadroom(user?: {
-  workingCapHeadroom: bigint;
-  totalActiveDeposit: bigint;
-  workingCapConsumed: bigint;
-}): string {
+export function formatWorkingCapHeadroom(user?: { workingCapHeadroom: bigint }): string {
   if (!user) return "—";
-  if (user.workingCapHeadroom > 0n && user.workingCapHeadroom < 10n ** 30n) {
-    return usd(user.workingCapHeadroom);
-  }
-  // If contract returned uint256.max (e.g. for topId) or headroom wasn't provided,
-  // compute the real 300% (3x) working cap based on totalActiveDeposit:
-  const maxWorkingCap = user.totalActiveDeposit * 3n;
-  const headroom = maxWorkingCap > user.workingCapConsumed ? maxWorkingCap - user.workingCapConsumed : 0n;
-  return usd(headroom);
+  if (user.workingCapHeadroom >= 10n ** 30n) return "No cap (Top ID)";
+  return usd(user.workingCapHeadroom);
 }
+/** On-chain rank index (0-15) -> "Rank 3"; rank names are not defined by the contract. */
+export const rankLabel = (rank: number | bigint | undefined) => {
+  const n = Number(rank ?? 0);
+  return n > 0 ? `Rank ${n}` : "No rank";
+};
+
 /** 18-decimal token amount -> "1,234.5678" */
 export const tokens = (v: bigint, digits = 4) => numFmt(digits).format(Number(formatUnits(v, 18)));
 /** 18-decimal price -> "$1.0234" */

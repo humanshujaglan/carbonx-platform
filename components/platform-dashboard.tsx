@@ -115,16 +115,13 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
                   <Share size={20} color="#1fe03a" variant="Bold" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                  <h3 className="text-base font-semibold text-white tracking-tight flex items-center gap-2">
                     <span>My Referral Link</span>
                   </h3>
-                  <p className="text-xs text-muted">
-                    Share your unique link to earn 5% direct commission, unilevel matchings & unlock daily booster yields.
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Pill tone="green">5% Direct Commission</Pill>
+                <Pill tone="green">2% Direct + 2% Lock-In</Pill>
               </div>
             </div>
 
@@ -136,14 +133,14 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
                   type="text"
                   readOnly
                   value={refUrl || "Connect wallet to generate referral link"}
-                  className="w-full bg-transparent font-mono text-xs sm:text-sm text-neon-soft outline-none truncate select-all"
+                  className="w-full bg-transparent font-mono text-xs text-neon-soft outline-none truncate select-all"
                 />
               </div>
               <button
                 type="button"
                 disabled={!account}
                 onClick={copyReferralLink}
-                className="btn btn-primary px-5 py-3 text-xs font-bold flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-[0_0_15px_rgba(31,224,58,0.25)]"
+                className="btn btn-primary px-5 py-3 text-xs font-semibold flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-[0_0_15px_rgba(31,224,58,0.25)]"
               >
                 {copiedRef ? (
                   <>
@@ -162,26 +159,26 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
             {/* Quick Network Sponsor Telemetry */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-white/[0.04]">
               <div className="well p-3">
-                <div className="text-[10px] uppercase font-semibold text-muted tracking-wider">Active Directs</div>
-                <div className="mt-1 text-sm font-bold text-white">
+                <div className="text-2xs uppercase font-semibold text-muted tracking-wider">Active Directs</div>
+                <div className="mt-1 text-sm font-semibold text-white">
                   {user?.activeDirectCount ?? 0} Partners
                 </div>
               </div>
               <div className="well p-3">
-                <div className="text-[10px] uppercase font-semibold text-muted tracking-wider">Direct Business</div>
-                <div className="mt-1 text-sm font-bold text-neon-soft font-mono">
+                <div className="text-2xs uppercase font-semibold text-muted tracking-wider">Direct Business</div>
+                <div className="mt-1 text-sm font-semibold text-neon-soft font-mono">
                   {user ? usd(user.totalDirectBusiness) : "$0.00"}
                 </div>
               </div>
               <div className="well p-3">
-                <div className="text-[10px] uppercase font-semibold text-muted tracking-wider">Direct Rewards Ready</div>
-                <div className="mt-1 text-sm font-bold text-white font-mono">
+                <div className="text-2xs uppercase font-semibold text-muted tracking-wider">Direct Rewards Ready</div>
+                <div className="mt-1 text-sm font-semibold text-white font-mono">
                   {user ? usd(user.pendingDirectBonusAvailable) : "$0.00"}
                 </div>
               </div>
               <div className="well p-3">
-                <div className="text-[10px] uppercase font-semibold text-muted tracking-wider">Team Unilevel Volume</div>
-                <div className="mt-1 text-sm font-bold text-neon-soft font-mono">
+                <div className="text-2xs uppercase font-semibold text-muted tracking-wider">Team Unilevel Volume</div>
+                <div className="mt-1 text-sm font-semibold text-neon-soft font-mono">
                   {user ? usd(user.totalTeamBusiness) : "$0.00"}
                 </div>
               </div>
@@ -204,17 +201,17 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
       {activeTab === "invest" && (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
           <div className="flex flex-col gap-6">
-            <InvestCard addresses={addresses} user={user} onDone={refresh} />
+            <InvestCard addresses={addresses} user={user} lhrTier={market.lhrTier} onDone={refresh} />
           </div>
           <div className="flex flex-col gap-6">
-            <PackagesList positions={user?.positions ?? []} addresses={addresses} onDone={refresh} />
+            <PackagesList positions={user?.positions ?? []} user={user} lhrTier={market.lhrTier} />
           </div>
         </div>
       )}
 
       {/* Tab: Withdrawals & Yield Payout Portal (Dedicated Withdrawal Page) */}
       {activeTab === "withdraw" && (
-        <WithdrawDashboard user={user} addresses={addresses} onDone={refresh} />
+        <WithdrawDashboard user={user} addresses={addresses} market={market} onDone={refresh} />
       )}
 
       {/* Tab: Detailed Incomes (Alias to IncomesDashboard) */}

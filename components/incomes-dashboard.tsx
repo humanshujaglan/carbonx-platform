@@ -1,15 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { formatUnits } from "viem";
 import leafImage from "@/public/leave.png";
-import analysisImage from "@/public/analysis.png";
-import timerImage from "@/public/timer.png";
-import walletImage from "@/public/wallet.png";
-import depositImage from "@/public/deposit.png";
 import { platformAbi } from "@/lib/abi";
-import { formatWorkingCapHeadroom, shortAddr, usd } from "@/lib/format";
+import { LockType } from "@/lib/config";
+import { formatWorkingCapHeadroom, rankLabel, shortAddr, usd } from "@/lib/format";
+import { VestingOptions } from "./vesting-options";
+import {
+  CAP_MULTIPLIER,
+  DAY_SECONDS,
+  MIN_WITHDRAWAL_USD,
+  TOP_ID_DAILY_RATE,
+  TOP_ID_KEEP_SHARE,
+  boosterShare,
+  cyclePosition,
+  deltaBpsSinceCheckpoint,
+  flexDailyBps,
+  lockedDailyUsd,
+  lockedGain,
+  packageRates,
+} from "@/lib/roi";
 import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
 import type { NavTab } from "./header";
 import { CardHeader, Notice, Pill, Row, Spinner, useTx } from "./ui";
@@ -29,149 +41,20 @@ import {
   Wallet3,
 } from "iconsax-react";
 
-const RANK_NAMES: Record<number, string> = {
-  0: "Member",
-  1: "Rank 1 · Bronze",
-  2: "Rank 2 · Silver",
-  3: "Rank 3 · Emerald",
-  4: "Rank 4 · Sapphire",
-  5: "Rank 5 · Ruby",
-  6: "Rank 6 · Diamond",
-  7: "Rank 7 · Black Diamond",
-  8: "Rank 8 · Crown Ambassador",
-};
-
 /**
- * Hook to stream continuous live real-time yield for ROI, Booster, and Level Income
- * fully grounded in real on-chain parameters, actual package lock rates, and blockchain timestamps.
- * Eliminates double-counting, prevents polling resets/jumps, and ensures 100% smooth, accurate real-time streaming.
+ * Streams live ROI, Booster and Level income using the same schedules the contracts apply:
+ * - Flexible ROI: 6 five-day slots per 30-day cycle, daily bps set by the active LHR tier,
+ *   measured from the contract checkpoint (completed cycles / bps already credited).
+ * - Locked ROI: 0.33% daily compounding on the growing balance, paid out at the 2.5x cap.
+ * - Booster: 1/3, 2/3 or 3/3 of the flexible schedule on the first package amount.
+ * - Top ID: linear 0.5%/day on topIdCurrentPrincipal (75% kept, 25% to partner pool), no packages.
+ * Values are a pure function of time + the last on-chain snapshot, so polling never makes them jump.
+ * The contract credits whole days; the ticker also shows today's in-progress fraction, while
+ * `settledRoi` / `settledBooster` are exactly what withdrawROI / withdrawBooster would pay now.
  */
-export function useLiveIncomeStreams(user?: PlatformUser) {
+export function useLiveIncomeStreams(user?: PlatformUser, lhrTier = 0) {
+  const isTopId = !!user?.isTopId;
   const [now, setNow] = useState<number>(() => Date.now());
-
-  // Anchor stores the baseline snapshot and the fixed timestamp when it was anchored
-  const anchorRef = useRef<{
-    anchorTime: number; // in milliseconds
-    baseRoi: number;
-    baseBooster: number;
-    baseLevel: number;
-    lastPendingSig: string; // signature of on-chain pending values to detect REAL changes
-  } | null>(null);
-
-  // 1. Calculate Daily Rates per second based on on-chain state
-  // Flexible: 0.333% daily (10%/30d), 100% Locked: 0.6% daily (18%/30d), 50/50 Hybrid: 0.5% daily (15%/30d)
-  let roiPerSecUsd = 0;
-  if (user?.positions && user.positions.length > 0) {
-    for (const pos of user.positions) {
-      if (pos.active && !pos.isCapped) {
-        const rate =
-          pos.lockType === 1
-            ? 0.006 // 0.60% daily
-            : pos.lockType === 2
-            ? 0.005 // 0.50% daily
-            : 0.0033333333333333335; // 0.333% daily (10% monthly)
-
-        const principal = Number(formatUnits(pos.initialPrincipal, 18));
-        roiPerSecUsd += (principal * rate) / 86400;
-      }
-    }
-  } else if (user && user.totalActiveDeposit > 0n) {
-    const deposit = Number(formatUnits(user.totalActiveDeposit, 18));
-    roiPerSecUsd = (deposit * 0.0033333333333333335) / 86400;
-  }
-
-  // 2. Daily Booster Rate (+0.1% to +0.3% daily based on qualifying booster tier)
-  let boosterPerSecUsd = 0;
-  if (user && user.boosterTier > 0 && !user.boosterCapReached) {
-    const tierDailyRate = user.boosterTier * 0.001; // 0.1% per tier
-    const base = Number(
-      formatUnits(
-        user.boosterFirstPackageAmount > 0n
-          ? user.boosterFirstPackageAmount
-          : user.totalActiveDeposit,
-        18
-      )
-    );
-    if (base > 0) {
-      boosterPerSecUsd = (base * tierDailyRate) / 86400;
-    }
-  }
-
-  // 3. Downline Level Harvest Velocity
-  // Unilevel matching across downline team ROI: ~0.04% daily of team business (or ~0.067% daily on direct business)
-  let levelPerSecUsd = 0;
-  if (user) {
-    const teamVolume = Number(formatUnits(user.totalTeamBusiness ?? 0n, 18));
-    const directVolume = Number(formatUnits(user.totalDirectBusiness ?? 0n, 18));
-    if (teamVolume > 0) {
-      levelPerSecUsd = (teamVolume * 0.0004) / 86400;
-    } else if (directVolume > 0) {
-      levelPerSecUsd = (directVolume * 0.0006666) / 86400;
-    } else if (user.activeDirectCount > 0) {
-      const estimatedDirectVolume = user.activeDirectCount * 100;
-      levelPerSecUsd = (estimatedDirectVolume * 0.0004) / 86400;
-    }
-  }
-
-  // Detect genuine on-chain state changes (claims, withdrawals, deposits)
-  const pendingSig = user
-    ? `${user.roiIncomePending}-${user.boosterIncomePending}-${user.workingIncomePending}-${user.positions?.length ?? 0}-${user.totalActiveDeposit}-${user.boosterTier}`
-    : "empty";
-
-  // Re-anchor only on mount, wallet change, or genuine on-chain mutation
-  if (!anchorRef.current || anchorRef.current.lastPendingSig !== pendingSig) {
-    const anchorTime = Date.now();
-    const anchorUnixSec = Math.floor(anchorTime / 1000);
-
-    // Initial base ROI: confirmed contract pending + unharvested yield from active positions up to anchorTime
-    let initialRoi = Number(formatUnits(user?.roiIncomePending ?? 0n, 18));
-    if (user?.positions && user.positions.length > 0) {
-      for (const pos of user.positions) {
-        if (pos.active && !pos.isCapped && pos.lastUpdateTime > 0) {
-          const rate =
-            pos.lockType === 1
-              ? 0.006
-              : pos.lockType === 2
-              ? 0.005
-              : 0.0033333333333333335;
-          const principal = Number(formatUnits(pos.initialPrincipal, 18));
-          const posRate = (principal * rate) / 86400;
-          const elapsed = Math.max(0, anchorUnixSec - pos.lastUpdateTime);
-          const maxCap = Number(formatUnits(pos.maxCap, 18)) || principal * 2.5;
-          const withdrawn = Number(formatUnits(pos.roiWithdrawn, 18));
-          const accrued = Number(formatUnits(pos.roiAccrued, 18));
-          const remaining = Math.max(0, maxCap - (withdrawn + accrued));
-          const unharvested = Math.min(remaining, posRate * elapsed);
-          initialRoi += unharvested;
-        }
-      }
-    }
-
-    // Initial base Booster: confirmed contract pending + unharvested booster yield up to anchorTime
-    let initialBooster =
-      Number(formatUnits(user?.boosterIncomePending ?? 0n, 18)) +
-      Number(formatUnits(user?.boosterAccrued ?? 0n, 18));
-    if (boosterPerSecUsd > 0 && user) {
-      const startTime = user.roiCycleStartTime > 0 ? user.roiCycleStartTime : user.firstDepositTime;
-      if (startTime > 0) {
-        const elapsed = Math.max(0, anchorUnixSec - startTime);
-        // Cap unharvested booster reasonably to 30 days max if unharvested
-        const unharvested = Math.min(boosterPerSecUsd * 86400 * 30, boosterPerSecUsd * elapsed);
-        initialBooster += unharvested;
-      }
-    }
-
-    // Initial base Level: confirmed working balance
-    const initialLevel = Number(formatUnits(user?.workingIncomePending ?? 0n, 18));
-
-    anchorRef.current = {
-      anchorTime,
-      baseRoi: initialRoi,
-      baseBooster: initialBooster,
-      baseLevel: initialLevel,
-      lastPendingSig: pendingSig,
-    };
-  }
 
   // Animation frame loop updating 'now'
   useEffect(() => {
@@ -189,24 +72,110 @@ export function useLiveIncomeStreams(user?: PlatformUser) {
     return () => cancelAnimationFrame(animId);
   }, []);
 
-  const elapsedSeconds = Math.max(0, (now - (anchorRef.current?.anchorTime ?? now)) / 1000);
+  const t = now / 1000;
+  const toUsd = (v: bigint) => Number(formatUnits(v, 18));
 
-  const liveRoi = Math.max(0, (anchorRef.current?.baseRoi ?? 0) + roiPerSecUsd * elapsedSeconds);
-  const liveBooster = Math.max(0, (anchorRef.current?.baseBooster ?? 0) + boosterPerSecUsd * elapsedSeconds);
-  const liveLevel = Math.max(0, (anchorRef.current?.baseLevel ?? 0) + levelPerSecUsd * elapsedSeconds);
+  // 1. Package ROI
+  let flexUnaccrued = 0;
+  let flexSettled = 0;
+  let roiPerSecUsd = 0;
+  let liveLockedRoi = 0;
+  let lockedPerSecUsd = 0;
+  let flexElapsed: number | undefined;
+  if (user && isTopId && user.topIdPrincipal > 0n && user.topIdLastCompoundedTime > 0) {
+    const dailyUsd = toUsd(user.topIdPrincipal) * TOP_ID_DAILY_RATE * TOP_ID_KEEP_SHARE;
+    const days = Math.max(0, t - user.topIdLastCompoundedTime) / DAY_SECONDS;
+    flexUnaccrued = dailyUsd * days;
+    flexSettled = dailyUsd * Math.floor(days);
+    roiPerSecUsd = dailyUsd / DAY_SECONDS;
+  }
+  for (const pos of isTopId ? [] : user?.positions ?? []) {
+    if (!pos.active || pos.isCapped) continue;
+    const principal = toUsd(pos.initialPrincipal);
 
-  const totalLive = liveRoi + liveBooster + liveLevel;
-  const totalRatePerSec = roiPerSecUsd + boosterPerSecUsd + levelPerSecUsd;
+    if (pos.lockType === LockType.FLEXIBLE || pos.lockType === LockType.LOCKED_50) {
+      const isHybrid = pos.lockType === LockType.LOCKED_50;
+      const flexPrincipal = isHybrid ? principal / 2 : principal;
+      // Hybrid flex half caps at 1.25x of the full principal (= 2.5x of its half)
+      const room = Math.max(0, flexPrincipal * CAP_MULTIPLIER - toUsd(isHybrid ? pos.flexRoiAccrued : pos.roiAccrued));
+      const cycleStart = user?.roiCycleStartTime || pos.createdAt;
+      const elapsed = Math.max(0, t - cycleStart);
+      flexElapsed ??= elapsed;
+      const delta = (flexPrincipal * deltaBpsSinceCheckpoint(lhrTier, elapsed, pos.completedCycles, pos.lastAccruedCycleBps)) / 10_000;
+      const settled = (flexPrincipal * deltaBpsSinceCheckpoint(lhrTier, elapsed, pos.completedCycles, pos.lastAccruedCycleBps, 1, false)) / 10_000;
+      flexUnaccrued += Math.min(delta, room);
+      flexSettled += Math.min(settled, room);
+      if (delta < room) roiPerSecUsd += (flexPrincipal * flexDailyBps(lhrTier, elapsed)) / 10_000 / DAY_SECONDS;
+    }
+
+    if ((pos.lockType === LockType.LOCKED_100 || pos.lockType === LockType.LOCKED_50) && pos.lockedAt > 0) {
+      const lockPrincipal = pos.lockType === LockType.LOCKED_50 ? principal / 2 : principal;
+      const elapsed = Math.max(0, t - pos.lockedAt);
+      liveLockedRoi += lockedGain(lockPrincipal, elapsed);
+      lockedPerSecUsd += lockedDailyUsd(lockPrincipal, elapsed) / DAY_SECONDS;
+    }
+  }
+  const liveRoi = toUsd(user?.roiIncomePending ?? 0n) + flexUnaccrued;
+  const settledRoi = toUsd(user?.roiIncomePending ?? 0n) + flexSettled;
+
+  // 2. Booster (Top ID ignores the LHR tier and the 1.0x / working caps)
+  let boosterUnaccrued = 0;
+  let boosterSettled = 0;
+  let boosterPerSecUsd = 0;
+  const share = boosterShare(user?.boosterTier ?? 0);
+  if (user && share > 0 && !user.boosterCapReached && user.roiCycleStartTime > 0) {
+    const tier = isTopId ? 0 : lhrTier;
+    const base = toUsd(user.boosterFirstPackageAmount);
+    const room = isTopId
+      ? Infinity
+      : Math.max(0, Math.min(base - toUsd(user.boosterAccrued), toUsd(user.workingCapHeadroom)));
+    const elapsed = Math.max(0, t - user.roiCycleStartTime);
+    const delta =
+      (base * deltaBpsSinceCheckpoint(tier, elapsed, user.boosterCompletedCycles, user.boosterLastAccruedCycleBps, share)) / 10_000;
+    const settled =
+      (base * deltaBpsSinceCheckpoint(tier, elapsed, user.boosterCompletedCycles, user.boosterLastAccruedCycleBps, share, false)) / 10_000;
+    boosterUnaccrued = Math.min(delta, room);
+    boosterSettled = Math.min(settled, room);
+    if (delta < room) boosterPerSecUsd = (base * flexDailyBps(tier, elapsed) * share) / 10_000 / DAY_SECONDS;
+  }
+  const liveBooster = toUsd(user?.boosterIncomePending ?? 0n) + boosterUnaccrued;
+  const settledBooster = toUsd(user?.boosterIncomePending ?? 0n) + boosterSettled;
+
+  // 3. Level income has no predictable stream: the contract credits it to the working balance
+  // when downlines' ROI is accrued (and pauses it at the Rescue LHR tier), so show what is credited.
+  const levelPerSecUsd = 0;
+  const liveLevel = toUsd(user?.workingIncomePending ?? 0n);
+
+  const position = flexElapsed !== undefined ? cyclePosition(flexElapsed) : undefined;
+  // Booster runs on the same 30-day / 6-slot schedule, measured from roiCycleStartTime
+  const boosterElapsed = user?.roiCycleStartTime ? Math.max(0, t - user.roiCycleStartTime) : undefined;
+  const boosterPosition = boosterElapsed !== undefined ? cyclePosition(boosterElapsed) : undefined;
+  const roiSchedule = {
+    cycleDay: position ? position.day + 1 : undefined,
+    slot: position ? position.slot + 1 : undefined,
+    flexDailyPct: flexDailyBps(lhrTier, flexElapsed ?? 0) / 100,
+    boosterCycleDay: boosterPosition ? boosterPosition.day + 1 : undefined,
+    boosterSlot: boosterPosition ? boosterPosition.slot + 1 : undefined,
+    boosterDailyPct: (flexDailyBps(isTopId ? 0 : lhrTier, boosterElapsed ?? 0) * share) / 100,
+  };
+
+  const totalLive = liveRoi + liveLockedRoi + liveBooster + liveLevel;
+  const totalRatePerSec = roiPerSecUsd + lockedPerSecUsd + boosterPerSecUsd + levelPerSecUsd;
 
   return {
     liveRoi,
+    settledRoi,
+    settledBooster,
+    liveLockedRoi,
     liveBooster,
     liveLevel,
     roiPerSecUsd,
+    lockedPerSecUsd,
     boosterPerSecUsd,
     levelPerSecUsd,
     totalLive,
     totalRatePerSec,
+    roiSchedule,
   };
 }
 
@@ -234,16 +203,16 @@ export function LiveStreamTicker({
   return (
     <div className="flex flex-col">
       <div className="flex items-baseline font-mono tracking-tight tabular-nums select-none">
-        <span className="text-2xl sm:text-3xl font-extrabold text-white">
+        <span className="text-3xl font-semibold text-white">
           ${integerPart}.{cents}
         </span>
-        <span className="text-neon text-sm sm:text-base font-bold tracking-normal ml-0.5 animate-pulse drop-shadow-[0_0_8px_rgba(31,224,58,0.5)]">
+        <span className="text-neon text-sm font-semibold tracking-normal ml-0.5 animate-pulse drop-shadow-[0_0_8px_rgba(31,224,58,0.5)]">
           {micro}
         </span>
       </div>
 
       {ratePerSec > 0 ? (
-        <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+        <div className="flex items-center gap-1.5 mt-1 text-2xs">
           <span className="relative flex size-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon opacity-75" />
             <span className="relative inline-flex size-2 rounded-full bg-neon shadow-[0_0_6px_#1fe03a]" />
@@ -257,7 +226,7 @@ export function LiveStreamTicker({
           </span>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted">
+        <div className="flex items-center gap-1.5 mt-1 text-2xs text-muted">
           <span className="size-2 rounded-full bg-white/20" />
           <span>{zeroRateMessage ?? "Inactive · No accrual rate active"}</span>
         </div>
@@ -288,16 +257,26 @@ export function IncomesDashboard({
   const [vestingOption, setVestingOption] = useState<number>(0);
 
   // Real-time live streaming values grounded in on-chain parameters
+  const isTopId = !!user?.isTopId;
+  const lhrTier = market?.lhrTier ?? 0;
   const {
     liveRoi,
+    settledRoi,
+    settledBooster,
+    liveLockedRoi,
     liveBooster,
     liveLevel,
     roiPerSecUsd,
+    lockedPerSecUsd,
     boosterPerSecUsd,
     levelPerSecUsd,
     totalLive,
     totalRatePerSec,
-  } = useLiveIncomeStreams(user);
+    roiSchedule,
+  } = useLiveIncomeStreams(user, lhrTier);
+  const boosterTier = user?.boosterTier ?? 0;
+  const boosterMonthlyPct = (packageRates(LockType.FLEXIBLE, isTopId ? 0 : lhrTier).monthlyPct * boosterShare(boosterTier));
+  const hasLockedPositions = !!user?.positions.some((p) => p.active && !p.isCapped && p.lockType !== LockType.FLEXIBLE);
 
   // Complete on-chain total pending calculation including ALL income streams
   const totalPending = user
@@ -309,6 +288,11 @@ export function IncomesDashboard({
       user.pendingLeaderContestRewards +
       user.pendingContestRewards
     : 0n;
+
+  // ROI / booster are settled by the contract inside withdrawROI / withdrawBooster, so count them as claimable
+  const totalClaimableUsd = user
+    ? Number(formatUnits(totalPending - user.roiIncomePending - user.boosterIncomePending, 18)) + settledRoi + settledBooster
+    : 0;
 
   const totalWithdrawn = user
     ? user.roiIncomeWithdrawn +
@@ -351,7 +335,7 @@ export function IncomesDashboard({
               </span>
             </div>
             <div className="mt-1 flex items-baseline gap-2">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-mono tabular-nums">
+              <h2 className="text-3xl font-semibold text-white tracking-tight font-mono tabular-nums">
                 ${totalLive.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h2>
               <span className="text-xs font-semibold text-muted">Total Live Accrued Income</span>
@@ -364,8 +348,8 @@ export function IncomesDashboard({
               <Flash size={16} color="#1fe03a" variant="Bold" />
             </span>
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-wider text-muted font-semibold">Streaming Velocity</span>
-              <span className="text-xs font-bold text-neon-soft font-mono tabular-nums">
+              <span className="text-2xs uppercase tracking-wider text-muted font-semibold">Streaming Velocity</span>
+              <span className="text-xs font-semibold text-neon-soft font-mono tabular-nums">
                 +${(totalRatePerSec * 86400).toFixed(2)} / 24h
               </span>
             </div>
@@ -374,31 +358,31 @@ export function IncomesDashboard({
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="well p-4">
-            <div className="label">Contract Ready to Claim</div>
-            <div className="mt-1 text-lg font-bold text-gradient text-neon-soft">
-              {user ? usd(totalPending) : "—"}
+            <div className="label">Ready to Claim</div>
+            <div className="mt-1 text-xl font-semibold text-gradient text-neon-soft">
+              {user ? `$${totalClaimableUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
             </div>
           </div>
           <div className="well p-4">
             <div className="label">Direct Available & Locked</div>
             <div className="mt-1 flex flex-col">
-              <span className="text-lg font-bold text-white">
+              <span className="text-xl font-semibold text-white">
                 {user ? usd(user.pendingDirectBonusAvailable) : "$0.00"}
               </span>
-              <span className="text-[10px] text-muted">
+              <span className="text-2xs text-muted">
                 Locked: {user ? usd(user.pendingDirectBonusLocked) : "$0.00"}
               </span>
             </div>
           </div>
           <div className="well p-4">
             <div className="label">Working Cap Headroom</div>
-            <div className="mt-1 text-lg font-bold text-text">
+            <div className="mt-1 text-xl font-semibold text-text">
               {formatWorkingCapHeadroom(user)}
             </div>
           </div>
           <div className="well p-4">
             <div className="label">Lifetime Withdrawn</div>
-            <div className="mt-1 text-lg font-bold text-text">
+            <div className="mt-1 text-xl font-semibold text-text">
               {user ? usd(totalWithdrawn) : "—"}
             </div>
           </div>
@@ -415,7 +399,7 @@ export function IncomesDashboard({
           <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08] relative overflow-hidden">
             <div className="flex flex-col gap-3">
               <CardHeader
-                image={timerImage}
+                image={leafImage}
                 title="1. Daily Package ROI"
                 right={
                   <Pill tone="green">
@@ -430,18 +414,51 @@ export function IncomesDashboard({
               <div className="well p-4 flex flex-col justify-between gap-2 border border-neon/20 shadow-[0_0_15px_rgba(31,224,58,0.1)]">
                 <div className="label">Live Streaming ROI Yield</div>
                 <LiveStreamTicker
-                  value={liveRoi}
-                  ratePerSec={roiPerSecUsd}
+                  value={liveRoi + liveLockedRoi}
+                  ratePerSec={roiPerSecUsd + lockedPerSecUsd}
                   label="Daily ROI"
                   zeroRateMessage="No active investment packages found"
                 />
               </div>
 
+              <div className="well p-3 flex flex-col gap-1 text-2xs">
+                {isTopId && user && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted">Top ID ROI:</span>
+                    <span className="font-medium text-text">
+                      {(TOP_ID_DAILY_RATE * 100).toFixed(2)}%/day on {usd(user.topIdPrincipal)} · {TOP_ID_KEEP_SHARE * 100}% kept
+                    </span>
+                  </div>
+                )}
+                {!isTopId && roiSchedule.cycleDay !== undefined && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted">Flexible Cycle:</span>
+                    <span className="font-medium text-text">
+                      Day {roiSchedule.cycleDay}/30 · Slot {roiSchedule.slot}/6 · {roiSchedule.flexDailyPct.toFixed(2)}%/day
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted">{isTopId ? "Accrued (claimable):" : "Flexible (claimable):"}</span>
+                  <span className="font-medium text-neon-soft font-mono tabular-nums">
+                    ${liveRoi.toFixed(4)} · +${(roiPerSecUsd * DAY_SECONDS).toFixed(4)}/day
+                  </span>
+                </div>
+                {hasLockedPositions && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted">Locked 0.33% compounding (paid at 2.5x):</span>
+                    <span className="font-medium text-text font-mono tabular-nums">
+                      ${liveLockedRoi.toFixed(4)} · +${(lockedPerSecUsd * DAY_SECONDS).toFixed(4)}/day
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="well p-3">
-                  <div className="label">Contract Available</div>
+                  <div className="label">Claimable Now</div>
                   <div className="text-sm font-semibold text-neon-soft">
-                    {user ? usd(user.roiIncomePending) : "—"}
+                    {user ? `$${settledRoi.toFixed(2)}` : "—"}
                   </div>
                 </div>
                 <div className="well p-3">
@@ -467,18 +484,18 @@ export function IncomesDashboard({
                   <button
                     type="button"
                     disabled={!user || !!tx.busy}
-                    onClick={() => callPlatform("Claiming / Accruing ROI...", "accrueRange", [0n, 50n])}
+                    onClick={() => account && callPlatform("Accruing ROI...", "accrueUserROI", [account])}
                     className="btn btn-secondary py-2.5 px-3 text-xs"
-                    title="Batch accrual for large package holders"
+                    title="Settle accrued ROI and booster into your contract balance"
                   >
-                    Claim / Accrue All
+                    Accrue All
                   </button>
                 </>
               ) : (
                 <>
                   <button
                     type="button"
-                    disabled={!user || user.roiIncomePending === 0n || !!tx.busy}
+                    disabled={!user || settledRoi < MIN_WITHDRAWAL_USD || !!tx.busy}
                     onClick={() => callPlatform("Claiming ROI Income...", "withdrawROI")}
                     className="btn btn-primary flex-1 py-2.5 text-xs"
                   >
@@ -487,11 +504,11 @@ export function IncomesDashboard({
                   <button
                     type="button"
                     disabled={!user || !!tx.busy}
-                    onClick={() => callPlatform("Claiming / Accruing ROI...", "accrueRange", [0n, 50n])}
+                    onClick={() => account && callPlatform("Accruing ROI...", "accrueUserROI", [account])}
                     className="btn btn-secondary py-2.5 px-3 text-xs"
-                    title="Batch accrual for large package holders"
+                    title="Settle accrued ROI and booster into your contract balance"
                   >
-                    Claim / Accrue All
+                    Accrue All
                   </button>
                 </>
               )}
@@ -507,8 +524,8 @@ export function IncomesDashboard({
                 image={leafImage}
                 title="2. Daily Booster Income"
                 right={
-                  <Pill tone={user && user.boosterTier > 0 ? "gold" : "neutral"}>
-                    Tier {user?.boosterTier ?? 0} (+{(user?.boosterTier ?? 0) * 0.1}%)
+                  <Pill tone={boosterTier > 0 ? "gold" : "neutral"}>
+                    Tier {boosterTier} · {boosterTier > 0 ? `${boosterMonthlyPct.toFixed(2)}%/mo` : "Inactive"}
                   </Pill>
                 }
               />
@@ -521,18 +538,46 @@ export function IncomesDashboard({
                   ratePerSec={boosterPerSecUsd}
                   label="Booster"
                   zeroRateMessage={
-                    user && user.boosterTier === 0
-                      ? "Tier 0 (Inactive) · Qualify 2 Directs to unlock +0.10%/day"
+                    boosterTier === 0
+                      ? "Tier 0 (Inactive) · Qualify directs to unlock 1/3 of the ROI schedule"
+                      : user?.boosterCapReached
+                      ? "Booster capped at 1.0x of first package"
                       : "Booster Inactive · Sponsor direct volume to unlock"
                   }
                 />
               </div>
 
+              {boosterTier > 0 && (
+                <div className="well p-3 flex flex-col gap-1 text-2xs">
+                  {roiSchedule.boosterCycleDay !== undefined && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted">Booster Cycle:</span>
+                      <span className="font-medium text-text">
+                        Day {roiSchedule.boosterCycleDay}/30 · Slot {roiSchedule.boosterSlot}/6 ·{" "}
+                        {roiSchedule.boosterDailyPct.toFixed(3)}%/day
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted">Schedule:</span>
+                    <span className="font-medium text-text">
+                      {boosterTier >= 3 ? "Full" : `${boosterTier}/3 of`} slot rate on first package
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted">Today:</span>
+                    <span className="font-medium text-neon-soft font-mono tabular-nums">
+                      +${(boosterPerSecUsd * DAY_SECONDS).toFixed(4)}/day
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="well p-3">
-                  <div className="label">Contract Available</div>
+                  <div className="label">Claimable Now</div>
                   <div className="text-sm font-semibold text-neon-soft">
-                    {user ? usd(user.boosterIncomePending) : "—"}
+                    {user ? `$${settledBooster.toFixed(2)}` : "—"}
                   </div>
                 </div>
                 <div className="well p-3">
@@ -543,7 +588,7 @@ export function IncomesDashboard({
                 </div>
               </div>
 
-              <div className="well p-3 flex flex-col gap-1 text-[11px]">
+              <div className="well p-3 flex flex-col gap-1 text-2xs">
                 <div className="flex justify-between">
                   <span className="text-muted">Direct Business Progress:</span>
                   <span className="font-medium text-text">{user ? usd(user.totalDirectBusiness) : "$0"}</span>
@@ -564,9 +609,9 @@ export function IncomesDashboard({
               ) : (
                 <button
                   type="button"
-                  disabled={!user || user.boosterIncomePending === 0n || !!tx.busy}
+                  disabled={!user || settledBooster < MIN_WITHDRAWAL_USD || !!tx.busy}
                   onClick={() => callPlatform("Claiming Booster Income...", "withdrawBooster")}
-                  className="btn btn-primary w-full py-2.5 text-xs font-bold"
+                  className="btn btn-primary w-full py-2.5 text-xs font-semibold"
                 >
                   {tx.busy === "Claiming Booster Income..." ? <Spinner /> : "Claim Booster Income"}
                 </button>
@@ -580,19 +625,19 @@ export function IncomesDashboard({
           <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08] relative overflow-hidden">
             <div className="flex flex-col gap-3">
               <CardHeader
-                image={analysisImage}
+                image={leafImage}
                 title="3. Downline Level Harvest"
                 right={<Pill tone="cyan">Team Unilevel</Pill>}
               />
 
               {/* LIVE STREAMING TICKER */}
               <div className="well p-4 flex flex-col justify-between gap-2 border border-neon/20 shadow-[0_0_15px_rgba(31,224,58,0.1)]">
-                <div className="label">Live Streaming Level Harvest</div>
+                <div className="label">Credited Level Income</div>
                 <LiveStreamTicker
                   value={liveLevel}
                   ratePerSec={levelPerSecUsd}
                   label="Level Matching"
-                  zeroRateMessage="0 Active Downlines · Share referral link to stream level yield"
+                  zeroRateMessage="Credited to your working balance when downlines' ROI is accrued"
                 />
               </div>
 
@@ -647,7 +692,7 @@ export function IncomesDashboard({
                     type="button"
                     disabled={!user || !!tx.busy}
                     onClick={() => callPlatform("Claiming Level Income...", "harvestLevelIncome")}
-                    className="btn btn-primary py-2.5 px-3 text-xs font-bold"
+                    className="btn btn-primary py-2.5 px-3 text-xs font-semibold"
                   >
                     {tx.busy === "Claiming Level Income..." ? <Spinner /> : "Claim Level Income"}
                   </button>
@@ -657,7 +702,7 @@ export function IncomesDashboard({
                   type="button"
                   disabled={!user || !!tx.busy}
                   onClick={() => callPlatform("Claiming Level Income...", "harvestLevelIncome")}
-                  className="btn btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2"
+                  className="btn btn-primary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
                 >
                   {tx.busy === "Claiming Level Income..." ? (
                     <Spinner />
@@ -678,7 +723,7 @@ export function IncomesDashboard({
           <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
             <div className="flex flex-col gap-3">
               <CardHeader
-                image={walletImage}
+                image={leafImage}
                 title="4. Working Income Payout"
                 right={<Pill tone="green">Ready</Pill>}
               />
@@ -697,31 +742,11 @@ export function IncomesDashboard({
                 </div>
               </div>
 
-              {/* Vesting Option Selection */}
-              <div className="grid grid-cols-2 gap-1.5 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setVestingOption(0)}
-                  className={`rounded-xl p-2.5 text-center text-xs font-medium transition cursor-pointer ${
-                    vestingOption === 0
-                      ? "bg-neon/15 text-neon border border-neon/40 font-semibold"
-                      : "well text-muted hover:text-text"
-                  }`}
-                >
-                  Instant (100%)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVestingOption(1)}
-                  className={`rounded-xl p-2.5 text-center text-xs font-medium transition cursor-pointer ${
-                    vestingOption === 1
-                      ? "bg-neon/15 text-neon border border-neon/40 font-semibold"
-                      : "well text-muted hover:text-text"
-                  }`}
-                >
-                  Linear Vesting
-                </button>
-              </div>
+              <VestingOptions
+                value={vestingOption}
+                onChange={setVestingOption}
+                amountUsd={user ? Number(formatUnits(user.workingIncomePending, 18)) : 0}
+              />
             </div>
 
             <div className="pt-3 border-t border-white/[0.04]">
@@ -737,12 +762,12 @@ export function IncomesDashboard({
               ) : (
                 <button
                   type="button"
-                  disabled={!user || user.workingIncomePending === 0n || !!tx.busy}
+                  disabled={!user || Number(formatUnits(user.workingIncomePending, 18)) < MIN_WITHDRAWAL_USD || !!tx.busy}
                   onClick={() => {
                     const amt = user ? user.workingIncomePending : 0n;
                     callPlatform("Claiming Working Income...", "withdrawWorkingIncome", [amt, vestingOption]);
                   }}
-                  className="btn btn-primary w-full py-2.5 text-xs font-bold"
+                  className="btn btn-primary w-full py-2.5 text-xs font-semibold"
                 >
                   {tx.busy === "Claiming Working Income..." ? (
                     <Spinner />
@@ -760,7 +785,7 @@ export function IncomesDashboard({
           <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
             <div className="flex flex-col gap-3">
               <CardHeader
-                image={depositImage}
+                image={leafImage}
                 title="5. Direct Referral Income & Lock-In"
                 right={<Pill tone="gold">Direct Slips</Pill>}
               />
@@ -771,13 +796,13 @@ export function IncomesDashboard({
               <div className="grid grid-cols-2 gap-2">
                 <div className="well p-3">
                   <div className="label">Direct Available to Unlock</div>
-                  <div className="text-base font-bold text-neon-soft">
+                  <div className="text-base font-semibold text-neon-soft">
                     {user ? usd(user.pendingDirectBonusAvailable) : "$0.00"}
                   </div>
                 </div>
                 <div className="well p-3">
                   <div className="label">Direct Lock-In (Locked Slips)</div>
-                  <div className="text-base font-bold text-amber-400">
+                  <div className="text-base font-semibold text-amber-400">
                     {user ? usd(user.pendingDirectBonusLocked) : "$0.00"}
                   </div>
                 </div>
@@ -825,7 +850,7 @@ export function IncomesDashboard({
           <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
             <div className="flex flex-col gap-3">
               <CardHeader
-                image={analysisImage}
+                image={leafImage}
                 title="6. Leader Income (Business Dev Fund)"
                 right={<Pill tone="cyan">BDF Pool</Pill>}
               />
@@ -836,13 +861,13 @@ export function IncomesDashboard({
               <div className="grid grid-cols-2 gap-2">
                 <div className="well p-3">
                   <div className="label">Available Leader / BDF Balance</div>
-                  <div className="text-base font-bold text-neon-soft">
+                  <div className="text-base font-semibold text-neon-soft">
                     {user ? usd(user.leaderIncomePending) : "$0.00"}
                   </div>
                 </div>
                 <div className="well p-3">
                   <div className="label">Lifetime BDF Withdrawn</div>
-                  <div className="text-base font-bold text-text">
+                  <div className="text-base font-semibold text-text">
                     {user ? usd(user.leaderIncomeWithdrawn) : "$0.00"}
                   </div>
                 </div>
@@ -851,7 +876,7 @@ export function IncomesDashboard({
               <div className="well p-3.5 flex flex-col gap-2">
                 <Row
                   label="Leader Status"
-                  value={user && user.usedLeader && user.usedLeader !== "0x0000000000000000000000000000000000000000" ? `Leader: ${shortAddr(user.usedLeader)}` : "Qualified Direct Leader"}
+                  value={user && user.usedLeader && user.usedLeader !== "0x0000000000000000000000000000000000000000" ? `Leader: ${shortAddr(user.usedLeader)}` : "No leader code used"}
                   accent
                 />
               </div>
@@ -872,7 +897,7 @@ export function IncomesDashboard({
                   type="button"
                   disabled={!user || user.leaderIncomePending === 0n || !!tx.busy}
                   onClick={() => callPlatform("Claiming Leader Income...", "withdrawLeaderIncome")}
-                  className="btn btn-primary w-full py-2.5 text-xs font-bold"
+                  className="btn btn-primary w-full py-2.5 text-xs font-semibold"
                 >
                   {tx.busy === "Claiming Leader Income..." ? (
                     <Spinner />
@@ -890,18 +915,18 @@ export function IncomesDashboard({
           <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
             <div className="flex flex-col gap-3">
               <CardHeader
-                image={depositImage}
+                image={leafImage}
                 title="7. Rank Salary & Career Overrides"
-                right={<Pill tone="gold">{user ? RANK_NAMES[user.currentRank] : "Rank 0"}</Pill>}
+                right={<Pill tone="gold">{rankLabel(user?.currentRank)}</Pill>}
               />
               <p className="text-xs text-muted leading-relaxed">
-                Career rank milestone salaries awarded weekly to top organization builders from Bronze up to Crown Ambassador.
+                Weekly salary for qualifying career ranks (Rank 1 to Rank 15), based on your team leg business.
               </p>
 
               <div className="well p-3.5 flex flex-col gap-2">
                 <Row
                   label="Current Career Rank"
-                  value={user ? RANK_NAMES[user.currentRank] : "Member"}
+                  value={rankLabel(user?.currentRank)}
                   accent
                 />
                 <Row
@@ -940,12 +965,12 @@ export function IncomesDashboard({
               <div className="well p-3.5 flex items-center justify-between">
                 <div>
                   <div className="label">Claimable Sponsor Contest</div>
-                  <div className="text-lg font-bold text-neon-soft">
+                  <div className="text-xl font-semibold text-neon-soft">
                     {user ? usd(user.pendingContestRewards) : "$0.00"}
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-muted block">History Window</span>
+                  <span className="text-2xs text-muted block">History Window</span>
                   <span className="text-xs font-semibold text-white">Up to 150 Days</span>
                 </div>
               </div>
@@ -956,7 +981,7 @@ export function IncomesDashboard({
                 type="button"
                 disabled={!user || user.pendingContestRewards === 0n || !!tx.busy}
                 onClick={() => callPlatform("Claiming Contest Income...", "sweepContestRewards", [150n])}
-                className="btn btn-primary w-full py-2.5 text-xs font-bold"
+                className="btn btn-primary w-full py-2.5 text-xs font-semibold"
               >
                 {tx.busy === "Claiming Contest Income..." ? <Spinner /> : "Claim Contest Income"}
               </button>
@@ -980,12 +1005,12 @@ export function IncomesDashboard({
               <div className="well p-3.5 flex items-center justify-between">
                 <div>
                   <div className="label">Claimable Leader Prize</div>
-                  <div className="text-lg font-bold text-neon-soft">
+                  <div className="text-xl font-semibold text-neon-soft">
                     {user ? usd(user.pendingLeaderContestRewards) : "$0.00"}
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-muted block">History Window</span>
+                  <span className="text-2xs text-muted block">History Window</span>
                   <span className="text-xs font-semibold text-white">Up to 50 Days</span>
                 </div>
               </div>
@@ -1009,36 +1034,56 @@ export function IncomesDashboard({
           <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08] lg:col-span-2">
             <div className="flex flex-col gap-3">
               <CardHeader
-                image={walletImage}
+                image={leafImage}
                 title="10. Protocol Reward Pool & Backing Horizon"
-                right={<Pill tone="green">100% USDT Backed</Pill>}
               />
               <p className="text-xs text-muted leading-relaxed">
-                The global decentralized Reward Pool wallet holds liquid USDT on-chain to guarantee 100% solvency for all contest prizes, leader overrides, and weekly salary distributions.
+                Withdrawal pool fees are split 70% Neon / 20% Hydra / 10% Genosis. Each pool auto-distributes to top leaders once it reaches its threshold.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="well p-3.5">
-                  <div className="label">Reward Pool USDT Balance</div>
-                  <div className="mt-1 text-xl font-extrabold text-neon-soft">
-                    {market?.rewardPoolBalance ? usd(market.rewardPoolBalance) : "$99,989,100.00"}
+                  <div className="label">Reward Pool Balance</div>
+                  <div className="mt-1 text-xl font-semibold text-neon-soft">
+                    {usd(market?.rewardPoolBalance ?? 0n)}
                   </div>
-                  <span className="text-[10px] text-muted">Liquid On-Chain Backing</span>
+                  <span className="text-2xs text-muted">
+                    Unclaimed liabilities: {usd(market?.rewardPoolLiabilities ?? 0n)}
+                  </span>
                 </div>
                 <div className="well p-3.5">
-                  <div className="label">Reward Pool Address</div>
-                  <div className="mt-1 text-sm font-mono font-bold text-white">
-                    {shortAddr(market?.rewardPoolWallet ?? addresses?.rewardPool ?? "0x9C886a403c88D95F45753c4312d10F3D9343590c")}
+                  <div className="label">Pool Ledger Contract</div>
+                  <div className="mt-1 text-sm font-mono font-semibold text-white">
+                    {market?.rewardPoolEngine ? shortAddr(market.rewardPoolEngine) : "—"}
                   </div>
-                  <span className="text-[10px] text-muted">BSC Testnet Verified</span>
+                  <span className="text-2xs text-muted">
+                    Lifetime routed: {usd(market?.rewardPoolAccumulated ?? 0n)}
+                  </span>
                 </div>
                 <div className="well p-3.5">
                   <div className="label">Total Platform Active Deposit</div>
-                  <div className="mt-1 text-xl font-bold text-white">
-                    {market?.totalPlatformActiveDeposit ? usd(market.totalPlatformActiveDeposit) : "$51,000.00"}
+                  <div className="mt-1 text-xl font-semibold text-white">
+                    {market?.totalPlatformActiveDeposit !== undefined ? usd(market.totalPlatformActiveDeposit) : "—"}
                   </div>
-                  <span className="text-[10px] text-muted">Global Staked Principal</span>
+                  <span className="text-2xs text-muted">Global Staked Principal</span>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {(
+                  [
+                    ["Neon (70%)", market?.rewardPools.neon ?? 0n, 5_000n],
+                    ["Hydra (20%)", market?.rewardPools.hydra ?? 0n, 10_000n],
+                    ["Genosis (10%)", market?.rewardPools.genosis ?? 0n, 20_000n],
+                  ] as const
+                ).map(([name, balance, threshold]) => (
+                  <div key={name} className="well p-3 flex justify-between gap-2 text-2xs">
+                    <span className="text-muted">{name}</span>
+                    <span className="font-medium text-text font-mono tabular-nums">
+                      {usd(balance)} / {usd(threshold * 10n ** 18n)}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </section>

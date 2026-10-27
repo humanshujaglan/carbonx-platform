@@ -28,8 +28,8 @@ export function CardHeader({
           className="-ml-1 -mt-2 size-12 sm:size-14 shrink-0 -rotate-[20deg] object-contain brightness-[0.85] saturate-[0.9]"
         />
         <div className="min-w-0">
-          <h2 className="text-[15px] sm:text-base font-medium text-text">{title}</h2>
-          {sub && <div className="truncate text-[11px] font-light text-muted">{sub}</div>}
+          <h2 className="text-base font-medium text-text">{title}</h2>
+          {sub && <div className="truncate text-2xs font-normal text-muted">{sub}</div>}
         </div>
       </div>
       {right}
@@ -53,7 +53,7 @@ export function Pill({
   }[tone];
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-normal uppercase tracking-wider ${styles}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-2xs font-normal uppercase tracking-wider ${styles}`}
     >
       {children}
     </span>
@@ -88,10 +88,10 @@ export function Countdown({ seconds, compact = false }: { seconds: number; compa
             className="absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-neon-soft/50 to-transparent"
             aria-hidden
           />
-          <div className={`font-semibold ${compact ? "text-sm" : "text-lg sm:text-xl"} ${i === 3 ? "text-neon-soft" : "text-text"}`}>
+          <div className={`font-semibold ${compact ? "text-sm" : "text-xl"} ${i === 3 ? "text-neon-soft" : "text-text"}`}>
             {p.value}
           </div>
-          <div className="text-[9px] font-light uppercase tracking-wider text-muted">{p.label}</div>
+          <div className="text-2xs font-normal uppercase tracking-wider text-muted">{p.label}</div>
         </div>
       ))}
     </div>
@@ -130,7 +130,7 @@ export function Notice({
     error: "bg-danger/10 text-[#ff8f8f]",
   }[tone];
   return (
-    <div role={tone === "error" ? "alert" : "status"} className={`rounded-xl px-3.5 py-2.5 text-xs font-light leading-relaxed ${styles}`}>
+    <div role={tone === "error" ? "alert" : "status"} className={`rounded-xl px-3.5 py-2.5 text-xs font-normal leading-relaxed ${styles}`}>
       {children}
     </div>
   );
@@ -140,7 +140,7 @@ export function Notice({
 export function Row({ label, value, accent }: { label: ReactNode; value: ReactNode; accent?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1.5 border-b border-white/[0.03] last:border-0">
-      <dt className="text-xs font-light text-muted">{label}</dt>
+      <dt className="text-xs font-normal text-muted">{label}</dt>
       <dd className={`text-right text-xs font-medium ${accent ? "text-neon" : "text-text"}`}>{value}</dd>
     </div>
   );
@@ -219,7 +219,7 @@ export function Toast({ message }: { message?: string }) {
   return (
     <div
       role="status"
-      className="card fixed left-1/2 top-6 z-50 -translate-x-1/2 !rounded-full px-5 py-2.5 text-xs font-light text-text shadow-2xl backdrop-blur border border-neon/40 flex items-center gap-2 animate-bounce"
+      className="card fixed left-1/2 top-6 z-50 -translate-x-1/2 !rounded-full px-5 py-2.5 text-xs font-normal text-text shadow-2xl backdrop-blur border border-neon/40 flex items-center gap-2 animate-bounce"
     >
       <span className="size-2 rounded-full bg-neon animate-pulse" />
       <span>{message}</span>

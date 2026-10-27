@@ -4,6 +4,7 @@ import { useState } from "react";
 import { parseUnits } from "viem";
 import walletImage from "@/public/wallet.png";
 import { erc20Abi, platformAbi } from "@/lib/abi";
+import { packageRates } from "@/lib/roi";
 import { LOCK_DETAILS, LockType, MIN_DEPOSIT_USDT, MAX_DEPOSIT_USDT } from "@/lib/config";
 import { usd } from "@/lib/format";
 import type { PlatformAddresses, PlatformUser } from "@/lib/platform";
@@ -15,10 +16,12 @@ const PRESET_AMOUNTS = [100, 500, 1000, 2500, 5000];
 export function InvestCard({
   addresses,
   user,
+  lhrTier = 0,
   onDone,
 }: {
   addresses?: PlatformAddresses;
   user?: PlatformUser;
+  lhrTier?: number;
   onDone: () => void;
 }) {
   const { account, hasWallet, connect, write } = useWallet();
@@ -40,7 +43,8 @@ export function InvestCard({
   const isBelowMin = depositUsdt < MIN_DEPOSIT_USDT;
   const isAboveMax = depositUsdt > MAX_DEPOSIT_USDT;
   const lockInfo = LOCK_DETAILS[selectedLock];
-  const estDailyUsd = (Number(depositUsdt) / 1e18) * lockInfo.dailyRate;
+  const lockRates = packageRates(selectedLock, lhrTier);
+  const estDailyUsd = ((Number(depositUsdt) / 1e18) * lockRates.avgDailyPct) / 100;
   const maxCapUsd = (Number(depositUsdt) / 1e18) * lockInfo.capMultiplier;
 
   const needsApproval =
@@ -102,7 +106,7 @@ export function InvestCard({
             Deposit Amount (USDT)
           </label>
           {user && (
-            <span className="text-[11px] text-muted">
+            <span className="text-2xs text-muted">
               Available: <strong className="font-medium text-text">{usd(user.usdtBalance)}</strong>
             </span>
           )}
@@ -116,7 +120,7 @@ export function InvestCard({
             step="10"
             value={amountStr}
             onChange={(e) => setAmountStr(e.target.value)}
-            className="well w-full py-3.5 pl-4 pr-20 text-lg sm:text-xl font-semibold text-text outline-none transition focus:border-neon/50"
+            className="well w-full py-3.5 pl-4 pr-20 text-xl font-semibold text-text outline-none transition focus:border-neon/50"
             placeholder="50"
           />
           <div className="absolute inset-y-0 right-3 flex items-center gap-1.5 pointer-events-none">
@@ -173,7 +177,7 @@ export function InvestCard({
                   </span>
                   {isSelected && <span className="size-2 rounded-full bg-neon animate-pulse" />}
                 </div>
-                <div className="text-[11px] font-medium text-neon-soft">{item.tagline}</div>
+                <div className="text-2xs font-medium text-neon-soft">{item.tagline}</div>
               </button>
             );
           })}
@@ -185,14 +189,14 @@ export function InvestCard({
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted">Estimated Base Return:</span>
           <span className="font-semibold text-neon-soft">
-            ~${estDailyUsd.toFixed(2)} / day (~{lockInfo.monthlyRatePercent}% / month)
+            ~${estDailyUsd.toFixed(2)} / day avg (~{lockRates.monthlyPct.toFixed(2)}% / month)
           </span>
         </div>
         {user && user.boosterTier > 0 && (
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted">Personal Booster Bonus:</span>
             <span className="font-semibold text-gold">
-              Tier {user.boosterTier}: +{(user.boosterTier * 0.11).toFixed(2)}% / day
+              Tier {user.boosterTier}: {user.boosterTier >= 3 ? "full" : `${user.boosterTier}/3 of`} flexible schedule on first package
             </span>
           </div>
         )}

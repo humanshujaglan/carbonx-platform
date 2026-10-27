@@ -9,8 +9,11 @@ import timerImage from "@/public/timer.png";
 import walletImage from "@/public/wallet.png";
 import depositImage from "@/public/deposit.png";
 import { platformAbi } from "@/lib/abi";
-import { formatWorkingCapHeadroom, usd } from "@/lib/format";
-import type { PlatformAddresses, PlatformUser } from "@/lib/platform";
+import { formatWorkingCapHeadroom, rankLabel, usd } from "@/lib/format";
+import { VestingOptions } from "./vesting-options";
+import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
+import { MIN_WITHDRAWAL_USD, TOP_ID_DAILY_RATE, TOP_ID_KEEP_SHARE } from "@/lib/roi";
+import { useLiveIncomeStreams } from "./incomes-dashboard";
 import { CardHeader, Notice, Pill, Row, Spinner, useTx } from "./ui";
 import { useWallet } from "./wallet";
 import {
@@ -25,29 +28,24 @@ import {
   Wallet3,
 } from "iconsax-react";
 
-const RANK_NAMES: Record<number, string> = {
-  0: "Member",
-  1: "Rank 1 · Bronze",
-  2: "Rank 2 · Silver",
-  3: "Rank 3 · Emerald",
-  4: "Rank 4 · Sapphire",
-  5: "Rank 5 · Ruby",
-  6: "Rank 6 · Diamond",
-  7: "Rank 7 · Black Diamond",
-  8: "Rank 8 · Crown Ambassador",
-};
-
 export function WithdrawDashboard({
   user,
   addresses,
+  market,
   onDone,
 }: {
   user?: PlatformUser;
   addresses?: PlatformAddresses;
+  market?: PlatformMarket;
   onDone: () => void;
 }) {
   const { account, write } = useWallet();
   const tx = useTx(onDone);
+
+  // ROI and booster are settled inside withdrawROI / withdrawBooster, so the stored pending values
+  // stay 0 until a withdrawal or accrual tx. Show what the contract would pay right now instead.
+  const { settledRoi, settledBooster, roiSchedule } = useLiveIncomeStreams(user, market?.lhrTier ?? 0);
+  const money = (v: number) => `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const [workingAmountStr, setWorkingAmountStr] = useState<string>("");
   const [vestingOption, setVestingOption] = useState<number>(0);
@@ -62,6 +60,10 @@ export function WithdrawDashboard({
       user.pendingLeaderContestRewards +
       user.pendingContestRewards
     : 0n;
+
+  const totalClaimableUsd = user
+    ? Number(formatUnits(totalPending - user.roiIncomePending - user.boosterIncomePending, 18)) + settledRoi + settledBooster
+    : 0;
 
   const totalWithdrawn = user
     ? user.roiIncomeWithdrawn +
@@ -120,8 +122,8 @@ export function WithdrawDashboard({
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-                {user ? usd(totalPending) : "$0.00"}
+              <h1 className="text-3xl font-semibold text-white tracking-tight">
+                {money(totalClaimableUsd)}
               </h1>
               <span className="text-xs font-semibold text-muted">Total Available</span>
             </div>
@@ -133,11 +135,11 @@ export function WithdrawDashboard({
           <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-2 text-xs">
             <div className="well px-3.5 py-2 flex items-center gap-2">
               <span className="text-muted">Lifetime Withdrawn:</span>
-              <span className="font-bold text-white">{user ? usd(totalWithdrawn) : "$0.00"}</span>
+              <span className="font-semibold text-white">{user ? usd(totalWithdrawn) : "$0.00"}</span>
             </div>
             <div className="well px-3.5 py-2 flex items-center gap-2">
               <span className="text-muted">Cap Headroom:</span>
-              <span className="font-bold text-neon-soft">
+              <span className="font-semibold text-neon-soft">
                 {formatWorkingCapHeadroom(user)}
               </span>
             </div>
@@ -147,26 +149,26 @@ export function WithdrawDashboard({
         {/* Stat Grid */}
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-white/[0.06]">
           <div className="well p-3.5">
-            <div className="text-[11px] text-muted">Available Daily ROI</div>
-            <div className="mt-1 text-lg font-bold text-neon-soft">
-              {user ? usd(user.roiIncomePending) : "$0.00"}
+            <div className="text-2xs text-muted">Available Daily ROI</div>
+            <div className="mt-1 text-xl font-semibold text-neon-soft">
+              {money(settledRoi)}
             </div>
           </div>
           <div className="well p-3.5">
-            <div className="text-[11px] text-muted">Working Balance</div>
-            <div className="mt-1 text-lg font-bold text-neon-soft">
+            <div className="text-2xs text-muted">Working Balance</div>
+            <div className="mt-1 text-xl font-semibold text-neon-soft">
               {user ? usd(user.workingIncomePending) : "$0.00"}
             </div>
           </div>
           <div className="well p-3.5">
-            <div className="text-[11px] text-muted">Booster Yield</div>
-            <div className="mt-1 text-lg font-bold text-neon-soft">
-              {user ? usd(user.boosterIncomePending) : "$0.00"}
+            <div className="text-2xs text-muted">Booster Yield</div>
+            <div className="mt-1 text-xl font-semibold text-neon-soft">
+              {money(settledBooster)}
             </div>
           </div>
           <div className="well p-3.5">
-            <div className="text-[11px] text-muted">Contests & Pools</div>
-            <div className="mt-1 text-lg font-bold text-neon-soft">
+            <div className="text-2xs text-muted">Contests & Pools</div>
+            <div className="mt-1 text-xl font-semibold text-neon-soft">
               {user ? usd(user.pendingContestRewards + user.pendingLeaderContestRewards) : "$0.00"}
             </div>
           </div>
@@ -181,22 +183,30 @@ export function WithdrawDashboard({
             <CardHeader
               image={timerImage}
               title="Daily Package ROI Yield"
-              right={<Pill tone="green">Daily 1.0% - 1.5%</Pill>}
+              right={
+                <Pill tone="green">
+                  {user?.isTopId
+                    ? `${(TOP_ID_DAILY_RATE * 100).toFixed(2)}%/day · ${TOP_ID_KEEP_SHARE * 100}% kept`
+                    : roiSchedule.cycleDay !== undefined
+                    ? `Day ${roiSchedule.cycleDay}/30 · Slot ${roiSchedule.slot}/6`
+                    : "Slot schedule"}
+                </Pill>
+              }
             />
             <p className="text-xs text-muted leading-relaxed">
-              Real-time daily yield accrued from your active deposits. Can be withdrawn at any time directly into your connected wallet.
+              Daily yield from your active packages, settled by the contract when you withdraw (minimum ${MIN_WITHDRAWAL_USD}). Withdrawing restarts the 30-day slot cycle.
             </p>
 
             <div className="grid grid-cols-2 gap-2.5">
               <div className="well p-3.5">
-                <div className="text-[11px] text-muted">Claimable ROI</div>
-                <div className="text-lg font-bold text-neon-soft">
-                  {user ? usd(user.roiIncomePending) : "$0.00"}
+                <div className="text-2xs text-muted">Claimable ROI</div>
+                <div className="text-xl font-semibold text-neon-soft">
+                  {money(settledRoi)}
                 </div>
               </div>
               <div className="well p-3.5">
-                <div className="text-[11px] text-muted">Total ROI Withdrawn</div>
-                <div className="text-lg font-bold text-white">
+                <div className="text-2xs text-muted">Total ROI Withdrawn</div>
+                <div className="text-xl font-semibold text-white">
                   {user ? usd(user.roiIncomeWithdrawn) : "$0.00"}
                 </div>
               </div>
@@ -206,25 +216,25 @@ export function WithdrawDashboard({
           <div className="flex items-center gap-2.5 pt-3 border-t border-white/[0.06]">
             <button
               type="button"
-              disabled={!user || user.roiIncomePending === 0n || !!tx.busy}
+              disabled={!user || settledRoi < MIN_WITHDRAWAL_USD || !!tx.busy}
               onClick={() => callPlatform("Claiming ROI Income...", "withdrawROI")}
-              className="btn btn-primary flex-1 py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
+              className="btn btn-primary flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-2"
             >
               {tx.busy === "Claiming ROI Income..." ? <Spinner /> : (
                 <>
                   <ArrowDown2 size={16} />
-                  <span>Claim ROI Income ({user ? usd(user.roiIncomePending) : "$0.00"})</span>
+                  <span>Claim ROI Income ({money(settledRoi)})</span>
                 </>
               )}
             </button>
             <button
               type="button"
               disabled={!user || !!tx.busy}
-              onClick={() => callPlatform("Claiming / Accruing ROI...", "accrueRange", [0n, 50n])}
+              onClick={() => account && callPlatform("Accruing ROI...", "accrueUserROI", [account])}
               className="btn btn-secondary py-3 px-3.5 text-xs font-semibold"
-              title="Batch accrual for large package holders"
+              title="Settle accrued ROI and booster into your contract balance"
             >
-              Claim / Accrue All
+              Accrue All
             </button>
           </div>
         </section>
@@ -238,19 +248,19 @@ export function WithdrawDashboard({
               right={<Pill tone="gold">Working Cap</Pill>}
             />
             <p className="text-xs text-muted leading-relaxed">
-              Commissions from downline unilevel harvest, direct bonuses, and network volume. Choose instant payout or linear vesting.
+              Commissions from downline level income, direct bonuses, and network volume. Pick a vesting period: shorter periods carry a larger deduction.
             </p>
 
             <div className="grid grid-cols-2 gap-2.5">
               <div className="well p-3.5">
-                <div className="text-[11px] text-muted">Working Balance</div>
-                <div className="text-lg font-bold text-neon-soft">
+                <div className="text-2xs text-muted">Working Balance</div>
+                <div className="text-xl font-semibold text-neon-soft">
                   {user ? usd(user.workingIncomePending) : "$0.00"}
                 </div>
               </div>
               <div className="well p-3.5">
-                <div className="text-[11px] text-muted">Headroom Remaining</div>
-                <div className="text-lg font-bold text-white">
+                <div className="text-2xs text-muted">Headroom Remaining</div>
+                <div className="text-xl font-semibold text-white">
                   {formatWorkingCapHeadroom(user)}
                 </div>
               </div>
@@ -273,7 +283,7 @@ export function WithdrawDashboard({
                 <button
                   type="button"
                   onClick={() => setWorkingPercent(100)}
-                  className="absolute right-2 rounded-xl bg-neon/15 px-3 py-1.5 text-xs font-bold text-neon hover:bg-neon/25 transition cursor-pointer"
+                  className="absolute right-2 rounded-xl bg-neon/15 px-3 py-1.5 text-xs font-semibold text-neon hover:bg-neon/25 transition cursor-pointer"
                 >
                   MAX
                 </button>
@@ -294,37 +304,17 @@ export function WithdrawDashboard({
               </div>
             </div>
 
-            {/* Vesting Mode Switcher */}
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setVestingOption(0)}
-                className={`rounded-2xl p-3 text-center text-xs font-medium transition cursor-pointer ${
-                  vestingOption === 0
-                    ? "bg-neon/15 text-neon border border-neon/40 font-semibold shadow-[0_0_12px_rgba(31,224,58,0.15)]"
-                    : "well text-muted hover:text-white"
-                }`}
-              >
-                Instant Payout (100%)
-              </button>
-              <button
-                type="button"
-                onClick={() => setVestingOption(1)}
-                className={`rounded-2xl p-3 text-center text-xs font-medium transition cursor-pointer ${
-                  vestingOption === 1
-                    ? "bg-neon/15 text-neon border border-neon/40 font-semibold shadow-[0_0_12px_rgba(31,224,58,0.15)]"
-                    : "well text-muted hover:text-white"
-                }`}
-              >
-                Linear Vesting
-              </button>
-            </div>
+            <VestingOptions
+              value={vestingOption}
+              onChange={setVestingOption}
+              amountUsd={workingAmountStr && Number(workingAmountStr) > 0 ? Number(workingAmountStr) : workingBalanceNum}
+            />
           </div>
 
           <div className="pt-3 border-t border-white/[0.06]">
             <button
               type="button"
-              disabled={!user || user.workingIncomePending === 0n || !!tx.busy}
+              disabled={!user || workingBalanceNum < MIN_WITHDRAWAL_USD || !!tx.busy}
               onClick={() => {
                 if (!user) return;
                 const amt = workingAmountStr && Number(workingAmountStr) > 0
@@ -332,7 +322,7 @@ export function WithdrawDashboard({
                   : user.workingIncomePending;
                 callPlatform("Claiming Working Income...", "withdrawWorkingIncome", [amt, vestingOption]);
               }}
-              className="btn btn-primary w-full py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
+              className="btn btn-primary w-full py-3 text-xs font-semibold flex items-center justify-center gap-2"
             >
               {tx.busy === "Claiming Working Income..." ? (
                 <Spinner />
@@ -354,24 +344,24 @@ export function WithdrawDashboard({
               title="Daily Booster Income"
               right={
                 <Pill tone={user && user.boosterTier > 0 ? "gold" : "neutral"}>
-                  Tier {user?.boosterTier ?? 0} (+{(user?.boosterTier ?? 0) * 0.1}%)
+                  Tier {user?.boosterTier ?? 0} · {(user?.boosterTier ?? 0) > 0 ? `${Math.min(user?.boosterTier ?? 0, 3)}/3 schedule` : "Inactive"}
                 </Pill>
               }
             />
             <p className="text-xs text-muted leading-relaxed">
-              Accelerated daily yield unlocked through direct sponsor volume. Tier progression up to +0.5% daily boost.
+              Booster pays 1/3, 2/3 or the full flexible ROI slot schedule on your first package (Tier 1-3), up to 1.0x of that package.
             </p>
 
             <div className="grid grid-cols-2 gap-2.5">
               <div className="well p-3.5">
-                <div className="text-[11px] text-muted">Claimable Booster</div>
-                <div className="text-lg font-bold text-neon-soft">
-                  {user ? usd(user.boosterIncomePending) : "$0.00"}
+                <div className="text-2xs text-muted">Claimable Booster</div>
+                <div className="text-xl font-semibold text-neon-soft">
+                  {money(settledBooster)}
                 </div>
               </div>
               <div className="well p-3.5">
-                <div className="text-[11px] text-muted">Total Booster Withdrawn</div>
-                <div className="text-lg font-bold text-white">
+                <div className="text-2xs text-muted">Total Booster Withdrawn</div>
+                <div className="text-xl font-semibold text-white">
                   {user ? usd(user.boosterIncomeWithdrawn) : "$0.00"}
                 </div>
               </div>
@@ -386,14 +376,14 @@ export function WithdrawDashboard({
           <div className="pt-3 border-t border-white/[0.06]">
             <button
               type="button"
-              disabled={!user || user.boosterIncomePending === 0n || !!tx.busy}
+              disabled={!user || settledBooster < MIN_WITHDRAWAL_USD || !!tx.busy}
               onClick={() => callPlatform("Claiming Booster Income...", "withdrawBooster")}
-              className="btn btn-primary w-full py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
+              className="btn btn-primary w-full py-3 text-xs font-semibold flex items-center justify-center gap-2"
             >
               {tx.busy === "Claiming Booster Income..." ? <Spinner /> : (
                 <>
                   <ArrowDown2 size={16} />
-                  <span>Claim Booster Income ({user ? usd(user.boosterIncomePending) : "$0.00"})</span>
+                  <span>Claim Booster Income ({money(settledBooster)})</span>
                 </>
               )}
             </button>
@@ -415,7 +405,7 @@ export function WithdrawDashboard({
             <div className="well p-3.5 flex flex-col gap-2">
               <Row
                 label="Current Rank"
-                value={user ? RANK_NAMES[user.currentRank] : "Member"}
+                value={rankLabel(user?.currentRank)}
                 accent
               />
               <Row
@@ -442,7 +432,7 @@ export function WithdrawDashboard({
               type="button"
               disabled={!user || user.leaderIncomePending === 0n || !!tx.busy}
               onClick={() => callPlatform("Claiming Leader Income...", "withdrawLeaderIncome")}
-              className="btn btn-primary flex-1 py-3 text-xs font-bold"
+              className="btn btn-primary flex-1 py-3 text-xs font-semibold"
             >
               {tx.busy === "Claiming Leader Income..." ? (
                 <Spinner />
@@ -499,7 +489,7 @@ export function WithdrawDashboard({
               type="button"
               disabled={!user || !!tx.busy}
               onClick={() => callPlatform("Claiming Level Income...", "harvestLevelIncome")}
-              className="btn btn-primary w-full py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-2"
+              className="btn btn-primary w-full py-3 text-xs font-semibold flex items-center justify-center gap-2"
             >
               {tx.busy === "Claiming Level Income..." ? <Spinner /> : (
                 <>
@@ -525,14 +515,14 @@ export function WithdrawDashboard({
 
             <div className="grid grid-cols-2 gap-2.5">
               <div className="well p-3.5">
-                <div className="text-[11px] text-muted">Price Contest Rewards</div>
-                <div className="text-lg font-bold text-neon-soft">
+                <div className="text-2xs text-muted">Price Contest Rewards</div>
+                <div className="text-xl font-semibold text-neon-soft">
                   {user ? usd(user.pendingContestRewards) : "$0.00"}
                 </div>
               </div>
               <div className="well p-3.5">
-                <div className="text-[11px] text-muted">Leader Contest Rewards</div>
-                <div className="text-lg font-bold text-neon-soft">
+                <div className="text-2xs text-muted">Leader Contest Rewards</div>
+                <div className="text-xl font-semibold text-neon-soft">
                   {user ? usd(user.pendingLeaderContestRewards) : "$0.00"}
                 </div>
               </div>
@@ -544,7 +534,7 @@ export function WithdrawDashboard({
               type="button"
               disabled={!user || user.pendingContestRewards === 0n || !!tx.busy}
               onClick={() => callPlatform("Claiming Contest Income...", "sweepContestRewards", [150n])}
-              className="btn btn-primary flex-1 py-3 text-xs font-bold"
+              className="btn btn-primary flex-1 py-3 text-xs font-semibold"
             >
               {tx.busy === "Claiming Contest Income..." ? <Spinner /> : "Claim Contest Income"}
             </button>
@@ -568,7 +558,7 @@ export function WithdrawDashboard({
         <div className="flex flex-col gap-1 text-xs text-muted leading-relaxed">
           <span className="font-semibold text-white">Smart Contract Withdrawal Safety</span>
           <p>
-            Withdrawals on CarbonX are executed peer-to-peer on Binance Smart Chain Testnet. Yield is settled in USDT and CARB tokens directly to your connected wallet address. Protocol fee deductions (5% admin, 5% liquidity pool) are handled automatically by the audited contract engine.
+            Every withdrawal deducts 5% (2.5% burned, 2.5% to the reward pools); working income deductions of 5% to 25% already include it. The net amount is paid in CARB at the current spot price, with a ${MIN_WITHDRAWAL_USD} minimum per withdrawal.
           </p>
         </div>
       </section>

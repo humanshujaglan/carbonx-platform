@@ -74,7 +74,7 @@ export function IncomeSubTabs({
                 isActive
                   ? "px-3.5 sm:px-5 py-2 sm:py-2.5 text-white font-medium"
                   : "px-3 sm:px-4 py-2 sm:py-2.5 text-[#94a0a9] hover:text-white hover:bg-white/[0.04] font-normal"
-              } rounded-[20px] text-xs sm:text-sm whitespace-nowrap transition-all duration-200 cursor-pointer select-none`}
+              } rounded-[20px] text-xs whitespace-nowrap transition-all duration-200 cursor-pointer select-none`}
             >
               {isActive && (
                 <motion.div
@@ -96,7 +96,7 @@ export function IncomeSubTabs({
                 variant={isActive ? "Bold" : "Linear"}
                 className="relative z-10 shrink-0"
               />
-              <span className="relative z-10 text-xs sm:text-sm font-medium leading-none tracking-tight">
+              <span className="relative z-10 text-xs font-medium leading-none tracking-tight">
                 {tab.label}
               </span>
             </button>

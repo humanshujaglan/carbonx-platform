@@ -62,7 +62,7 @@ export function TeamTree({
               type="text"
               readOnly
               value={refUrl || "Connect wallet to generate your referral link"}
-              className="well flex-1 px-4 py-3 text-xs sm:text-sm text-neon-soft outline-none"
+              className="well flex-1 px-4 py-3 text-xs text-neon-soft outline-none"
             />
             <button
               type="button"
@@ -98,7 +98,7 @@ export function TeamTree({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="card p-5">
           <div className="label">Total Direct Business</div>
-          <div className="mt-1 text-2xl font-bold text-text">
+          <div className="mt-1 text-3xl font-semibold text-text">
             {user ? usd(user.totalDirectBusiness) : "—"}
           </div>
           <div className="text-xs text-neon-soft mt-1">
@@ -108,14 +108,14 @@ export function TeamTree({
 
         <div className="card p-5">
           <div className="label">Total Team Volume</div>
-          <div className="mt-1 text-2xl font-bold text-text">
+          <div className="mt-1 text-3xl font-semibold text-text">
             {user ? usd(user.totalTeamBusiness) : "—"}
           </div>
         </div>
 
         <div className="card p-5">
           <div className="label">Power vs Weaker Leg</div>
-          <div className="mt-1 text-lg font-semibold text-text">
+          <div className="mt-1 text-xl font-semibold text-text">
             {user ? usd(user.powerLegBusiness) : "—"}
           </div>
           <div className="text-xs text-muted mt-1">
@@ -137,17 +137,17 @@ export function TeamTree({
             {user.directDownlines.map((downline, idx) => (
               <div key={downline} className="flex items-center justify-between px-4 py-3 bg-panel-2/50 hover:bg-panel-2 transition">
                 <div className="flex items-center gap-3">
-                  <span className="size-6 rounded-full bg-panel-3 text-[10px] font-semibold flex items-center justify-center text-muted">
+                  <span className="size-6 rounded-full bg-panel-3 text-2xs font-semibold flex items-center justify-center text-muted">
                     {idx + 1}
                   </span>
                   <div>
                     <div className="text-xs font-semibold text-text">{shortAddr(downline)}</div>
-                    <div className="text-[10px] text-muted">Direct Referral</div>
+                    <div className="text-2xs text-muted">Direct Referral</div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-neon/15 px-2 py-0.5 text-[10px] font-medium text-neon">
+                  <span className="rounded-full bg-neon/15 px-2 py-0.5 text-2xs font-medium text-neon">
                     Active
                   </span>
                   <button

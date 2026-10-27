@@ -8,7 +8,8 @@ import "./globals.css";
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  // Only the three weights in the type scale (see globals.css)
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans font-light bg-ink text-text">
+      <body className="min-h-full flex flex-col font-sans font-normal bg-ink text-text">
         <Backdrop />
         <WalletProvider>
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-36 sm:pb-40 sm:px-6">

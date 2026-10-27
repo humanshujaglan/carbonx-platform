@@ -17,31 +17,12 @@ import {
   Wallet3,
 } from "iconsax-react";
 import analysisImage from "@/public/analysis.png";
-import { shortAddr, usd } from "@/lib/format";
+import { rankLabel, shortAddr, usd } from "@/lib/format";
 import { platformAbi } from "@/lib/abi";
 import { viewAddress, platformAddress } from "@/lib/config";
 import { publicClient, type PlatformAddresses, type PlatformUser } from "@/lib/platform";
 import { CardHeader, Pill, Spinner, useToast } from "./ui";
 import { useWallet } from "./wallet";
-
-export const RANK_NAMES = [
-  "Member",
-  "Bronze",
-  "Silver",
-  "Gold",
-  "Platinum",
-  "Ruby",
-  "Emerald",
-  "Sapphire",
-  "Diamond",
-  "Blue Diamond",
-  "Black Diamond",
-  "Crown Diamond",
-  "Ambassador",
-  "Royal Ambassador",
-  "Crown Ambassador",
-  "Daddy Legend",
-];
 
 export type DetailedUserNode = {
   address: Address;
@@ -72,7 +53,8 @@ export function StructureView({
   const { account } = useWallet();
   const toast = useToast();
 
-  const defaultRoot = account ?? addresses?.topId ?? ("0x9C886a403c88D95F45753c4312d10F3D9343590c" as Address);
+  const topIdRoot = addresses?.topId && addresses.topId !== "0x0000000000000000000000000000000000000000" ? addresses.topId : undefined;
+  const defaultRoot = account ?? topIdRoot ?? ("0x0000000000000000000000000000000000000000" as Address);
   const [activeRoot, setActiveRoot] = useState<Address>(defaultRoot);
   const [searchInput, setSearchInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
@@ -130,7 +112,7 @@ export function StructureView({
       const posIds = u?.positionIds ?? [];
       const totalPackagesCount = posIds.length;
       const rankIdx = Number(u?.currentRank ?? 0n);
-      const rankName = RANK_NAMES[rankIdx] ?? "Member";
+      const rankName = rankLabel(rankIdx);
 
       // If depth < 1 and there are directs, fetch real direct children
       let childNodes: DetailedUserNode[] = [];
@@ -182,7 +164,7 @@ export function StructureView({
         boosterActive: false,
         boosterTier: 0,
         teamVolume: 0n,
-        rank: "Member",
+        rank: rankLabel(0),
         leg: "power",
         directs: [],
       };
@@ -290,10 +272,10 @@ export function StructureView({
                 My Wallet
               </button>
             )}
-            {activeRoot !== ("0x9C886a403c88D95F45753c4312d10F3D9343590c" as Address) && (
+            {topIdRoot && activeRoot !== topIdRoot && (
               <button
                 type="button"
-                onClick={() => setActiveRoot("0x9C886a403c88D95F45753c4312d10F3D9343590c" as Address)}
+                onClick={() => setActiveRoot(topIdRoot)}
                 className="btn btn-secondary text-xs !py-2.5 !px-3.5"
               >
                 Top ID Tree
@@ -305,25 +287,25 @@ export function StructureView({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="well p-4">
             <div className="label">Inspected Account Deposit</div>
-            <div className="mt-1 text-xl font-bold text-gradient text-neon-soft">
+            <div className="mt-1 text-xl font-semibold text-gradient text-neon-soft">
               {currentFocus ? usd(currentFocus.totalInvestment) : "—"}
             </div>
           </div>
           <div className="well p-4">
             <div className="label">Direct Team Partners</div>
-            <div className="mt-1 text-xl font-bold text-text">
+            <div className="mt-1 text-xl font-semibold text-text">
               {currentFocus?.directCount ?? 0} members
             </div>
           </div>
           <div className="well p-4">
             <div className="label">Total Team Business</div>
-            <div className="mt-1 text-xl font-bold text-text">
+            <div className="mt-1 text-xl font-semibold text-text">
               {currentFocus ? usd(currentFocus.teamVolume) : "—"}
             </div>
           </div>
           <div className="well p-4">
             <div className="label">Rank Progression</div>
-            <div className="mt-1 text-xl font-bold text-gold">
+            <div className="mt-1 text-xl font-semibold text-gold">
               {currentFocus?.rank ?? "Member"}
             </div>
           </div>
@@ -427,7 +409,7 @@ export function StructureView({
                     <ArrowUp2 size={15} color="currentColor" />
                   </div>
                   <div className="text-left">
-                    <div className="text-[10px] uppercase tracking-wider text-muted group-hover:text-neon-soft">
+                    <div className="text-2xs uppercase tracking-wider text-muted group-hover:text-neon-soft">
                       Upline User (Click to Go Back)
                     </div>
                     <div className="text-xs font-semibold text-text">
@@ -445,11 +427,11 @@ export function StructureView({
               <div className="w-72 sm:w-80 rounded-2xl p-4 bg-gradient-to-b from-[#1b221d] to-[#121613] border-2 border-neon shadow-[0_0_24px_rgba(31,224,58,0.25)] flex flex-col gap-3">
                 <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
                   <div className="flex items-center gap-2">
-                    <div className="size-8 rounded-xl bg-neon/20 flex items-center justify-center text-neon font-bold text-xs">
+                    <div className="size-8 rounded-xl bg-neon/20 flex items-center justify-center text-neon font-semibold text-xs">
                       {currentFocus.rank.slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-text flex items-center gap-1.5">
+                      <div className="text-xs font-semibold text-text flex items-center gap-1.5">
                         <span>{shortAddr(currentFocus.address)}</span>
                         <button
                           type="button"
@@ -459,7 +441,7 @@ export function StructureView({
                           <Copy size={12} />
                         </button>
                       </div>
-                      <div className="text-[10px] text-muted">
+                      <div className="text-2xs text-muted">
                         Sponsor: {shortAddr(currentFocus.sponsor)}
                       </div>
                     </div>
@@ -469,16 +451,16 @@ export function StructureView({
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="well p-2">
-                    <div className="text-[10px] text-muted">Personal Active</div>
+                    <div className="text-2xs text-muted">Personal Active</div>
                     <div className="font-semibold text-text">{usd(currentFocus.totalInvestment)}</div>
                   </div>
                   <div className="well p-2">
-                    <div className="text-[10px] text-muted">Team Volume</div>
+                    <div className="text-2xs text-muted">Team Volume</div>
                     <div className="font-semibold text-neon-soft">{usd(currentFocus.teamVolume)}</div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-muted pt-1">
+                <div className="flex items-center justify-between text-2xs text-muted pt-1">
                   <span>Direct Partners: <strong className="text-text">{currentFocus.directCount}</strong></span>
                   {currentFocus.boosterActive && (
                     <span className="text-gold font-medium">Booster Tier {currentFocus.boosterTier}</span>
@@ -499,17 +481,17 @@ export function StructureView({
                       <div className="w-64 rounded-2xl p-3.5 bg-panel-2 border border-white/[0.08] hover:border-neon/40 transition flex flex-col gap-2.5">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold text-text">{shortAddr(direct.address)}</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] text-muted">
+                          <span className="text-2xs px-2 py-0.5 rounded-full bg-white/[0.05] text-muted">
                             {direct.rank}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                        <div className="grid grid-cols-2 gap-1.5 text-2xs">
                           <div className="well p-1.5">
-                            <span className="text-muted block text-[9px]">Deposit</span>
+                            <span className="text-muted block text-2xs">Deposit</span>
                             <span className="font-semibold text-text">{usd(direct.totalInvestment)}</span>
                           </div>
                           <div className="well p-1.5">
-                            <span className="text-muted block text-[9px]">Team</span>
+                            <span className="text-muted block text-2xs">Team</span>
                             <span className="font-semibold text-neon-soft">{usd(direct.teamVolume)}</span>
                           </div>
                         </div>
@@ -532,7 +514,7 @@ export function StructureView({
                   <Hierarchy size={20} />
                 </div>
                 <div className="text-xs font-semibold text-text mb-1">No Direct Downlines on Chain</div>
-                <div className="text-[11px] text-muted mb-3 font-light">
+                <div className="text-2xs text-muted mb-3 font-normal">
                   This wallet has 0 direct partners registered under it on BSC Testnet. Share your referral link to build your multi-level network!
                 </div>
                 {account && (
@@ -600,25 +582,25 @@ export function StructureView({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="well p-3">
                     <span className="text-muted block">Personal Active Deposit</span>
-                    <span className="text-base font-bold text-text">{usd(modalUser.totalInvestment)}</span>
+                    <span className="text-base font-semibold text-text">{usd(modalUser.totalInvestment)}</span>
                   </div>
                   <div className="well p-3">
                     <span className="text-muted block">Team Volume</span>
-                    <span className="text-base font-bold text-neon-soft">{usd(modalUser.teamVolume)}</span>
+                    <span className="text-base font-semibold text-neon-soft">{usd(modalUser.teamVolume)}</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="well p-2.5">
-                    <span className="text-muted block text-[10px]">Rank</span>
+                    <span className="text-muted block text-2xs">Rank</span>
                     <span className="font-semibold text-gold">{modalUser.rank}</span>
                   </div>
                   <div className="well p-2.5">
-                    <span className="text-muted block text-[10px]">Direct Partners</span>
+                    <span className="text-muted block text-2xs">Direct Partners</span>
                     <span className="font-semibold text-text">{modalUser.directCount}</span>
                   </div>
                   <div className="well p-2.5">
-                    <span className="text-muted block text-[10px]">Booster Tier</span>
+                    <span className="text-muted block text-2xs">Booster Tier</span>
                     <span className="font-semibold text-text">{modalUser.boosterTier}</span>
                   </div>
                 </div>

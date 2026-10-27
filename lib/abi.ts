@@ -4,7 +4,6 @@ export const platformAbi = parseAbi([
   // Core user functions
   "function register(address _sponsor, uint256 _leaderCode, uint256 amountUSDT, uint8 lockType)",
   "function invest(uint256 amountUSDT, uint8 lockType)",
-  "function convertToFiftyFifty(uint256 positionId)",
   "function withdrawROI()",
   "function withdrawBooster()",
   "function withdrawWorkingIncome(uint256 amountUSDT, uint8 vestingOption)",
@@ -18,7 +17,7 @@ export const platformAbi = parseAbi([
   "function claimLeaderContestReward(uint256 dayId)",
   "function sweepLeaderContestRewards(uint256 maxDays)",
   "function checkLeaderCode()",
-  "function accrueRange(uint256 startIdx, uint256 count)",
+  "function accrueUserROI(address user) returns (uint256)",
 
   // View methods from PlatformContract and PlatformView delegate
   "struct Position { uint256 id; address user; uint256 initialPrincipal; uint256 createdAt; uint256 lastUpdateTime; uint8 lockType; uint256 lockedAt; uint256 roiAccrued; uint256 roiWithdrawn; uint256 flexRoiAccrued; uint256 lockRoiAccrued; bool active; bool cappedOut; uint256 lockLevelLastUpdate; }",
@@ -51,11 +50,17 @@ export const platformAbi = parseAbi([
   "function getDynamicTreasuryFeeBps() view returns (uint256)",
   "function adminWallet() view returns (address)",
   "function treasuryWallet() view returns (address)",
-  "function rewardPoolWallet() view returns (address)",
+  "function payoutEngine() view returns (address)",
   "function deploymentStartTime() view returns (uint256)",
   "function getTotalActuarialLiabilities() view returns (uint256)",
   "function getPendingLeaderContestRewards(address user) view returns (uint256)",
   "function getPendingContestRewards(address user) view returns (uint256)",
+  "function positionLastAccruedCycleBps(uint256 posId) view returns (uint256)",
+  "function positionCompletedCycles(uint256 posId) view returns (uint256)",
+  "function userBoosterLastAccruedCycleBps(address user) view returns (uint256)",
+  "function userBoosterCompletedCycles(address user) view returns (uint256)",
+  "function topIdCurrentPrincipal() view returns (uint256)",
+  "function topIdLastCompoundedTime() view returns (uint256)",
 
   // Events
   "event Registered(address indexed user, address indexed sponsor, uint256 leaderCodeUsed)",
@@ -63,6 +68,23 @@ export const platformAbi = parseAbi([
   "event ROIWithdrawn(address indexed user, uint256 grossUSDT, uint256 adminFeeUSDT, uint256 poolFeeUSDT, uint256 netTokensMinted, uint256 surplusRetained)",
   "event BoosterIncomeAccrued(address indexed user, uint256 amount)",
   "event RankUpgraded(address indexed user, uint256 previousRank, uint256 newRank)",
+]);
+
+/** Reward pool ledger kept by the payout engine (USDT itself stays in the platform contract). */
+export const payoutPoolsAbi = parseAbi([
+  "function accumulatedPoolBalance() view returns (uint256)",
+  "function neonPoolBalance() view returns (uint256)",
+  "function hydraPoolBalance() view returns (uint256)",
+  "function genosisPoolBalance() view returns (uint256)",
+  "function totalRewardPoolLiabilities() view returns (uint256)",
+]);
+
+export const lhrEngineAbi = parseAbi([
+  "function buybackPoolUSDT() view returns (uint256)",
+]);
+
+export const liquidityFarmingAbi = parseAbi([
+  "function totalActiveFarmingPrincipal() view returns (uint256)",
 ]);
 
 export const tokenContractAbi = parseAbi([

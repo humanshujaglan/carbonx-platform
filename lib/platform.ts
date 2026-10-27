@@ -8,6 +8,9 @@ import {
   oracleAbi,
   pairAbi,
   erc20Abi,
+  payoutPoolsAbi,
+  lhrEngineAbi,
+  liquidityFarmingAbi,
 } from "./abi";
 import {
   chain,
@@ -41,6 +44,7 @@ export type PlatformAddresses = {
   lhr: Address;
   farming: Address;
   dexRouter: Address;
+  /** Payout engine holding the reward pool ledger. */
   rewardPool: Address;
 };
 
@@ -57,6 +61,9 @@ export type EnhancedPosition = {
   flexRoiAccrued: bigint;
   lockRoiAccrued: bigint;
   liveAccruedRoi: bigint;
+  /** Contract checkpoint for the flexible schedule (completed 30-day cycles / bps already credited this cycle). */
+  completedCycles: number;
+  lastAccruedCycleBps: number;
   maxCap: bigint;
   isCapped: boolean;
   active: boolean;
@@ -65,6 +72,10 @@ export type EnhancedPosition = {
 
 export type PlatformUser = {
   isRegistered: boolean;
+  /** Top ID: no working cap, linear ROI via accrueTopId instead of per-package ROI. */
+  isTopId: boolean;
+  topIdPrincipal: bigint;
+  topIdLastCompoundedTime: number;
   sponsor: Address;
   registrationTime: number;
   firstDepositTime: number;
@@ -77,6 +88,8 @@ export type PlatformUser = {
   boosterFirstPackageAmount: bigint;
   boosterAccrued: bigint;
   boosterCapReached: boolean;
+  boosterCompletedCycles: number;
+  boosterLastAccruedCycleBps: number;
   currentRank: number;
   usedLeader: Address;
   roiCycleStartTime: number;
@@ -103,30 +116,48 @@ export type PlatformUser = {
   usdtAllowance: bigint;
 };
 
+/** Market fields are `undefined` until loaded or when the on-chain read fails (shown as "—"). */
 export type PlatformMarket = {
-  spotPrice: bigint;
-  twapPrice: bigint;
-  totalPlatformActiveDeposit: bigint;
+  spotPrice?: bigint;
+  twapPrice?: bigint;
+  /** TWAP averaging window in seconds (oracle `twapWindow`). */
+  twapWindowSec?: number;
+  totalPlatformActiveDeposit?: bigint;
   lhrTier: number;
-  usdtReserve: bigint;
-  carbReserve: bigint;
+  usdtReserve?: bigint;
+  carbReserve?: bigint;
   blockTimestamp: number;
+  /** Undistributed balances of the three reward pools (Neon 70% / Hydra 20% / Genosis 10%). */
+  rewardPools: { neon: bigint; hydra: bigint; genosis: bigint };
   rewardPoolBalance: bigint;
-  rewardPoolWallet: Address;
+  /** Lifetime USDT routed into reward pools. */
+  rewardPoolAccumulated: bigint;
+  /** Pool USDT still owed (undistributed + distributed but unclaimed). */
+  rewardPoolLiabilities: bigint;
+  rewardPoolEngine?: Address;
+  /** USDT the LHR engine holds for CARB buybacks. */
+  buybackPoolUSDT: bigint;
+  /** USDT principal the LP farming contract has added to the CARB/USDT pool. */
+  farmingPrincipalUSDT: bigint;
+  /** Current USD value (both sides) of the LP tokens held by the farming contract. */
+  farmingLpValueUSDT: bigint;
+  /** Farming contract's share of the LP supply, in bps. */
+  farmingLpShareBps: number;
 };
 
 // Fallback preview data
-function getDemoMarket(): PlatformMarket {
+function getEmptyMarket(): PlatformMarket {
   return {
-    spotPrice: 1000000000000000000n, // $1.00
-    twapPrice: 1000000000000000000n,
-    totalPlatformActiveDeposit: 50_000n * 10n ** 18n,
     lhrTier: 0,
-    usdtReserve: 10_000n * 10n ** 18n,
-    carbReserve: 10_000n * 10n ** 18n,
     blockTimestamp: 0,
-    rewardPoolBalance: 99_989_100n * 10n ** 18n,
-    rewardPoolWallet: "0x9C886a403c88D95F45753c4312d10F3D9343590c",
+    rewardPools: { neon: 0n, hydra: 0n, genosis: 0n },
+    rewardPoolBalance: 0n,
+    rewardPoolAccumulated: 0n,
+    rewardPoolLiabilities: 0n,
+    buybackPoolUSDT: 0n,
+    farmingPrincipalUSDT: 0n,
+    farmingLpValueUSDT: 0n,
+    farmingLpShareBps: 0,
   };
 }
 
@@ -140,8 +171,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
   let carbAddr = tokenAddress;
   let pairAddr = pairAddress;
   let oracleAddr = oracleAddress;
-  let topIdAddr = account ?? ("0x9C886a403c88D95F45753c4312d10F3D9343590c" as Address);
-  let totalActive = 50_000n * 10n ** 18n;
+  let topIdAddr = "0x0000000000000000000000000000000000000000" as Address;
+  let totalActive: bigint | undefined;
   let lhrTier = 0;
 
   try {
@@ -149,7 +180,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
       publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "usdtToken" }).catch(() => usdtAddr),
       publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "carbonToken" }).catch(() => carbAddr),
       publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "topId" }).catch(() => topIdAddr),
-      publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "totalPlatformActiveDeposit" }).catch(() => totalActive),
+      publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "totalPlatformActiveDeposit" }).catch(() => undefined),
       publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getActiveLhrTier" }).catch(() => 0),
     ]);
 
@@ -169,13 +200,25 @@ export async function fetchPlatformData(account?: Address): Promise<{
     if (o && o !== "0x0000000000000000000000000000000000000000") oracleAddr = o;
   } catch {}
 
-  let rwWallet: Address = topIdAddr;
-  let rwBalance = 0n;
+  // Reward pools are a ledger inside the payout engine; the USDT itself sits in the platform contract.
+  // (rewardPoolWallet() returns the admin/Top ID wallet, so its USDT balance is NOT the pool.)
+  let poolEngine: Address | undefined;
+  const rewardPools = { neon: 0n, hydra: 0n, genosis: 0n };
+  let rewardPoolAccumulated = 0n;
+  let rewardPoolLiabilities = 0n;
   try {
-    const rw = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "rewardPoolWallet" }).catch(() => undefined);
-    if (rw && rw !== "0x0000000000000000000000000000000000000000") {
-      rwWallet = rw;
-      rwBalance = await publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "balanceOf", args: [rw] }).catch(() => 0n);
+    const pe = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "payoutEngine" });
+    if (pe && pe !== "0x0000000000000000000000000000000000000000") {
+      poolEngine = pe;
+      const read = (functionName: "neonPoolBalance" | "hydraPoolBalance" | "genosisPoolBalance" | "accumulatedPoolBalance" | "totalRewardPoolLiabilities") =>
+        publicClient.readContract({ address: pe, abi: payoutPoolsAbi, functionName }).catch(() => 0n);
+      [rewardPools.neon, rewardPools.hydra, rewardPools.genosis, rewardPoolAccumulated, rewardPoolLiabilities] = await Promise.all([
+        read("neonPoolBalance"),
+        read("hydraPoolBalance"),
+        read("genosisPoolBalance"),
+        read("accumulatedPoolBalance"),
+        read("totalRewardPoolLiabilities"),
+      ]);
     }
   } catch {}
 
@@ -190,11 +233,11 @@ export async function fetchPlatformData(account?: Address): Promise<{
     lhr: lhrAddress,
     farming: farmingAddress,
     dexRouter: dexRouterAddress,
-    rewardPool: rwWallet,
+    rewardPool: poolEngine ?? pAddr,
   };
 
   // Read DEX pool reserves
-  let reserves: [bigint, bigint, number] = [10_000n * 10n ** 18n, 10_000n * 10n ** 18n, 0];
+  let reserves: [bigint, bigint, number] | undefined;
   let token0Addr: Address = carbAddr;
   try {
     const [res, t0] = await Promise.all([
@@ -206,18 +249,42 @@ export async function fetchPlatformData(account?: Address): Promise<{
   } catch {}
 
   const isToken0Carb = token0Addr.toLowerCase() === carbAddr.toLowerCase();
-  const carbReserve = isToken0Carb ? reserves[0] : reserves[1];
-  const usdtReserve = isToken0Carb ? reserves[1] : reserves[0];
+  const carbReserve = reserves ? (isToken0Carb ? reserves[0] : reserves[1]) : undefined;
+  const usdtReserve = reserves ? (isToken0Carb ? reserves[1] : reserves[0]) : undefined;
 
-  let spotPrice = 1000000000000000000n; // $1.00
-  if (carbReserve > 0n && usdtReserve > 0n) {
+  let spotPrice: bigint | undefined;
+  if (carbReserve && usdtReserve) {
     spotPrice = (usdtReserve * 10n ** 18n) / carbReserve;
   }
 
-  let twapPrice = spotPrice;
+  let buybackPoolUSDT = 0n;
+  let farmingPrincipalUSDT = 0n;
+  let farmingLpValueUSDT = 0n;
+  let farmingLpShareBps = 0;
   try {
-    const twapRes = await publicClient.readContract({ address: oracleAddr, abi: oracleAbi, functionName: "getLatestTwap" });
+    const [buyback, principal, lpBal, lpSupply] = await Promise.all([
+      publicClient.readContract({ address: lhrAddress, abi: lhrEngineAbi, functionName: "buybackPoolUSDT" }).catch(() => 0n),
+      publicClient.readContract({ address: farmingAddress, abi: liquidityFarmingAbi, functionName: "totalActiveFarmingPrincipal" }).catch(() => 0n),
+      publicClient.readContract({ address: pairAddr, abi: erc20Abi, functionName: "balanceOf", args: [farmingAddress] }).catch(() => 0n),
+      publicClient.readContract({ address: pairAddr, abi: pairAbi, functionName: "totalSupply" }).catch(() => 0n),
+    ]);
+    buybackPoolUSDT = buyback;
+    farmingPrincipalUSDT = principal;
+    if (lpSupply > 0n && usdtReserve !== undefined) {
+      farmingLpValueUSDT = (lpBal * usdtReserve * 2n) / lpSupply;
+      farmingLpShareBps = Number((lpBal * 10_000n) / lpSupply);
+    }
+  } catch {}
+
+  let twapPrice: bigint | undefined;
+  let twapWindowSec: number | undefined;
+  try {
+    const [twapRes, window] = await Promise.all([
+      publicClient.readContract({ address: oracleAddr, abi: oracleAbi, functionName: "getLatestTwap" }),
+      publicClient.readContract({ address: oracleAddr, abi: oracleAbi, functionName: "twapWindow" }).catch(() => undefined),
+    ]);
     if (twapRes[0] > 0n) twapPrice = twapRes[0];
+    if (window !== undefined) twapWindowSec = Number(window);
   } catch {}
 
   let blockTimestamp = Math.floor(Date.now() / 1000);
@@ -229,13 +296,21 @@ export async function fetchPlatformData(account?: Address): Promise<{
   const market: PlatformMarket = {
     spotPrice,
     twapPrice,
+    twapWindowSec,
     totalPlatformActiveDeposit: totalActive,
     lhrTier,
     usdtReserve,
     carbReserve,
     blockTimestamp,
-    rewardPoolBalance: rwBalance,
-    rewardPoolWallet: rwWallet,
+    rewardPools,
+    rewardPoolBalance: rewardPools.neon + rewardPools.hydra + rewardPools.genosis,
+    rewardPoolAccumulated,
+    rewardPoolLiabilities,
+    rewardPoolEngine: poolEngine,
+    buybackPoolUSDT,
+    farmingPrincipalUSDT,
+    farmingLpValueUSDT,
+    farmingLpShareBps,
   };
 
   if (!account) {
@@ -244,7 +319,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
 
   // Read User Data
   try {
-    const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, usdtBal, carbBal, usdtAllow] =
+    const isTopId = topIdAddr !== "0x0000000000000000000000000000000000000000" && account.toLowerCase() === topIdAddr.toLowerCase();
+    const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded] =
       await Promise.all([
         publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUser", args: [account] }),
         publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserWorkingCapHeadroom", args: [account] }).catch(() => 0n),
@@ -255,6 +331,10 @@ export async function fetchPlatformData(account?: Address): Promise<{
         publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "balanceOf", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: carbAddr, abi: erc20Abi, functionName: "balanceOf", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "allowance", args: [account, pAddr] }).catch(() => 0n),
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "userBoosterCompletedCycles", args: [account] }).catch(() => 0n),
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "userBoosterLastAccruedCycleBps", args: [account] }).catch(() => 0n),
+        isTopId ? publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "topIdCurrentPrincipal" }).catch(() => 0n) : 0n,
+        isTopId ? publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "topIdLastCompoundedTime" }).catch(() => 0n) : 0n,
       ]);
 
     const isRegistered = u.registrationTime > 0n;
@@ -264,9 +344,11 @@ export async function fetchPlatformData(account?: Address): Promise<{
     const positions: EnhancedPosition[] = await Promise.all(
       posIds.map(async (posId) => {
         try {
-          const [pos, live] = await Promise.all([
+          const [pos, live, cycles, lastBps] = await Promise.all([
             publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPosition", args: [posId] }),
             publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPositionLiveAccruedRoi", args: [posId] }),
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "positionCompletedCycles", args: [posId] }).catch(() => 0n),
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "positionLastAccruedCycleBps", args: [posId] }).catch(() => 0n),
           ]);
           return {
             id: pos.id,
@@ -281,6 +363,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
             flexRoiAccrued: pos.flexRoiAccrued,
             lockRoiAccrued: pos.lockRoiAccrued,
             liveAccruedRoi: live[0],
+            completedCycles: Number(cycles),
+            lastAccruedCycleBps: Number(lastBps),
             maxCap: live[1],
             isCapped: live[2],
             active: pos.active,
@@ -300,6 +384,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
             flexRoiAccrued: 0n,
             lockRoiAccrued: 0n,
             liveAccruedRoi: 0n,
+            completedCycles: 0,
+            lastAccruedCycleBps: 0,
             maxCap: 0n,
             isCapped: false,
             active: false,
@@ -317,6 +403,9 @@ export async function fetchPlatformData(account?: Address): Promise<{
 
     const user: PlatformUser = {
       isRegistered,
+      isTopId,
+      topIdPrincipal,
+      topIdLastCompoundedTime: Number(topIdLastCompounded),
       sponsor: u.sponsor,
       registrationTime: Number(u.registrationTime),
       firstDepositTime: Number(u.firstDepositTime),
@@ -329,6 +418,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
       boosterFirstPackageAmount: u.boosterFirstPackageAmount,
       boosterAccrued: u.boosterAccrued,
       boosterCapReached: u.boosterCapReached,
+      boosterCompletedCycles: Number(boosterCycles),
+      boosterLastAccruedCycleBps: Number(boosterLastBps),
       currentRank: Number(u.currentRank),
       usedLeader: u.usedLeader,
       roiCycleStartTime: Number(u.roiCycleStartTime),
@@ -367,7 +458,7 @@ export function usePlatform(account?: Address) {
     market: PlatformMarket;
     user?: PlatformUser;
   }>({
-    market: getDemoMarket(),
+    market: getEmptyMarket(),
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();

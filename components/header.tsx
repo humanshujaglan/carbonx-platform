@@ -39,15 +39,15 @@ export function Header({
       {/* Left: User Profile greeting matching left screen in reference image */}
       <div className="flex items-center gap-3">
         <div className="relative flex size-10 sm:size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1fe03a]/20 to-[#0a150c] border border-neon/40 shadow-[0_0_12px_rgba(31,224,58,0.2)]">
-          <span className="text-sm font-bold text-neon">
+          <span className="text-sm font-semibold text-neon">
             {account ? account.slice(2, 4).toUpperCase() : "CX"}
           </span>
           <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-neon border-2 border-[#050806]" />
         </div>
 
         <div className="flex flex-col">
-          <span className="text-[11px] font-medium text-muted">Welcome back!</span>
-          <span className="font-sans text-xs sm:text-sm font-semibold text-white tracking-tight">
+          <span className="text-2xs font-medium text-muted">Welcome back!</span>
+          <span className="font-sans text-xs font-semibold text-white tracking-tight">
             {account ? shortAddr(account) : "Guest Member"}
           </span>
         </div>
@@ -56,7 +56,7 @@ export function Header({
       {/* Right: Rounded square action buttons matching left screen */}
       <div className="flex items-center gap-2">
         {/* Network Badge */}
-        <span className="hidden items-center gap-1.5 rounded-xl bg-[#121914] px-3 py-2 text-[11px] font-semibold text-muted border border-white/[0.06] md:inline-flex">
+        <span className="hidden items-center gap-1.5 rounded-xl bg-[#121914] px-3 py-2 text-2xs font-semibold text-muted border border-white/[0.06] md:inline-flex">
           <span className="size-1.5 rounded-full bg-neon shadow-[0_0_6px_#1fe03a]" />
           {chain.name}
         </span>

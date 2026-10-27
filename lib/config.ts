@@ -53,18 +53,14 @@ export enum LockType {
 export const LOCK_DETAILS = {
   [LockType.FLEXIBLE]: {
     name: "Flexible",
-    tagline: "10% / 30 days · 250% Cap",
-    dailyRate: 0.003333,
-    monthlyRatePercent: 10.0,
+    tagline: "6 backloaded slots / 30 days · 250% Cap",
     capMultiplier: 2.5,
     lockDays: 0,
-    description: "Daily flexible liquidity with ~10% monthly yield (0.15% to 0.60% daily backloaded). Claim or convert anytime up to 250% cap.",
+    description: "Flexible liquidity paid on six 5-day slots per 30-day cycle (rates set by LHR health, e.g. 0.15% → 0.60% daily at Tier 1). Claim anytime up to 250% cap; claiming restarts the cycle.",
   },
   [LockType.LOCKED_100]: {
     name: "100% Locked",
     tagline: "0.33% daily compound · 250% Cap",
-    dailyRate: 0.0033,
-    monthlyRatePercent: 10.4,
     capMultiplier: 2.5,
     lockDays: 381,
     description: "0.33% daily compounding (1.0033^381 reaches 2.5x cap on Day 381). Maximized compounding return.",
@@ -72,11 +68,9 @@ export const LOCK_DETAILS = {
   [LockType.LOCKED_50]: {
     name: "50/50 Hybrid",
     tagline: "50% Flexible + 50% Compound · 250% Cap",
-    dailyRate: 0.003316,
-    monthlyRatePercent: 10.2,
     capMultiplier: 2.5,
-    lockDays: 180,
-    description: "Balanced package: 50% flexible liquidity (10%/cycle) and 50% high-yield 0.33% daily compounding, up to 250% cap.",
+    lockDays: 381,
+    description: "Balanced package: 50% flexible liquidity (slot schedule) and 50% 0.33% daily compounding, up to 250% cap.",
   },
 } as const;
 

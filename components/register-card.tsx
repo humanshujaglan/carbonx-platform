@@ -6,6 +6,7 @@ import { type Address, isAddress, parseUnits } from "viem";
 import depositImage from "@/public/deposit.png";
 import leafImage from "@/public/leave.png";
 import { erc20Abi, platformAbi } from "@/lib/abi";
+import { packageRates } from "@/lib/roi";
 import { LOCK_DETAILS, LockType, MIN_DEPOSIT_USDT, MAX_DEPOSIT_USDT } from "@/lib/config";
 import { usd } from "@/lib/format";
 import type { PlatformAddresses, PlatformUser } from "@/lib/platform";
@@ -17,10 +18,12 @@ const PRESET_AMOUNTS = [100, 500, 1000, 2500, 5000];
 export function RegisterCard({
   addresses,
   user,
+  lhrTier = 0,
   onDone,
 }: {
   addresses?: PlatformAddresses;
   user?: PlatformUser;
+  lhrTier?: number;
   onDone: () => void;
 }) {
   const { account, hasWallet, connect, write } = useWallet();
@@ -55,13 +58,13 @@ export function RegisterCard({
   const isBelowMin = depositUsdt < MIN_DEPOSIT_USDT;
   const isAboveMax = depositUsdt > MAX_DEPOSIT_USDT;
   const lockInfo = LOCK_DETAILS[selectedLock];
-  const estDailyUsd = (Number(depositUsdt) / 1e18) * lockInfo.dailyRate;
+  const lockRates = packageRates(selectedLock, lhrTier);
+  const estDailyUsd = ((Number(depositUsdt) / 1e18) * lockRates.avgDailyPct) / 100;
   const maxCapUsd = (Number(depositUsdt) / 1e18) * lockInfo.capMultiplier;
 
-  const resolvedSponsor: Address =
-    sponsorInput && isAddress(sponsorInput)
-      ? (sponsorInput as Address)
-      : (addresses?.topId ?? ("0x98528F6bF0d2E8497e6827096538E885Fce88029" as Address));
+  const onChainTopId = addresses?.topId && addresses.topId !== "0x0000000000000000000000000000000000000000" ? addresses.topId : undefined;
+  const resolvedSponsor: Address | undefined =
+    sponsorInput && isAddress(sponsorInput) ? (sponsorInput as Address) : onChainTopId;
 
   const needsApproval =
     !!addresses && !!user && user.usdtAllowance < depositUsdt && depositUsdt > 0n;
@@ -83,7 +86,7 @@ export function RegisterCard({
   }
 
   async function handleRegister() {
-    if (!addresses || !account || isBelowMin || isAboveMax) return;
+    if (!addresses || !account || !resolvedSponsor || isBelowMin || isAboveMax) return;
     const leaderCodeNum = BigInt(leaderCodeInput.trim() || "0");
 
     await tx.run(
@@ -122,17 +125,17 @@ export function RegisterCard({
           <label htmlFor="sponsor-input" className="label uppercase tracking-wider text-muted">
             Sponsor Address (Referrer)
           </label>
-          <span className="text-[11px] text-neon-soft">
-            {sponsorInput && isAddress(sponsorInput) ? "Valid Sponsor" : "Defaults to Genesis Top ID"}
+          <span className="text-2xs text-neon-soft">
+            {sponsorInput && isAddress(sponsorInput) ? "Valid Sponsor" : "Defaults to Top ID"}
           </span>
         </div>
         <input
           id="sponsor-input"
           type="text"
-          placeholder="0x... (leave empty for Genesis Top ID)"
+          placeholder="0x... (leave empty for Top ID)"
           value={sponsorInput}
           onChange={(e) => setSponsorInput(e.target.value.trim())}
-          className="well w-full px-4 py-3 text-xs sm:text-sm text-text outline-none transition focus:border-neon/50"
+          className="well w-full px-4 py-3 text-xs text-text outline-none transition focus:border-neon/50"
         />
       </div>
 
@@ -148,7 +151,7 @@ export function RegisterCard({
           placeholder="0"
           value={leaderCodeInput}
           onChange={(e) => setLeaderCodeInput(e.target.value)}
-          className="well w-full px-4 py-3 text-xs sm:text-sm text-text outline-none transition focus:border-neon/50"
+          className="well w-full px-4 py-3 text-xs text-text outline-none transition focus:border-neon/50"
         />
       </div>
 
@@ -159,7 +162,7 @@ export function RegisterCard({
             Initial Package Deposit (USDT)
           </label>
           {user && (
-            <span className="text-[11px] text-muted">
+            <span className="text-2xs text-muted">
               Wallet balance: <strong className="font-medium text-text">{usd(user.usdtBalance)}</strong>
             </span>
           )}
@@ -173,7 +176,7 @@ export function RegisterCard({
             step="10"
             value={amountStr}
             onChange={(e) => setAmountStr(e.target.value)}
-            className="well w-full py-3.5 pl-4 pr-20 text-lg sm:text-xl font-semibold text-text outline-none transition focus:border-neon/50"
+            className="well w-full py-3.5 pl-4 pr-20 text-xl font-semibold text-text outline-none transition focus:border-neon/50"
             placeholder="50"
           />
           <div className="absolute inset-y-0 right-3 flex items-center gap-1.5 pointer-events-none">
@@ -230,7 +233,7 @@ export function RegisterCard({
                   </span>
                   {isSelected && <span className="size-2 rounded-full bg-neon animate-pulse" />}
                 </div>
-                <div className="text-[11px] font-medium text-neon-soft">{item.tagline}</div>
+                <div className="text-2xs font-medium text-neon-soft">{item.tagline}</div>
               </button>
             );
           })}
@@ -242,7 +245,7 @@ export function RegisterCard({
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted">Estimated Base Return:</span>
           <span className="font-semibold text-neon-soft">
-            ~${estDailyUsd.toFixed(2)} / day (~{lockInfo.monthlyRatePercent}% / month)
+            ~${estDailyUsd.toFixed(2)} / day avg (~{lockRates.monthlyPct.toFixed(2)}% / month)
           </span>
         </div>
         <div className="flex items-center justify-between text-xs">
@@ -253,7 +256,7 @@ export function RegisterCard({
         </div>
         <div className="flex items-center justify-between text-xs border-t border-white/[0.04] pt-2">
           <span className="text-muted">Sponsor Target:</span>
-          <span className="text-muted text-[11px]">{resolvedSponsor.slice(0, 10)}…</span>
+          <span className="text-muted text-2xs">{resolvedSponsor ? `${resolvedSponsor.slice(0, 10)}…` : "—"}</span>
         </div>
       </div>
 

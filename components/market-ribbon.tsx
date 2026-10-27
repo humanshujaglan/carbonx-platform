@@ -5,7 +5,7 @@ import analysisImage from "@/public/analysis.png";
 import { chain } from "@/lib/config";
 import type { PlatformAddresses, PlatformMarket } from "@/lib/platform";
 import { price, usd } from "@/lib/format";
-import { CardHeader, Pill } from "./ui";
+import { CardHeader } from "./ui";
 
 export function MarketRibbon({
   market,
@@ -14,20 +14,26 @@ export function MarketRibbon({
   market: PlatformMarket;
   addresses?: PlatformAddresses;
 }) {
-  const tierLabels: Record<number, { label: string; tone: "green" | "warn" | "neutral" }> = {
-    0: { label: "Tier 0 · Prime", tone: "green" },
-    1: { label: "Tier 1 · Balanced", tone: "green" },
-    2: { label: "Tier 2 · Caution", tone: "warn" },
-    3: { label: "Tier 3 · Floor Defense", tone: "warn" },
-  };
-
-  const activeTier = tierLabels[market.lhrTier] ?? { label: "Tier 1", tone: "green" };
+  // "—" until the value is read from chain (or when the read fails)
+  const show = (v: bigint | undefined, fmt: (x: bigint) => string) => (v === undefined ? "—" : fmt(v));
+  const twapNote =
+    market.twapWindowSec !== undefined
+      ? market.twapWindowSec >= 3600
+        ? `${market.twapWindowSec / 3600}h window`
+        : `${Math.round(market.twapWindowSec / 60)}m window`
+      : undefined;
 
   const cells = [
-    { label: "CARB spot price", value: price(market.spotPrice), accent: true },
-    { label: "TWAP oracle", value: price(market.twapPrice), note: "Live 12h" },
-    { label: "Total active deposits", value: usd(market.totalPlatformActiveDeposit) },
-    { label: "Liquidity in pool", value: usd(market.usdtReserve * 2n) },
+    { label: "CARB spot price", value: show(market.spotPrice, price), accent: true },
+    { label: "TWAP oracle", value: show(market.twapPrice, price), note: twapNote },
+    { label: "Total active deposits", value: show(market.totalPlatformActiveDeposit, usd) },
+    { label: "Liquidity in pool", value: show(market.usdtReserve, (r) => usd(r * 2n)) },
+    { label: "Buyback pool", value: usd(market.buybackPoolUSDT), note: "USDT" },
+    {
+      label: "LP farming liquidity",
+      value: usd(market.farmingPrincipalUSDT),
+      sub: `LP value ${usd(market.farmingLpValueUSDT)}`,
+    },
   ];
 
   return (
@@ -37,13 +43,12 @@ export function MarketRibbon({
         title="Protocol & Market Overview"
         right={
           <div className="flex items-center gap-2">
-            <Pill tone={activeTier.tone}>{activeTier.label}</Pill>
             {addresses && (
               <a
                 href={`https://pancakeswap.finance/info/v2/pairs/${addresses.pair}`}
                 target="_blank"
                 rel="noreferrer"
-                className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted transition-colors hover:text-neon"
+                className="hidden sm:flex items-center gap-1.5 text-2xs text-muted transition-colors hover:text-neon"
               >
                 <span>PancakeSwap</span>
                 <ExportSquare size={14} color="currentColor" />
@@ -53,16 +58,17 @@ export function MarketRibbon({
         }
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {cells.map((c) => (
           <div key={c.label} className="well min-w-0 px-4 py-3">
             <div className="label flex flex-wrap items-center gap-x-1.5">
               {c.label}
               {c.note && <span className="text-neon-soft">· {c.note}</span>}
             </div>
-            <div className={`mt-1 truncate text-lg font-semibold sm:text-xl ${c.accent ? "text-gradient text-neon-soft" : "text-text"}`}>
+            <div className={`mt-1 truncate text-xl font-semibold ${c.accent ? "text-gradient text-neon-soft" : "text-text"}`}>
               {c.value}
             </div>
+            {"sub" in c && c.sub && <div className="mt-0.5 truncate text-2xs text-muted">{c.sub}</div>}
           </div>
         ))}
       </div>
