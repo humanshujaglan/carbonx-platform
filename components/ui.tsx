@@ -117,6 +117,51 @@ export function Progress({ value, label }: { value: number; label: string }) {
   );
 }
 
+/**
+ * Tall progress bar with its text inside. The fill is a second copy of the bar clipped to the
+ * progress width, so text over the fill renders dark and text over the track stays light —
+ * the colour switches exactly at the fill edge. Ends are slanted rather than rounded.
+ */
+export function LabeledProgress({
+  value,
+  label,
+  valueText,
+}: {
+  value: number;
+  label: string;
+  valueText: string;
+}) {
+  const pct = Math.max(0, Math.min(1, value)) * 100;
+  const shape = "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)";
+  const content = (
+    <div className="flex h-full items-center justify-between gap-3 px-5 text-2xs font-semibold uppercase tracking-wider">
+      <span className="truncate">{label}</span>
+      <span className="shrink-0 tabular-nums">{valueText}</span>
+    </div>
+  );
+  return (
+    <div
+      className="relative h-8 w-full bg-white/[0.06] text-text"
+      style={{ clipPath: shape }}
+      role="progressbar"
+      aria-label={label}
+      aria-valuetext={valueText}
+      aria-valuenow={Math.round(pct)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      {content}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-r from-neon-deep via-neon to-neon-soft text-ink transition-[clip-path] duration-700"
+        style={{ clipPath: `inset(0 ${100 - pct}% 0 0)` }}
+      >
+        {content}
+      </div>
+    </div>
+  );
+}
+
 export function Notice({
   tone = "info",
   children,

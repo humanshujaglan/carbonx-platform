@@ -6,8 +6,17 @@ import walletImage from "@/public/wallet.png";
 import { platformAbi } from "@/lib/abi";
 import { shortAddr, usd } from "@/lib/format";
 import type { PlatformAddresses, PlatformUser } from "@/lib/platform";
-import { CardHeader, Notice, Pill, Row, Spinner, useToast, useTx } from "./ui";
+import { CardHeader, LabeledProgress, Notice, Pill, Row, Spinner, useToast, useTx } from "./ui";
 import { useWallet } from "./wallet";
+
+/**
+ * Leader code qualification targets shown in the self-check progress bars.
+ * PLACEHOLDERS — the contract exposes no view for these; set them to the real `checkLeaderCode` rules.
+ */
+const LEADER_CODE_TARGETS = {
+  directBusiness: 1_000n * 10n ** 18n,
+  activeDirects: 5,
+};
 
 export function TeamTree({
   user,
@@ -27,6 +36,9 @@ export function TeamTree({
     : account
     ? `https://carbonx.network/?ref=${account}`
     : "";
+
+  const directBusiness = user?.totalDirectBusiness ?? 0n;
+  const activeDirects = user?.activeDirectCount ?? 0;
 
   async function handleCheckLeaderCode() {
     if (!addresses || !account) return;
@@ -81,16 +93,28 @@ export function TeamTree({
         </div>
 
         {/* Leader code check banner */}
-        <div className="well p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="text-xs font-semibold text-text">Leader Code Self-Check</div>
-          <button
-            type="button"
-            disabled={!user || !!tx.busy}
-            onClick={handleCheckLeaderCode}
-            className="btn btn-secondary text-xs !py-1.5 !px-3.5 whitespace-nowrap"
-          >
-            {tx.busy === "Checking Leader Code Qualification..." ? <Spinner /> : "Check Leader Code"}
-          </button>
+        <div className="well p-4 flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="text-xs font-semibold text-text">Leader Code Self-Check</div>
+            <button
+              type="button"
+              disabled={!user || !!tx.busy}
+              onClick={handleCheckLeaderCode}
+              className="btn btn-secondary text-xs !py-1.5 !px-3.5 whitespace-nowrap"
+            >
+              {tx.busy === "Checking Leader Code Qualification..." ? <Spinner /> : "Check Leader Code"}
+            </button>
+          </div>
+          <LabeledProgress
+            label="Direct Business"
+            value={Number(directBusiness) / Number(LEADER_CODE_TARGETS.directBusiness)}
+            valueText={`${usd(directBusiness)} / ${usd(LEADER_CODE_TARGETS.directBusiness)}`}
+          />
+          <LabeledProgress
+            label="Active Directs"
+            value={activeDirects / LEADER_CODE_TARGETS.activeDirects}
+            valueText={`${activeDirects} / ${LEADER_CODE_TARGETS.activeDirects}`}
+          />
         </div>
       </section>
 
