@@ -28,6 +28,7 @@ import {
 import { shortAddr, usd } from "@/lib/format";
 import { packageRates } from "@/lib/roi";
 import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
+import { SocialLinks } from "./social-links";
 import { Notice, Pill, Spinner, useTx } from "./ui";
 import { useWallet } from "./wallet";
 
@@ -566,6 +567,8 @@ export function AuthPortal({
                     </span>
                   )}
                 </div>
+
+                <SocialLinks />
               </div>
             </div>
           </div>
