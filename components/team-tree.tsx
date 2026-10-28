@@ -10,13 +10,10 @@ import { CardHeader, LabeledProgress, Notice, Pill, Row, Spinner, useToast, useT
 import { useWallet } from "./wallet";
 
 /**
- * Leader code qualification targets shown in the self-check progress bars.
- * PLACEHOLDERS — the contract exposes no view for these; set them to the real `checkLeaderCode` rules.
+ * Leader code unlocks once clean weaker-leg business reaches 3,000 USDT (TeamEngine `_checkLeaderCodeUnlock`).
+ * Clean = first-package deposits from downlines who registered without a leader code; weaker = team clean − power leg clean.
  */
-const LEADER_CODE_TARGETS = {
-  directBusiness: 1_000n * 10n ** 18n,
-  activeDirects: 5,
-};
+const LEADER_CODE_WEAKER_CLEAN_TARGET = 3_000n * 10n ** 18n;
 
 export function TeamTree({
   user,
@@ -37,8 +34,9 @@ export function TeamTree({
     ? `https://carbonx.network/?ref=${account}`
     : "";
 
-  const directBusiness = user?.totalDirectBusiness ?? 0n;
-  const activeDirects = user?.activeDirectCount ?? 0;
+  const cleanWeaker = user?.cleanWeakerLegBusiness ?? 0n;
+  const leaderCode = user?.leaderCode ?? 0n;
+  const leaderUnlocked = leaderCode > 0n;
 
   async function handleCheckLeaderCode() {
     if (!addresses || !account) return;
@@ -96,25 +94,28 @@ export function TeamTree({
         <div className="well p-4 flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="text-xs font-semibold text-text">Leader Code Self-Check</div>
-            <button
-              type="button"
-              disabled={!user || !!tx.busy}
-              onClick={handleCheckLeaderCode}
-              className="btn btn-secondary text-xs !py-1.5 !px-3.5 whitespace-nowrap"
-            >
-              {tx.busy === "Checking Leader Code Qualification..." ? <Spinner /> : "Check Leader Code"}
-            </button>
+            {leaderUnlocked ? (
+              <Pill tone="green">Leader Code #{leaderCode.toString()}</Pill>
+            ) : (
+              <button
+                type="button"
+                disabled={!user || !!tx.busy}
+                onClick={handleCheckLeaderCode}
+                className="btn btn-secondary text-xs !py-1.5 !px-3.5 whitespace-nowrap"
+              >
+                {tx.busy === "Checking Leader Code Qualification..." ? <Spinner /> : "Check Leader Code"}
+              </button>
+            )}
           </div>
           <LabeledProgress
-            label="Direct Business"
-            value={Number(directBusiness) / Number(LEADER_CODE_TARGETS.directBusiness)}
-            valueText={`${usd(directBusiness)} / ${usd(LEADER_CODE_TARGETS.directBusiness)}`}
+            label="Clean Weaker Leg Business"
+            value={leaderUnlocked ? 1 : Number(cleanWeaker) / Number(LEADER_CODE_WEAKER_CLEAN_TARGET)}
+            valueText={`${usd(cleanWeaker)} / ${usd(LEADER_CODE_WEAKER_CLEAN_TARGET)}`}
           />
-          <LabeledProgress
-            label="Active Directs"
-            value={activeDirects / LEADER_CODE_TARGETS.activeDirects}
-            valueText={`${activeDirects} / ${LEADER_CODE_TARGETS.activeDirects}`}
-          />
+          <div className="text-2xs text-muted">
+            Counts first-package deposits only from downlines who joined without a leader code, excluding your power leg
+            (clean power leg: {usd(user?.cleanPowerLegBusiness ?? 0n)}).
+          </div>
         </div>
       </section>
 

@@ -109,6 +109,12 @@ export type PlatformUser = {
   pendingDirectBonusLocked: bigint;
   powerLegBusiness: bigint;
   weakerLegBusiness: bigint;
+  /** Clean (first-package, no leader code used) business in the power leg — leader code qualification. */
+  cleanPowerLegBusiness: bigint;
+  /** Clean business outside the power leg; leader code unlocks at 3,000 USDT. */
+  cleanWeakerLegBusiness: bigint;
+  /** Unlocked leader code, 0 when not yet unlocked. */
+  leaderCode: bigint;
   positions: EnhancedPosition[];
   directDownlines: Address[];
   usdtBalance: bigint;
@@ -320,7 +326,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
   // Read User Data
   try {
     const isTopId = topIdAddr !== "0x0000000000000000000000000000000000000000" && account.toLowerCase() === topIdAddr.toLowerCase();
-    const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded] =
+    const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode] =
       await Promise.all([
         publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUser", args: [account] }),
         publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserWorkingCapHeadroom", args: [account] }).catch(() => 0n),
@@ -335,6 +341,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
         publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "userBoosterLastAccruedCycleBps", args: [account] }).catch(() => 0n),
         isTopId ? publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "topIdCurrentPrincipal" }).catch(() => 0n) : 0n,
         isTopId ? publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "topIdLastCompoundedTime" }).catch(() => 0n) : 0n,
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getFirstTopUpLegBusiness", args: [account] }).catch(() => [0n, 0n] as const),
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "leaderCodeOf", args: [account] }).catch(() => 0n),
       ]);
 
     const isRegistered = u.registrationTime > 0n;
@@ -439,6 +447,9 @@ export async function fetchPlatformData(account?: Address): Promise<{
       pendingDirectBonusLocked: pDirectBonus[1],
       powerLegBusiness: legBiz[0],
       weakerLegBusiness: legBiz[1],
+      cleanPowerLegBusiness: cleanLegBiz[0],
+      cleanWeakerLegBusiness: cleanLegBiz[1],
+      leaderCode,
       positions,
       directDownlines: directs,
       usdtBalance: usdtBal,

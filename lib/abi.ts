@@ -31,6 +31,7 @@ export const platformAbi = parseAbi([
   "function getDirectDownlines(address sponsor) view returns (address[])",
   "function getLegBusiness(address user) view returns (uint256 powerLeg, uint256 weakerLeg)",
   "function getActiveLegBusiness(address user) view returns (uint256 powerLeg, uint256 weakerLeg)",
+  "function getFirstTopUpLegBusiness(address user) view returns (uint256 powerLeg, uint256 weakerLeg)",
   "function getUserVestingIds(address user) view returns (uint256[])",
   "function getVestingSchedule(uint256 vId) view returns (VestingSchedule)",
   "function getPendingDirectBonus(address user) view returns (uint256 availableToUnlock, uint256 pendingLocked)",
