@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Send2, Whatsapp, Youtube } from "iconsax-react";
+import { Headphone, Send2, Whatsapp, Youtube } from "iconsax-react";
 
 const ICON_COLOR = "#8fe39b";
 
@@ -29,6 +29,11 @@ const SOCIAL_LINKS: { label: string; href: string; icon: ReactNode }[] = [
     icon: <Whatsapp size={18} color={ICON_COLOR} variant="Bold" />,
   },
   { label: "X", href: "https://x.com/carbonxdefi", icon: <XLogo /> },
+  {
+    label: "CarbonX AI Support on Telegram",
+    href: "https://t.me/CarbonXDefiAI",
+    icon: <Headphone size={18} color={ICON_COLOR} variant="Bold" />,
+  },
 ];
 
 export function SocialLinks() {
