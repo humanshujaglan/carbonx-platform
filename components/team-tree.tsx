@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Lock, Unlock } from "iconsax-react";
 import analysisImage from "@/public/analysis.png";
 import walletImage from "@/public/wallet.png";
 import { platformAbi } from "@/lib/abi";
@@ -34,7 +35,9 @@ export function TeamTree({
     ? `https://carbonx.network/?ref=${account}`
     : "";
 
+  const cleanPower = user?.cleanPowerLegBusiness ?? 0n;
   const cleanWeaker = user?.cleanWeakerLegBusiness ?? 0n;
+  const legCount = user?.directDownlines?.length ?? 0;
   const leaderCode = user?.leaderCode ?? 0n;
   const leaderUnlocked = leaderCode > 0n;
 
@@ -94,9 +97,7 @@ export function TeamTree({
         <div className="well p-4 flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="text-xs font-semibold text-text">Leader Code Self-Check</div>
-            {leaderUnlocked ? (
-              <Pill tone="green">Leader Code #{leaderCode.toString()}</Pill>
-            ) : (
+            {!leaderUnlocked && (
               <button
                 type="button"
                 disabled={!user || !!tx.busy}
@@ -107,14 +108,42 @@ export function TeamTree({
               </button>
             )}
           </div>
+          <dl>
+            <Row label="Clean Power Leg Business" value={usd(cleanPower)} />
+          </dl>
           <LabeledProgress
             label="Clean Weaker Leg Business"
             value={leaderUnlocked ? 1 : Number(cleanWeaker) / Number(LEADER_CODE_WEAKER_CLEAN_TARGET)}
             valueText={`${usd(cleanWeaker)} / ${usd(LEADER_CODE_WEAKER_CLEAN_TARGET)}`}
           />
           <div className="text-2xs text-muted">
-            Counts first-package deposits only from downlines who joined without a leader code, excluding your power leg
-            (clean power leg: {usd(user?.cleanPowerLegBusiness ?? 0n)}).
+            Counts first-package deposits only from downlines who joined without a leader code, excluding your power leg.
+          </div>
+          {!leaderUnlocked && legCount < 2 && (
+            <Notice tone="warn">
+              {legCount === 0
+                ? "You have no legs yet. Sponsor at least two direct partners to start building weaker leg business."
+                : "You have only one leg, so all its business counts as power leg. Build a second leg to grow weaker leg business."}
+            </Notice>
+          )}
+          <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/[0.06] py-4">
+            <div className="label">Your Leader Code</div>
+            {leaderUnlocked ? (
+              <>
+                <Unlock size={20} color="#1fe03a" variant="Bold" />
+                <div className="text-2xl font-semibold tracking-widest text-neon">#{leaderCode.toString()}</div>
+              </>
+            ) : (
+              <>
+                <Lock size={20} color="#8a8f98" variant="Bold" />
+                <div aria-hidden className="select-none text-2xl font-semibold tracking-widest text-text blur-sm">
+                  #0000
+                </div>
+                <div className="text-2xs text-muted">
+                  Unlocks at {usd(LEADER_CODE_WEAKER_CLEAN_TARGET)} clean weaker leg business
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
