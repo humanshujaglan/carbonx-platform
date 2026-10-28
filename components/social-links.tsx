@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Headphone, Send2, Whatsapp, Youtube } from "iconsax-react";
+import { Send2, Whatsapp, Youtube } from "iconsax-react";
 
 const ICON_COLOR = "#8fe39b";
 
@@ -8,6 +8,26 @@ function XLogo() {
   return (
     <svg viewBox="0 0 24 24" width={16} height={16} fill={ICON_COLOR} aria-hidden>
       <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
+    </svg>
+  );
+}
+
+/** Headset with mic for the AI support bot; iconsax has headphones only. */
+function HeadsetLogo() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={18}
+      height={18}
+      fill="none"
+      stroke={ICON_COLOR}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z" />
+      <path d="M21 16v2a4 4 0 0 1-4 4h-5" />
     </svg>
   );
 }
@@ -32,7 +52,7 @@ const SOCIAL_LINKS: { label: string; href: string; icon: ReactNode }[] = [
   {
     label: "CarbonX AI Support on Telegram",
     href: "https://t.me/CarbonXDefiAI",
-    icon: <Headphone size={18} color={ICON_COLOR} variant="Bold" />,
+    icon: <HeadsetLogo />,
   },
 ];
 

@@ -24,6 +24,7 @@ import { RegisterCard } from "./register-card";
 import { TeamTree } from "./team-tree";
 import { StructureView } from "./structure-view";
 import { BottomNavbar } from "./bottom-navbar";
+import { SocialLinks } from "./social-links";
 import { CardHeader, Notice, Pill } from "./ui";
 import { useWallet } from "./wallet";
 import { AuthPortal } from "./auth-portal";
@@ -233,6 +234,11 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
       {activeTab === "structure" && (
         <StructureView user={user} addresses={addresses} onDone={refresh} />
       )}
+
+      {/* Community & AI support links, shown on every tab */}
+      <div className="pt-2">
+        <SocialLinks />
+      </div>
 
       {/* Floating Designer Bottom Navbar */}
       <BottomNavbar activeTab={activeTab} onTabChange={setActiveTab} />
