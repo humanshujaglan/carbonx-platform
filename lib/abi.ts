@@ -49,7 +49,6 @@ export const platformAbi = parseAbi([
   "function lhrEngine() view returns (address)",
   "function treasuryFeeBps() view returns (uint256)",
   "function getDynamicTreasuryFeeBps() view returns (uint256)",
-  "function adminWallet() view returns (address)",
   "function treasuryWallet() view returns (address)",
   "function payoutEngine() view returns (address)",
   "function deploymentStartTime() view returns (uint256)",
@@ -114,7 +113,7 @@ export const tokenContractAbi = parseAbi([
 
 export const lhrRoutingEngineAbi = parseAbi([
   "struct LHRMetrics { uint256 snapshotReserveUSDT; uint256 realizableReserveUSDT; uint256 totalActuarialLiabilitiesUSDT; uint256 lhrRatioBps; uint8 activeTier; uint256 lastSnapshotTime; }",
-  "struct Day15InterventionState { bool active; uint256 startTime; uint256 totalUsdtBudget; uint256 usdtPerTranche; uint8 nextTrancheIndex; uint256 lastTrancheTime; }",
+  "struct Day15InterventionState { bool inProgress; uint8 tranchesRemaining; uint256 trancheAmountUSDT; uint256 lastTrancheTimestamp; }",
   "function getActiveTier() view returns (uint8 tierIndex, string tierName, uint256 ratioBps)",
   "function getMetrics() view returns (LHRMetrics)",
   "function getDynamicTreasuryFeeBps() view returns (uint256)",
@@ -165,9 +164,9 @@ export const oracleAbi = parseAbi([
   "function getSpotPrice() view returns (uint256)",
   "function twapWindow() view returns (uint256)",
   "function maxTwapAveragingWindow() view returns (uint256)",
-  "function isTwapStale() view returns (bool)",
-  "function getEffectiveMaxPriceDeviationBps() view returns (uint256)",
-  "function lastTwapTime() view returns (uint32)",
+  "function isOracleHealthy() view returns (bool)",
+  "function getDynamicPriceDeviationBps() view returns (uint256)",
+  "function twapPriceTimestamp() view returns (uint32)",
 ]);
 
 export const pairAbi = parseAbi([

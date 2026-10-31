@@ -11,7 +11,7 @@ import type { PlatformAddresses, PlatformUser } from "@/lib/platform";
 import { CardHeader, Notice, Pill, Spinner, useTx } from "./ui";
 import { useWallet } from "./wallet";
 
-const PRESET_AMOUNTS = [100, 500, 1000, 2500, 5000];
+const PRESET_AMOUNTS = [10, 50, 100, 500, 1000, 2500, 5000];
 
 export function InvestCard({
   addresses,
@@ -93,7 +93,7 @@ export function InvestCard({
 
       {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
       {isBelowMin && (
-        <Notice tone="warn">Minimum investment package is 100 USDT.</Notice>
+        <Notice tone="warn">Minimum investment package is 10 USDT.</Notice>
       )}
       {isAboveMax && (
         <Notice tone="error">Maximum investment package is 5,000 USDT.</Notice>

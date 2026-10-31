@@ -74,5 +74,5 @@ export const LOCK_DETAILS = {
   },
 } as const;
 
-export const MIN_DEPOSIT_USDT = 100n * 10n ** 18n; // 100 USDT
+export const MIN_DEPOSIT_USDT = 10n * 10n ** 18n; // 10 USDT
 export const MAX_DEPOSIT_USDT = 5000n * 10n ** 18n; // 5,000 USDT max
