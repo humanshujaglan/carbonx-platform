@@ -32,26 +32,10 @@ export function Header({
   onTabChange?: (tab: NavTab) => void;
   onExitDashboard?: () => void;
 }) {
-  const { account } = useWallet();
-
   return (
     <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4">
-      {/* Left: User Profile greeting matching left screen in reference image */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex size-10 sm:size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1fe03a]/20 to-[#0a150c] border border-neon/40 shadow-[0_0_12px_rgba(31,224,58,0.2)]">
-          <span className="text-sm font-semibold text-neon">
-            {account ? account.slice(2, 4).toUpperCase() : "CX"}
-          </span>
-          <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-neon border-2 border-[#050806]" />
-        </div>
-
-        <div className="flex flex-col">
-          <span className="text-2xs font-medium text-muted">Welcome back!</span>
-          <span className="font-sans text-xs font-semibold text-white tracking-tight">
-            {account ? shortAddr(account) : "Guest Member"}
-          </span>
-        </div>
-      </div>
+      {/* Left: logo */}
+      <Image src={headerLogo} alt="CarbonX" priority className="h-8 sm:h-9 w-auto object-contain" />
 
       {/* Right: Rounded square action buttons matching left screen */}
       <div className="flex items-center gap-2">

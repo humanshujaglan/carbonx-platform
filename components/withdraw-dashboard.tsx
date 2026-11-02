@@ -117,12 +117,12 @@ export function WithdrawDashboard({
               <span className="flex size-7 items-center justify-center rounded-xl bg-neon/15 text-neon">
                 <CardReceive size={16} color="#1fe03a" variant="Bold" />
               </span>
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+              <span className="text-xs font-semibold text-muted">
                 Withdrawal & Payout Portal
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <h1 className="text-3xl font-semibold text-white tracking-tight">
+              <h1 className="text-3xl font-semibold text-white">
                 {money(totalClaimableUsd)}
               </h1>
               <span className="text-xs font-semibold text-muted">Total Available</span>
@@ -182,7 +182,7 @@ export function WithdrawDashboard({
           <div className="flex flex-col gap-4">
             <CardHeader
               image={timerImage}
-              title="Daily Package ROI Yield"
+              title="Daily  Yield"
               right={
                 <Pill tone="green">
                   {user?.isTopId

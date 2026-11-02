@@ -255,7 +255,7 @@ export function StructureView({
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search any BSC Testnet address to inspect their live tree (0x...)"
-              className="well w-full py-2.5 pl-10 pr-4 text-xs font-mono text-text outline-none focus:border-neon/50"
+              className="well w-full py-2.5 pl-10 pr-4 text-xs text-text outline-none focus:border-neon/50"
             />
             <SearchNormal1 size={16} className="absolute left-3.5 top-3 text-muted" />
           </div>
@@ -409,7 +409,7 @@ export function StructureView({
                     <ArrowUp2 size={15} color="currentColor" />
                   </div>
                   <div className="text-left">
-                    <div className="text-2xs uppercase tracking-wider text-muted group-hover:text-neon-soft">
+                    <div className="text-2xs text-muted group-hover:text-neon-soft">
                       Upline User (Click to Go Back)
                     </div>
                     <div className="text-xs font-semibold text-text">
@@ -562,7 +562,7 @@ export function StructureView({
               <div className="space-y-2 text-xs">
                 <div className="well p-3 flex justify-between items-center">
                   <span className="text-muted">Wallet Address:</span>
-                  <div className="flex items-center gap-1 font-mono font-medium text-text">
+                  <div className="flex items-center gap-1 font-medium text-text">
                     <span>{modalUser.address}</span>
                     <button
                       type="button"
@@ -576,7 +576,7 @@ export function StructureView({
 
                 <div className="well p-3 flex justify-between">
                   <span className="text-muted">Sponsor (Upline):</span>
-                  <span className="font-mono text-text">{shortAddr(modalUser.sponsor)}</span>
+                  <span className="text-text">{shortAddr(modalUser.sponsor)}</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">

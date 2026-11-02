@@ -102,7 +102,7 @@ export function InvestCard({
       {/* Package Amount */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <label htmlFor="invest-amount-input" className="label uppercase tracking-wider text-muted">
+          <label htmlFor="invest-amount-input" className="label text-muted">
             Deposit Amount (USDT)
           </label>
           {user && (
@@ -149,7 +149,7 @@ export function InvestCard({
 
       {/* Lock Strategy */}
       <div className="flex flex-col gap-2">
-        <label className="label uppercase tracking-wider text-muted">Investment Plan</label>
+        <label className="label text-muted">Investment Plan</label>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {(
             [

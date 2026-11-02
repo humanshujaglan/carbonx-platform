@@ -88,6 +88,17 @@ export function flexCumulativeBps(tier: number, elapsedSec: number, smooth = fal
   return bps;
 }
 
+/**
+ * Booster tiers (`PlatformContract._checkBoosterEligibility`): direct business needed to qualify, within
+ * `BOOSTER_WINDOW_DAYS` of registration. Each tier pays that share of the flexible ROI schedule on the first package.
+ */
+export const BOOSTER_WINDOW_DAYS = 14;
+export const BOOSTER_TIERS = [
+  { tier: 1, thresholdUsd: 1_000, share: 1 / 3, shareLabel: "1/3" },
+  { tier: 2, thresholdUsd: 5_000, share: 2 / 3, shareLabel: "2/3" },
+  { tier: 3, thresholdUsd: 10_000, share: 1, shareLabel: "Full" },
+] as const;
+
 /** Booster share of the flexible schedule per booster tier. */
 export function boosterShare(boosterTier: number): number {
   if (boosterTier >= 3) return 1;

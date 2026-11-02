@@ -85,6 +85,10 @@ export function AuthPortal({
       if (ref && isAddress(ref)) {
         setSponsorInput(ref);
       }
+      const leader = urlParams.get("leader");
+      if (leader && /^\d+$/.test(leader)) {
+        setLeaderCodeInput(leader);
+      }
       const v = urlParams.get("view");
       if (v === "register") setViewStep("register_form");
       if (v === "wallets") setViewStep("login_wallets");
@@ -289,7 +293,7 @@ export function AuthPortal({
       {/* ------------------------------------------------------------- */}
       {/* VIEW 1: THE STARTER PAGE                                      */}
       {/* Non-scrollable viewport, FULL WIDTH sticky bottom card        */}
-      {/* Plus Jakarta Sans, low weight, no tracking, capitalize        */}
+      {/* Plus Jakarta Sans, low weight, no tracking,        */}
       {/* Official CarbonX logo + greeny.png graphic                    */}
       {/* ------------------------------------------------------------- */}
       {viewStep === "starter" && (
@@ -308,21 +312,21 @@ export function AuthPortal({
 
             {/* SPACER: CONTENT BELOW LOGO IS LOWER DOWN */}
             <div className="mt-6 sm:mt-8 flex flex-col items-center w-full">
-              {/* Pill Badge: 'Trade Crypto Anytime' (font-normal, tracking-normal, capitalize) */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-normal text-neon-soft tracking-normal capitalize shadow-[0_0_12px_rgba(31,224,58,0.15)]">
+              {/* Pill Badge: 'Trade Crypto Anytime' (font-normal, */}
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#0c1610] px-4 py-1.5 text-xs font-normal text-neon-soft shadow-[0_0_12px_rgba(31,224,58,0.15)]">
                 <MagicStar size={13} color="#1fe03a" variant="Bold" />
                 <span>Carbon Credit Ecosystem</span>
               </div>
 
-              {/* Hero Typography (Plus Jakarta Sans, font-normal, tracking-normal, capitalize) - BIGGER TITLE */}
+              {/* Hero Typography (Plus Jakarta Sans, font-normal, - BIGGER TITLE */}
               <div className="mt-3.5 sm:mt-4 text-center">
-                <h1 className="text-3xl font-normal text-white leading-[1.12] tracking-normal capitalize">
+                <h1 className="text-3xl font-normal text-white leading-[1.12]">
                   Powering Carbon <br />
                   <span className="font-normal text-neon">
                     Negative Future
                   </span>
                 </h1>
-                <p className="mt-2 text-xs font-normal text-muted tracking-normal capitalize">
+                <p className="mt-2 text-xs font-normal text-muted">
                   Tokenizing nature into digital assets
                 </p>
               </div>
@@ -447,9 +451,9 @@ export function AuthPortal({
             {/* Card Body seamlessly joined to the curved top, with visible side borders and rounded base */}
             <div className="w-full bg-[#0b110d] px-4 sm:px-6 pt-1.5 pb-6 sm:pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col items-center rounded-b-[2rem] sm:rounded-b-[2.5rem] border-x border-b border-white/[0.05]">
               <div className="w-full max-w-sm sm:max-w-md mx-auto flex flex-col gap-3.5">
-                {/* Header inside the curved card (font-normal, tracking-normal, capitalize) */}
+                {/* Header inside the curved card (font-normal, */}
                 <div className="text-center pt-0.5">
-                  <span className="text-xs font-normal text-white tracking-normal capitalize">
+                  <span className="text-xs font-normal text-white">
                     {account && isRegistered
                       ? "Welcome Back To CarbonX!"
                       : "Don't Have An Account Yet?"}
@@ -462,7 +466,7 @@ export function AuthPortal({
                   <button
                     type="button"
                     onClick={() => connect().catch(() => {})}
-                    className="flex items-center gap-1.5 rounded-xl bg-[#19241c] px-3 py-2.5 text-xs font-normal text-white border border-white/[0.06] hover:bg-[#202e24] transition cursor-pointer shrink-0 tracking-normal"
+                    className="flex items-center gap-1.5 rounded-xl bg-[#19241c] px-3 py-2.5 text-xs font-normal text-white border border-white/[0.06] hover:bg-[#202e24] transition cursor-pointer shrink-0"
                   >
                     <span className="text-sm">⚡</span>
                     <span>BSC</span>
@@ -473,7 +477,7 @@ export function AuthPortal({
                   <div className="flex-1 px-3 text-left min-w-0">
                     {account ? (
                       <div
-                        className="font-sans text-sm font-normal text-white truncate whitespace-nowrap tracking-normal"
+                        className="font-sans text-sm font-normal text-white truncate whitespace-nowrap"
                         title={account}
                       >
                         <span className="sm:hidden">
@@ -487,7 +491,7 @@ export function AuthPortal({
                       <button
                         type="button"
                         onClick={() => connect().catch(() => {})}
-                        className="text-left font-sans text-sm font-normal text-muted hover:text-neon transition cursor-pointer w-full truncate whitespace-nowrap tracking-normal capitalize"
+                        className="text-left font-sans text-sm font-normal text-muted hover:text-neon transition cursor-pointer w-full truncate whitespace-nowrap"
                       >
                         Connect Your Web3 Wallet
                       </button>
@@ -511,7 +515,7 @@ export function AuthPortal({
                     <button
                       type="button"
                       onClick={() => setViewStep("login_wallets")}
-                      className="rounded-lg bg-neon/15 px-2.5 py-1 text-2xs font-normal text-neon border border-neon/30 hover:bg-neon/25 transition cursor-pointer shrink-0 tracking-normal capitalize"
+                      className="rounded-lg bg-neon/15 px-2.5 py-1 text-2xs font-normal text-neon border border-neon/30 hover:bg-neon/25 transition cursor-pointer shrink-0"
                     >
                       Wallets
                     </button>
@@ -522,7 +526,7 @@ export function AuthPortal({
                 <button
                   type="button"
                   onClick={handleMainAction}
-                  className="btn btn-primary w-full rounded-2xl py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
+                  className="btn btn-primary w-full rounded-2xl py-4 text-base font-semibold flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {!account ? (
                     <span>Connect Wallet</span>
@@ -539,8 +543,8 @@ export function AuthPortal({
                   )}
                 </button>
 
-                {/* Subtext: font-normal, tracking-normal, capitalize */}
-                <div className="text-center text-xs font-normal text-muted tracking-normal capitalize pt-0.5">
+                {/* Subtext: font-normal, */}
+                <div className="text-center text-xs font-normal text-muted pt-0.5">
                   {!account ? (
                     <span>Connect Your Web3 Wallet To Start</span>
                   ) : isRegistered ? (
@@ -613,10 +617,10 @@ export function AuthPortal({
               <MagicStar size={12} color="#1fe03a" variant="Bold" />
               <span>On-Chain Registration</span>
             </div>
-            <h1 className="mt-2.5 text-3xl font-normal text-white tracking-normal capitalize">
+            <h1 className="mt-2.5 text-3xl font-normal text-white">
               Activate Your <span className="font-normal text-neon">Yield Account</span>
             </h1>
-            <p className="mt-1 text-xs font-normal text-muted tracking-normal">
+            <p className="mt-1 text-xs font-normal text-muted">
               Deposit USDT, configure your strategy, and unlock decentralized earnings
             </p>
           </div>
@@ -657,7 +661,7 @@ export function AuthPortal({
                   <Wallet3 size={16} variant="Bold" />
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-2xs uppercase text-muted font-medium">Connected Wallet</span>
+                  <span className="text-2xs text-muted font-medium">Connected Wallet</span>
                   <span className="font-sans text-xs font-semibold text-white truncate" title={account}>
                     {account ? `${account.slice(0, 10)}...${account.slice(-8)}` : "No wallet connected"}
                   </span>
@@ -665,7 +669,7 @@ export function AuthPortal({
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <div className="flex flex-col items-end">
-                  <span className="text-2xs uppercase text-muted font-medium">USDT Balance</span>
+                  <span className="text-2xs text-muted font-medium">USDT Balance</span>
                   <span className="font-sans text-xs font-semibold text-neon-soft">
                     {usd(user?.usdtBalance ?? 0n)}
                   </span>
@@ -880,7 +884,7 @@ export function AuthPortal({
               <button
                 type="button"
                 onClick={() => connect().catch(() => {})}
-                className="btn btn-primary w-full py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
+                className="btn btn-primary w-full py-4 text-base font-semibold flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Connect Wallet</span>
                 <ArrowRight size={18} color="#031005" />
@@ -890,7 +894,7 @@ export function AuthPortal({
                 type="button"
                 disabled={Boolean(tx.busy) || isBelowMin || isAboveMax}
                 onClick={handleApprove}
-                className="btn btn-primary w-full py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
+                className="btn btn-primary w-full py-4 text-base font-semibold flex items-center justify-center gap-2 cursor-pointer"
               >
                 {tx.busy === "Approving USDT..." ? (
                   <>
@@ -908,7 +912,7 @@ export function AuthPortal({
                 type="button"
                 disabled={Boolean(tx.busy) || isBelowMin || isAboveMax || hasInsufficientBalance}
                 onClick={handleRegister}
-                className="btn btn-primary w-full py-4 text-base font-semibold tracking-normal capitalize flex items-center justify-center gap-2 cursor-pointer"
+                className="btn btn-primary w-full py-4 text-base font-semibold flex items-center justify-center gap-2 cursor-pointer"
               >
                 {tx.busy === "Registering on platform..." ? (
                   <>
@@ -963,10 +967,10 @@ export function AuthPortal({
           </div>
 
           <div className="w-full max-w-[480px] text-center pt-5 pb-4">
-            <h1 className="text-3xl font-normal text-white tracking-normal capitalize">
+            <h1 className="text-3xl font-normal text-white">
               Connect Your <span className="font-normal text-neon">Web3 Wallet</span>
             </h1>
-            <p className="mt-1 text-xs font-normal text-muted tracking-normal">
+            <p className="mt-1 text-xs font-normal text-muted">
               Select your preferred Binance Smart Chain provider
             </p>
           </div>

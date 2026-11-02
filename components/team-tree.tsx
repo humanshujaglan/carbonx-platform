@@ -29,10 +29,11 @@ export function TeamTree({
   const tx = useTx(onDone);
   const toast = useToast();
 
+  const leaderParam = user?.leaderCode && user.leaderCode > 0n ? `&leader=${user.leaderCode.toString()}` : "";
   const refUrl = typeof window !== "undefined" && account
-    ? `${window.location.origin}/?ref=${account}`
+    ? `${window.location.origin}/?ref=${account}${leaderParam}`
     : account
-    ? `https://carbonx.network/?ref=${account}`
+    ? `https://carbonx.network/?ref=${account}${leaderParam}`
     : "";
 
   const cleanPower = user?.cleanPowerLegBusiness ?? 0n;
@@ -69,7 +70,7 @@ export function TeamTree({
         {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
 
         <div className="flex flex-col gap-2">
-          <label className="label uppercase tracking-wider text-muted">Your Unique Referral Link</label>
+          <label className="label text-muted">Your Unique Referral Link</label>
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -131,12 +132,12 @@ export function TeamTree({
             {leaderUnlocked ? (
               <>
                 <Unlock size={20} color="#1fe03a" variant="Bold" />
-                <div className="text-2xl font-semibold tracking-widest text-neon">#{leaderCode.toString()}</div>
+                <div className="text-2xl font-semibold text-neon">#{leaderCode.toString()}</div>
               </>
             ) : (
               <>
                 <Lock size={20} color="#8a8f98" variant="Bold" />
-                <div aria-hidden className="select-none text-2xl font-semibold tracking-widest text-text blur-sm">
+                <div aria-hidden className="select-none text-2xl font-semibold text-text blur-sm">
                   #0000
                 </div>
                 <div className="text-2xs text-muted">

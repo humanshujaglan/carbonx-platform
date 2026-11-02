@@ -42,6 +42,10 @@ export function RegisterCard({
       if (ref && isAddress(ref)) {
         setSponsorInput(ref);
       }
+      const leader = urlParams.get("leader");
+      if (leader && /^\d+$/.test(leader)) {
+        setLeaderCodeInput(leader);
+      }
     }
   }, []);
 
@@ -122,7 +126,7 @@ export function RegisterCard({
       {/* Sponsor Address */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <label htmlFor="sponsor-input" className="label uppercase tracking-wider text-muted">
+          <label htmlFor="sponsor-input" className="label text-muted">
             Sponsor Address (Referrer)
           </label>
           <span className="text-2xs text-neon-soft">
@@ -141,7 +145,7 @@ export function RegisterCard({
 
       {/* Leader Code (Optional) */}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="leader-input" className="label uppercase tracking-wider text-muted">
+        <label htmlFor="leader-input" className="label text-muted">
           Leader Code (Optional)
         </label>
         <input
@@ -158,7 +162,7 @@ export function RegisterCard({
       {/* Deposit Amount */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <label htmlFor="amount-input" className="label uppercase tracking-wider text-muted">
+          <label htmlFor="amount-input" className="label text-muted">
             Initial Package Deposit (USDT)
           </label>
           {user && (
@@ -205,7 +209,7 @@ export function RegisterCard({
 
       {/* Lock Type Selection */}
       <div className="flex flex-col gap-2">
-        <label className="label uppercase tracking-wider text-muted">Choose Investment Strategy</label>
+        <label className="label text-muted">Choose Investment Strategy</label>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {(
             [

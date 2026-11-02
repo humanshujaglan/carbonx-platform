@@ -16,24 +16,11 @@ export function MarketRibbon({
 }) {
   // "—" until the value is read from chain (or when the read fails)
   const show = (v: bigint | undefined, fmt: (x: bigint) => string) => (v === undefined ? "—" : fmt(v));
-  const twapNote =
-    market.twapWindowSec !== undefined
-      ? market.twapWindowSec >= 3600
-        ? `${market.twapWindowSec / 3600}h window`
-        : `${Math.round(market.twapWindowSec / 60)}m window`
-      : undefined;
-
   const cells = [
     { label: "CARB spot price", value: show(market.spotPrice, price), accent: true },
-    { label: "TWAP oracle", value: show(market.twapPrice, price), note: twapNote },
     { label: "Total active deposits", value: show(market.totalPlatformActiveDeposit, usd) },
     { label: "Liquidity in pool", value: show(market.usdtReserve, (r) => usd(r * 2n)) },
     { label: "Buyback pool", value: usd(market.buybackPoolUSDT), note: "USDT" },
-    {
-      label: "LP farming liquidity",
-      value: usd(market.farmingPrincipalUSDT),
-      sub: `LP value ${usd(market.farmingLpValueUSDT)}`,
-    },
   ];
 
   return (
@@ -68,7 +55,6 @@ export function MarketRibbon({
             <div className={`mt-1 truncate text-xl font-semibold ${c.accent ? "text-gradient text-neon-soft" : "text-text"}`}>
               {c.value}
             </div>
-            {"sub" in c && c.sub && <div className="mt-0.5 truncate text-2xs text-muted">{c.sub}</div>}
           </div>
         ))}
       </div>

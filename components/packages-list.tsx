@@ -85,11 +85,11 @@ export function PackagesList({
                 </div>
                 <div>
                   <div className="label">Accrued ROI</div>
-                  <div className="text-sm font-semibold text-neon-soft font-mono tabular-nums">{money(live.accruedUsd, 4)}</div>
+                  <div className="text-sm font-semibold text-neon-soft">{money(live.accruedUsd, 4)}</div>
                 </div>
                 <div>
                   <div className="label">Earning Today</div>
-                  <div className="text-sm font-semibold text-text font-mono tabular-nums">
+                  <div className="text-sm font-semibold text-text">
                     {money(live.dailyUsd)}/day
                   </div>
                   <div className="text-2xs text-muted">{live.dailyPct.toFixed(3)}% of principal</div>

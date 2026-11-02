@@ -46,7 +46,7 @@ export function BottomNavbar({
               className={`relative flex flex-col items-center justify-center min-w-[54px] sm:min-w-[72px] px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-[22px] transition-all duration-200 cursor-pointer select-none ${
                 isActive
                   ? "bg-gradient-to-b from-[#14301c] to-[#0a1a0f] text-white border border-neon/50 shadow-[0_0_14px_rgba(31,224,58,0.25),inset_0_1px_0_rgba(255,255,255,0.15)]"
-                  : "bg-transparent text-[#7e8d83] hover:text-white hover:bg-white/[0.04] border border-transparent"
+                  : "bg-transparent text-[#b9c2bc] hover:text-white hover:bg-white/[0.04] border border-transparent"
               }`}
             >
               <IconComponent
@@ -56,8 +56,8 @@ export function BottomNavbar({
                 className={`transition-transform duration-150 ${isActive ? "scale-105" : ""}`}
               />
               <span
-                className={`text-2xs font-medium tracking-tight mt-0.5 ${
-                  isActive ? "text-white font-semibold" : "text-[#7e8d83]"
+                className={`text-2xs font-medium mt-0.5 ${
+                  isActive ? "text-white font-semibold" : "text-[#b9c2bc]"
                 }`}
               >
                 {tab.name}

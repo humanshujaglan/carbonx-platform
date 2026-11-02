@@ -107,6 +107,12 @@ export type PlatformUser = {
   pendingContestRewards: bigint;
   pendingDirectBonusAvailable: bigint;
   pendingDirectBonusLocked: bigint;
+  /** Leader bonus slips already unlocked (realized on the next leader income withdrawal). */
+  pendingLeaderBonusAvailable: bigint;
+  /** Leader bonus slips still inside their lock period. */
+  pendingLeaderBonusLocked: bigint;
+  /** Reward pool cycles this user won and has not claimed yet (poolType 1 Neon, 2 Hydra, 3 Genosis). */
+  rewardPoolWins: { poolType: 1 | 2 | 3; cycleId: bigint; amount: bigint }[];
   powerLegBusiness: bigint;
   weakerLegBusiness: bigint;
   /** Clean (first-package, no leader code used) business in the power leg — leader code qualification. */
@@ -326,7 +332,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
   // Read User Data
   try {
     const isTopId = topIdAddr !== "0x0000000000000000000000000000000000000000" && account.toLowerCase() === topIdAddr.toLowerCase();
-    const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode] =
+    const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, pLeaderBonus, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode] =
       await Promise.all([
         publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUser", args: [account] }),
         publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserWorkingCapHeadroom", args: [account] }).catch(() => 0n),
@@ -334,6 +340,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
         publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingLeaderContestRewards", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingContestRewards", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonus", args: [account] }).catch(() => [0n, 0n] as const),
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingLeaderBonus", args: [account] }).catch(() => [0n, 0n] as const),
         publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "balanceOf", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: carbAddr, abi: erc20Abi, functionName: "balanceOf", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "allowance", args: [account, pAddr] }).catch(() => 0n),
@@ -409,6 +416,29 @@ export async function fetchPlatformData(account?: Address): Promise<{
       directs = [...d];
     } catch {}
 
+    // Reward pool cycles won by this user and not yet claimed (looks at the latest cycles of each pool)
+    const rewardPoolWins: PlatformUser["rewardPoolWins"] = [];
+    if (poolEngine) {
+      const cycleFns = { 1: "neonCycleId", 2: "hydraCycleId", 3: "genosisCycleId" } as const;
+      for (const poolType of [1, 2, 3] as const) {
+        try {
+          const latest = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: cycleFns[poolType] });
+          const first = latest > 30n ? latest - 29n : 1n;
+          for (let cycleId = first; cycleId <= latest; cycleId++) {
+            const winners = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: "getPoolWinners", args: [poolType, cycleId] });
+            if (!winners.some((w) => w.toLowerCase() === account.toLowerCase())) continue;
+            const claimed = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: "poolClaimed", args: [poolType, cycleId, account] });
+            if (claimed) continue;
+            let amount = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: "poolWinnerReward", args: [poolType, cycleId, account] });
+            if (amount === 0n) {
+              amount = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: "poolRewardPerWinner", args: [poolType, cycleId] });
+            }
+            rewardPoolWins.push({ poolType, cycleId, amount });
+          }
+        } catch {}
+      }
+    }
+
     const user: PlatformUser = {
       isRegistered,
       isTopId,
@@ -445,6 +475,9 @@ export async function fetchPlatformData(account?: Address): Promise<{
       pendingContestRewards: pContest,
       pendingDirectBonusAvailable: pDirectBonus[0],
       pendingDirectBonusLocked: pDirectBonus[1],
+      pendingLeaderBonusAvailable: pLeaderBonus[0],
+      pendingLeaderBonusLocked: pLeaderBonus[1],
+      rewardPoolWins,
       powerLegBusiness: legBiz[0],
       weakerLegBusiness: legBiz[1],
       cleanPowerLegBusiness: cleanLegBiz[0],

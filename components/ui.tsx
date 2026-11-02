@@ -11,24 +11,40 @@ export function CardHeader({
   title,
   sub,
   right,
+  stacked = false,
+  singleLine = false,
 }: {
-  image: StaticImageData;
+  image?: StaticImageData;
   title: string;
   sub?: ReactNode;
   right?: ReactNode;
+  /** Larger title split over two lines (first word, then the rest). */
+  stacked?: boolean;
+  /** With `stacked`: keep the larger title but on one line. */
+  singleLine?: boolean;
 }) {
+  const [firstWord, ...restWords] = title.split(" ");
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className={`flex justify-between gap-3 ${stacked ? "items-start" : "items-center"}`}>
       <div className="flex min-w-0 items-center gap-3">
-        <Image
-          src={image}
-          alt=""
-          width={72}
-          height={72}
-          className="-ml-1 -mt-2 size-12 sm:size-14 shrink-0 -rotate-[20deg] object-contain brightness-[0.85] saturate-[0.9]"
-        />
+        {image && (
+          <Image
+            src={image}
+            alt=""
+            width={72}
+            height={72}
+            className="-ml-0.5 -mt-1 size-8 sm:size-10 shrink-0 -rotate-[20deg] object-contain brightness-[0.85] saturate-[0.9]"
+          />
+        )}
         <div className="min-w-0">
-          <h2 className="text-base font-medium text-text">{title}</h2>
+          {stacked && !singleLine && restWords.length > 0 ? (
+            <h2 className="text-lg font-medium leading-tight text-text">
+              <span className="block">{firstWord}</span>
+              <span className="block">{restWords.join(" ")}</span>
+            </h2>
+          ) : (
+            <h2 className={`${stacked ? "text-lg leading-tight" : "text-sm"} font-medium text-text`}>{title}</h2>
+          )}
           {sub && <div className="truncate text-2xs font-normal text-muted">{sub}</div>}
         </div>
       </div>
@@ -53,7 +69,7 @@ export function Pill({
   }[tone];
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-2xs font-normal uppercase tracking-wider ${styles}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-2xs font-normal ${styles}`}
     >
       {children}
     </span>
@@ -91,7 +107,7 @@ export function Countdown({ seconds, compact = false }: { seconds: number; compa
           <div className={`font-semibold ${compact ? "text-sm" : "text-xl"} ${i === 3 ? "text-neon-soft" : "text-text"}`}>
             {p.value}
           </div>
-          <div className="text-2xs font-normal uppercase tracking-wider text-muted">{p.label}</div>
+          <div className="text-2xs font-normal text-muted">{p.label}</div>
         </div>
       ))}
     </div>
@@ -134,9 +150,9 @@ export function LabeledProgress({
   const pct = Math.max(0, Math.min(1, value)) * 100;
   const shape = "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)";
   const content = (
-    <div className="flex h-full items-center justify-between gap-3 px-5 text-2xs font-semibold uppercase tracking-wider">
+    <div className="flex h-full items-center justify-between gap-3 px-5 text-2xs font-semibold">
       <span className="truncate">{label}</span>
-      <span className="shrink-0 tabular-nums">{valueText}</span>
+      <span className="shrink-0">{valueText}</span>
     </div>
   );
   return (

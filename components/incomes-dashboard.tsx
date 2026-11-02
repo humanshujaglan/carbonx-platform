@@ -1,17 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { formatUnits } from "viem";
-import leafImage from "@/public/leave.png";
 import { platformAbi } from "@/lib/abi";
 import { LockType } from "@/lib/config";
-import { formatWorkingCapHeadroom, rankLabel, shortAddr, usd } from "@/lib/format";
-import { VestingOptions } from "./vesting-options";
+import { shortAddr, usd } from "@/lib/format";
 import {
   CAP_MULTIPLIER,
   DAY_SECONDS,
-  MIN_WITHDRAWAL_USD,
   TOP_ID_DAILY_RATE,
   TOP_ID_KEEP_SHARE,
   boosterShare,
@@ -20,26 +16,14 @@ import {
   flexDailyBps,
   lockedDailyUsd,
   lockedGain,
-  packageRates,
 } from "@/lib/roi";
 import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
 import type { NavTab } from "./header";
-import { CardHeader, Notice, Pill, Row, Spinner, useTx } from "./ui";
+import { CardHeader, Notice, Row, Spinner, useTx } from "./ui";
+import { InfoSheet, SheetBlock } from "./info-sheet";
 import { useWallet } from "./wallet";
 import { IncomeSubTabs, type IncomeSubTabId } from "./income-sub-tabs";
-import {
-  ArrowRight,
-  Award,
-  CardReceive,
-  Cup,
-  Flash,
-  Hierarchy,
-  Profile2User,
-  SecuritySafe,
-  Share,
-  Timer,
-  Wallet3,
-} from "iconsax-react";
+import { Hierarchy } from "iconsax-react";
 
 /**
  * Streams live ROI, Booster and Level income using the same schedules the contracts apply:
@@ -187,10 +171,12 @@ export function LiveStreamTicker({
   ratePerSec,
   label,
   zeroRateMessage,
+  hideRate = false,
 }: {
   value: number;
   ratePerSec: number;
   label?: string;
+  hideRate?: boolean;
   zeroRateMessage?: string;
 }) {
   const safeValue = Math.max(0, isNaN(value) ? 0 : value);
@@ -201,17 +187,18 @@ export function LiveStreamTicker({
   const micro = decStr.slice(2, 5);
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-baseline font-mono tracking-tight tabular-nums select-none">
-        <span className="text-3xl font-semibold text-white">
+    <div className="flex min-w-0 flex-col">
+      <div className="flex items-baseline whitespace-nowrap select-none">
+        <span className="text-base font-normal text-white">
           ${integerPart}.{cents}
         </span>
-        <span className="text-neon text-sm font-semibold tracking-normal ml-0.5 animate-pulse drop-shadow-[0_0_8px_rgba(31,224,58,0.5)]">
+        <span className="text-neon text-xs font-normal ml-0.5 animate-pulse drop-shadow-[0_0_8px_rgba(31,224,58,0.5)]">
           {micro}
         </span>
       </div>
 
       {ratePerSec > 0 ? (
+        hideRate ? null : (
         <div className="flex items-center gap-1.5 mt-1 text-2xs">
           <span className="relative flex size-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon opacity-75" />
@@ -219,13 +206,14 @@ export function LiveStreamTicker({
           </span>
           <span className="text-muted font-medium">
             Accruing at{" "}
-            <strong className="text-neon-soft font-mono tabular-nums">
+            <strong className="text-neon-soft">
               +${(ratePerSec * 86400).toFixed(4)}
             </strong>{" "}
             / day
           </span>
         </div>
-      ) : (
+        )
+      ) : hideRate ? null : (
         <div className="flex items-center gap-1.5 mt-1 text-2xs text-muted">
           <span className="size-2 rounded-full bg-white/20" />
           <span>{zeroRateMessage ?? "Inactive · No accrual rate active"}</span>
@@ -254,52 +242,34 @@ export function IncomesDashboard({
   const tx = useTx(onDone);
 
   const [subTab, setSubTab] = useState<IncomeSubTabId>("all");
-  const [vestingOption, setVestingOption] = useState<number>(0);
 
   // Real-time live streaming values grounded in on-chain parameters
-  const isTopId = !!user?.isTopId;
   const lhrTier = market?.lhrTier ?? 0;
-  const {
-    liveRoi,
-    settledRoi,
-    settledBooster,
-    liveLockedRoi,
-    liveBooster,
-    liveLevel,
-    roiPerSecUsd,
-    lockedPerSecUsd,
-    boosterPerSecUsd,
-    levelPerSecUsd,
-    totalLive,
-    totalRatePerSec,
-    roiSchedule,
-  } = useLiveIncomeStreams(user, lhrTier);
-  const boosterTier = user?.boosterTier ?? 0;
-  const boosterMonthlyPct = (packageRates(LockType.FLEXIBLE, isTopId ? 0 : lhrTier).monthlyPct * boosterShare(boosterTier));
-  const hasLockedPositions = !!user?.positions.some((p) => p.active && !p.isCapped && p.lockType !== LockType.FLEXIBLE);
+  const { liveLevel, levelPerSecUsd } = useLiveIncomeStreams(user, lhrTier);
 
-  // Complete on-chain total pending calculation including ALL income streams
-  const totalPending = user
-    ? user.roiIncomePending +
-      user.boosterIncomePending +
-      user.workingIncomePending +
-      user.leaderIncomePending +
-      user.pendingDirectBonusAvailable +
-      user.pendingLeaderContestRewards +
-      user.pendingContestRewards
-    : 0n;
+  const poolWins = user?.rewardPoolWins ?? [];
+  const poolWinTotal = poolWins.reduce((sum, w) => sum + w.amount, 0n);
 
-  // ROI / booster are settled by the contract inside withdrawROI / withdrawBooster, so count them as claimable
-  const totalClaimableUsd = user
-    ? Number(formatUnits(totalPending - user.roiIncomePending - user.boosterIncomePending, 18)) + settledRoi + settledBooster
-    : 0;
-
-  const totalWithdrawn = user
-    ? user.roiIncomeWithdrawn +
-      user.boosterIncomeWithdrawn +
-      user.workingIncomeWithdrawn +
-      user.leaderIncomeWithdrawn
-    : 0n;
+  // One claimRewardPool call per cycle won; they run back to back
+  async function claimRewardPools() {
+    if (!addresses || !account || poolWins.length === 0) return;
+    await tx.run(
+      "Claiming Reward Pool...",
+      async () => {
+        let hash: Awaited<ReturnType<typeof write>> | undefined;
+        for (const win of poolWins) {
+          hash = await write({
+            address: addresses.platform,
+            abi: platformAbi,
+            functionName: "claimRewardPool",
+            args: [win.poolType, win.cycleId],
+          });
+        }
+        return hash as Awaited<ReturnType<typeof write>>;
+      },
+      () => <span>Reward pool claimed!</span>
+    );
+  }
 
   async function callPlatform(label: string, fnName: string, args: readonly unknown[] = []) {
     if (!addresses || !account) return;
@@ -319,385 +289,51 @@ export function IncomesDashboard({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Overview Stat Ribbon with Live Streaming Summary */}
-      <section className="card p-5 sm:p-6 border border-white/[0.08]" aria-label="Income overview">
-        {tx.result && <div className="mb-4"><Notice tone={tx.result.tone}>{tx.result.text}</Notice></div>}
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/[0.06]">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="relative flex size-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon opacity-75" />
-                <span className="relative inline-flex size-2.5 rounded-full bg-neon shadow-[0_0_8px_#1fe03a]" />
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-wider text-neon">
-                Decentralized Income Ecosystem
-              </span>
-            </div>
-            <div className="mt-1 flex items-baseline gap-2">
-              <h2 className="text-3xl font-semibold text-white tracking-tight font-mono tabular-nums">
-                ${totalLive.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h2>
-              <span className="text-xs font-semibold text-muted">Total Live Accrued Income</span>
-            </div>
-          </div>
-
-          {/* 24h Live Streaming Velocity */}
-          <div className="well px-4 py-2.5 flex items-center gap-3">
-            <span className="flex size-7 items-center justify-center rounded-xl bg-neon/15 text-neon">
-              <Flash size={16} color="#1fe03a" variant="Bold" />
-            </span>
-            <div className="flex flex-col">
-              <span className="text-2xs uppercase tracking-wider text-muted font-semibold">Streaming Velocity</span>
-              <span className="text-xs font-semibold text-neon-soft font-mono tabular-nums">
-                +${(totalRatePerSec * 86400).toFixed(2)} / 24h
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="well p-4">
-            <div className="label">Ready to Claim</div>
-            <div className="mt-1 text-xl font-semibold text-gradient text-neon-soft">
-              {user ? `$${totalClaimableUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
-            </div>
-          </div>
-          <div className="well p-4">
-            <div className="label">Direct Available & Locked</div>
-            <div className="mt-1 flex flex-col">
-              <span className="text-xl font-semibold text-white">
-                {user ? usd(user.pendingDirectBonusAvailable) : "$0.00"}
-              </span>
-              <span className="text-2xs text-muted">
-                Locked: {user ? usd(user.pendingDirectBonusLocked) : "$0.00"}
-              </span>
-            </div>
-          </div>
-          <div className="well p-4">
-            <div className="label">Working Cap Headroom</div>
-            <div className="mt-1 text-xl font-semibold text-text">
-              {formatWorkingCapHeadroom(user)}
-            </div>
-          </div>
-          <div className="well p-4">
-            <div className="label">Lifetime Withdrawn</div>
-            <div className="mt-1 text-xl font-semibold text-text">
-              {user ? usd(totalWithdrawn) : "—"}
-            </div>
-          </div>
-        </div>
-      </section>
+      {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
 
       {/* Sub-Tabs Category Filter */}
       <IncomeSubTabs activeTab={subTab} onChange={setSubTab} />
 
       {/* Income Streams Grid: ALL Income Cards */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* 1. Daily Package ROI Yield (LIVE STREAMING) */}
-        {(subTab === "all" || subTab === "roi") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08] relative overflow-hidden">
-            <div className="flex flex-col gap-3">
-              <CardHeader
-                image={leafImage}
-                title="1. Daily Package ROI"
-                right={
-                  <Pill tone="green">
-                    {user && user.positions.filter((p) => p.active).length > 0
-                      ? `${user.positions.filter((p) => p.active).length} Active`
-                      : "Active Packages"}
-                  </Pill>
-                }
-              />
-
-              {/* LIVE STREAMING TICKER */}
-              <div className="well p-4 flex flex-col justify-between gap-2 border border-neon/20 shadow-[0_0_15px_rgba(31,224,58,0.1)]">
-                <div className="label">Live Streaming ROI Yield</div>
-                <LiveStreamTicker
-                  value={liveRoi + liveLockedRoi}
-                  ratePerSec={roiPerSecUsd + lockedPerSecUsd}
-                  label="Daily ROI"
-                  zeroRateMessage="No active investment packages found"
-                />
-              </div>
-
-              <div className="well p-3 flex flex-col gap-1 text-2xs">
-                {isTopId && user && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted">Top ID ROI:</span>
-                    <span className="font-medium text-text">
-                      {(TOP_ID_DAILY_RATE * 100).toFixed(2)}%/day on {usd(user.topIdPrincipal)} · {TOP_ID_KEEP_SHARE * 100}% kept
-                    </span>
-                  </div>
-                )}
-                {!isTopId && roiSchedule.cycleDay !== undefined && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted">Flexible Cycle:</span>
-                    <span className="font-medium text-text">
-                      Day {roiSchedule.cycleDay}/30 · Slot {roiSchedule.slot}/6 · {roiSchedule.flexDailyPct.toFixed(2)}%/day
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted">{isTopId ? "Accrued (claimable):" : "Flexible (claimable):"}</span>
-                  <span className="font-medium text-neon-soft font-mono tabular-nums">
-                    ${liveRoi.toFixed(4)} · +${(roiPerSecUsd * DAY_SECONDS).toFixed(4)}/day
-                  </span>
-                </div>
-                {hasLockedPositions && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted">Locked 0.33% compounding (paid at 2.5x):</span>
-                    <span className="font-medium text-text font-mono tabular-nums">
-                      ${liveLockedRoi.toFixed(4)} · +${(lockedPerSecUsd * DAY_SECONDS).toFixed(4)}/day
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="well p-3">
-                  <div className="label">Claimable Now</div>
-                  <div className="text-sm font-semibold text-neon-soft">
-                    {user ? `$${settledRoi.toFixed(2)}` : "—"}
-                  </div>
-                </div>
-                <div className="well p-3">
-                  <div className="label">Total ROI Withdrawn</div>
-                  <div className="text-sm font-semibold text-text">
-                    {user ? usd(user.roiIncomeWithdrawn) : "—"}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-3 border-t border-white/[0.04]">
-              {isHome ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onNavigateTab?.("withdraw")}
-                    className="btn btn-secondary flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 hover:border-neon/40"
-                  >
-                    <span>Claim in Portal</span>
-                    <ArrowRight size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!user || !!tx.busy}
-                    onClick={() => account && callPlatform("Accruing ROI...", "accrueUserROI", [account])}
-                    className="btn btn-secondary py-2.5 px-3 text-xs"
-                    title="Settle accrued ROI and booster into your contract balance"
-                  >
-                    Accrue All
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    disabled={!user || settledRoi < MIN_WITHDRAWAL_USD || !!tx.busy}
-                    onClick={() => callPlatform("Claiming ROI Income...", "withdrawROI")}
-                    className="btn btn-primary flex-1 py-2.5 text-xs"
-                  >
-                    {tx.busy === "Claiming ROI Income..." ? <Spinner /> : "Claim ROI Income"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!user || !!tx.busy}
-                    onClick={() => account && callPlatform("Accruing ROI...", "accrueUserROI", [account])}
-                    className="btn btn-secondary py-2.5 px-3 text-xs"
-                    title="Settle accrued ROI and booster into your contract balance"
-                  >
-                    Accrue All
-                  </button>
-                </>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* 2. Daily Booster Income (LIVE STREAMING) */}
-        {(subTab === "all" || subTab === "booster") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08] relative overflow-hidden">
-            <div className="flex flex-col gap-3">
-              <CardHeader
-                image={leafImage}
-                title="2. Daily Booster Income"
-                right={
-                  <Pill tone={boosterTier > 0 ? "gold" : "neutral"}>
-                    Tier {boosterTier} · {boosterTier > 0 ? `${boosterMonthlyPct.toFixed(2)}%/mo` : "Inactive"}
-                  </Pill>
-                }
-              />
-
-              {/* LIVE STREAMING TICKER */}
-              <div className="well p-4 flex flex-col justify-between gap-2 border border-neon/20 shadow-[0_0_15px_rgba(31,224,58,0.1)]">
-                <div className="label">Live Streaming Booster Yield</div>
-                <LiveStreamTicker
-                  value={liveBooster}
-                  ratePerSec={boosterPerSecUsd}
-                  label="Booster"
-                  zeroRateMessage={
-                    boosterTier === 0
-                      ? "Tier 0 (Inactive) · Qualify directs to unlock 1/3 of the ROI schedule"
-                      : user?.boosterCapReached
-                      ? "Booster capped at 1.0x of first package"
-                      : "Booster Inactive · Sponsor direct volume to unlock"
-                  }
-                />
-              </div>
-
-              {boosterTier > 0 && (
-                <div className="well p-3 flex flex-col gap-1 text-2xs">
-                  {roiSchedule.boosterCycleDay !== undefined && (
-                    <div className="flex justify-between gap-2">
-                      <span className="text-muted">Booster Cycle:</span>
-                      <span className="font-medium text-text">
-                        Day {roiSchedule.boosterCycleDay}/30 · Slot {roiSchedule.boosterSlot}/6 ·{" "}
-                        {roiSchedule.boosterDailyPct.toFixed(3)}%/day
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted">Schedule:</span>
-                    <span className="font-medium text-text">
-                      {boosterTier >= 3 ? "Full" : `${boosterTier}/3 of`} slot rate on first package
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted">Today:</span>
-                    <span className="font-medium text-neon-soft font-mono tabular-nums">
-                      +${(boosterPerSecUsd * DAY_SECONDS).toFixed(4)}/day
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="well p-3">
-                  <div className="label">Claimable Now</div>
-                  <div className="text-sm font-semibold text-neon-soft">
-                    {user ? `$${settledBooster.toFixed(2)}` : "—"}
-                  </div>
-                </div>
-                <div className="well p-3">
-                  <div className="label">Total Withdrawn</div>
-                  <div className="text-sm font-semibold text-text">
-                    {user ? usd(user.boosterIncomeWithdrawn) : "—"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="well p-3 flex flex-col gap-1 text-2xs">
-                <div className="flex justify-between">
-                  <span className="text-muted">Direct Business Progress:</span>
-                  <span className="font-medium text-text">{user ? usd(user.totalDirectBusiness) : "$0"}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-white/[0.04]">
-              {isHome ? (
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab?.("withdraw")}
-                  className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 hover:border-neon/40"
-                >
-                  <span>Claim in Portal</span>
-                  <ArrowRight size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!user || settledBooster < MIN_WITHDRAWAL_USD || !!tx.busy}
-                  onClick={() => callPlatform("Claiming Booster Income...", "withdrawBooster")}
-                  className="btn btn-primary w-full py-2.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming Booster Income..." ? <Spinner /> : "Claim Booster Income"}
-                </button>
-              )}
-            </div>
-          </section>
-        )}
-
+      <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-5">
         {/* 3. Downline Level Harvest / Level Income (LIVE STREAMING) */}
         {(subTab === "all" || subTab === "level") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08] relative overflow-hidden">
-            <div className="flex flex-col gap-3">
+          <section className="card torch flex flex-col justify-between gap-4 p-3.5 sm:gap-5 sm:p-6 border border-white/[0.08] relative overflow-hidden">
+            <div className="flex flex-col gap-6">
               <CardHeader
-                image={leafImage}
-                title="3. Downline Level Harvest"
-                right={<Pill tone="cyan">Team Unilevel</Pill>}
+                stacked
+                title="Referral Income"
+                right={
+                  <InfoSheet title="Referral Income">
+                    <p>
+                      Level income from your team. It is credited to your working balance whenever your downlines&apos; ROI
+                      is accrued, and pauses while the liquidity tier is Rescue.
+                    </p>
+                    <SheetBlock title="Your team">
+                      <dl>
+                        <Row label="Active direct sponsors" value={`${user?.activeDirectCount ?? 0}`} />
+                        <Row label="Total team volume" value={user ? usd(user.totalTeamBusiness) : "$0"} accent />
+                        <Row label="Power leg volume" value={user ? usd(user.powerLegBusiness) : "$0"} />
+                        <Row label="Weaker legs volume" value={user ? usd(user.weakerLegBusiness) : "$0"} />
+                      </dl>
+                    </SheetBlock>
+                  </InfoSheet>
+                }
               />
 
               {/* LIVE STREAMING TICKER */}
-              <div className="well p-4 flex flex-col justify-between gap-2 border border-neon/20 shadow-[0_0_15px_rgba(31,224,58,0.1)]">
-                <div className="label">Credited Level Income</div>
+              <div>
                 <LiveStreamTicker
                   value={liveLevel}
                   ratePerSec={levelPerSecUsd}
                   label="Level Matching"
-                  zeroRateMessage="Credited to your working balance when downlines' ROI is accrued"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="well p-3">
-                  <div className="label">Working Balance</div>
-                  <div className="text-sm font-semibold text-neon-soft">
-                    {user ? usd(user.workingIncomePending) : "—"}
-                  </div>
-                </div>
-                <div className="well p-3">
-                  <div className="label">Total Team Volume</div>
-                  <div className="text-sm font-semibold text-text">
-                    {user ? usd(user.totalTeamBusiness) : "$0"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="well p-3.5 flex flex-col gap-2">
-                <Row
-                  label="Direct Downlines Count"
-                  value={`${user?.activeDirectCount ?? 0} active sponsors`}
-                />
-                <Row
-                  label="Total Team Volume"
-                  value={user ? usd(user.totalTeamBusiness) : "$0"}
-                  accent
-                />
-                <Row
-                  label="Power Leg Volume"
-                  value={user ? usd(user.powerLegBusiness) : "$0"}
-                />
-                <Row
-                  label="Weaker Legs Volume"
-                  value={user ? usd(user.weakerLegBusiness) : "$0"}
+                  hideRate
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-white/[0.04]">
-              {isHome ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onNavigateTab?.("withdraw")}
-                    className="btn btn-secondary flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 hover:border-neon/40"
-                  >
-                    <span>Claim in Portal</span>
-                    <ArrowRight size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!user || !!tx.busy}
-                    onClick={() => callPlatform("Claiming Level Income...", "harvestLevelIncome")}
-                    className="btn btn-primary py-2.5 px-3 text-xs font-semibold"
-                  >
-                    {tx.busy === "Claiming Level Income..." ? <Spinner /> : "Claim Level Income"}
-                  </button>
-                </div>
-              ) : (
+            {!isHome && (
+              <div className="pt-3">
                 <button
                   type="button"
                   disabled={!user || !!tx.busy}
@@ -713,377 +349,228 @@ export function IncomesDashboard({
                     </>
                   )}
                 </button>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* 4. Working Income & Cap Headroom */}
-        {(subTab === "all" || subTab === "working") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-            <div className="flex flex-col gap-3">
-              <CardHeader
-                image={leafImage}
-                title="4. Working Income Payout"
-                right={<Pill tone="green">Ready</Pill>}
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <div className="well p-3">
-                  <div className="label">Working Balance</div>
-                  <div className="text-base font-semibold text-neon-soft">
-                    {user ? usd(user.workingIncomePending) : "—"}
-                  </div>
-                </div>
-                <div className="well p-3">
-                  <div className="label">Headroom Left</div>
-                  <div className="text-base font-semibold text-text">
-                    {formatWorkingCapHeadroom(user)}
-                  </div>
-                </div>
               </div>
-
-              <VestingOptions
-                value={vestingOption}
-                onChange={setVestingOption}
-                amountUsd={user ? Number(formatUnits(user.workingIncomePending, 18)) : 0}
-              />
-            </div>
-
-            <div className="pt-3 border-t border-white/[0.04]">
-              {isHome ? (
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab?.("withdraw")}
-                  className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 hover:border-neon/40"
-                >
-                  <span>Claim in Portal</span>
-                  <ArrowRight size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!user || Number(formatUnits(user.workingIncomePending, 18)) < MIN_WITHDRAWAL_USD || !!tx.busy}
-                  onClick={() => {
-                    const amt = user ? user.workingIncomePending : 0n;
-                    callPlatform("Claiming Working Income...", "withdrawWorkingIncome", [amt, vestingOption]);
-                  }}
-                  className="btn btn-primary w-full py-2.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming Working Income..." ? (
-                    <Spinner />
-                  ) : (
-                    `Claim Working Income (${user ? usd(user.workingIncomePending) : "$0"})`
-                  )}
-                </button>
-              )}
-            </div>
+            )}
           </section>
         )}
 
-        {/* 5. Direct Referral Income & Direct Lock-In */}
+        {/* 5. Direct Income + Direct Lock-In */}
         {(subTab === "all" || subTab === "direct") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-            <div className="flex flex-col gap-3">
+          <section className="card torch flex flex-col justify-between gap-4 p-3.5 sm:gap-5 sm:p-6 border border-white/[0.08]">
+            <div className="flex flex-col gap-6">
               <CardHeader
-                image={leafImage}
-                title="5. Direct Referral Income & Lock-In"
-                right={<Pill tone="gold">Direct Slips</Pill>}
+                stacked
+                title="Direct + Lock Income"
+                right={
+                  <InfoSheet title="Direct + Lock Income">
+                    <p>
+                      Referral bonuses earned directly from the members you sponsored. Each bonus is locked for 24 hours
+                      after it is earned. Once that time passes it becomes available to unlock.
+                    </p>
+                    <SheetBlock title="Your directs">
+                      <dl>
+                        <Row label="Direct sponsors" value={`${user?.activeDirectCount ?? 0}`} />
+                        <Row label="Direct business volume" value={user ? usd(user.totalDirectBusiness) : "$0.00"} accent />
+                      </dl>
+                    </SheetBlock>
+                  </InfoSheet>
+                }
               />
-              <p className="text-xs text-muted leading-relaxed">
-                Referral bonuses earned directly from sponsored downlines. Available slips can be unlocked, while locked slips mature over time.
-              </p>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="well p-3">
-                  <div className="label">Direct Available to Unlock</div>
-                  <div className="text-base font-semibold text-neon-soft">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-muted">Available</div>
+                  <div className="mt-0.5 text-base font-normal text-white">
                     {user ? usd(user.pendingDirectBonusAvailable) : "$0.00"}
                   </div>
                 </div>
-                <div className="well p-3">
-                  <div className="label">Direct Lock-In (Locked Slips)</div>
-                  <div className="text-base font-semibold text-amber-400">
+                <div>
+                  <div className="text-xs text-muted">Locked</div>
+                  <div className="mt-0.5 text-base font-normal text-white">
                     {user ? usd(user.pendingDirectBonusLocked) : "$0.00"}
                   </div>
                 </div>
               </div>
-
-              <div className="well p-3.5 flex flex-col gap-2">
-                <Row
-                  label="Direct Downlines Count"
-                  value={`${user?.activeDirectCount ?? 0} direct sponsors`}
-                />
-                <Row
-                  label="Total Direct Business Volume"
-                  value={user ? usd(user.totalDirectBusiness) : "$0.00"}
-                  accent
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-white/[0.04]">
-              {isHome ? (
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab?.("team")}
-                  className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 hover:border-neon/40"
-                >
-                  <span>View Referral Team</span>
-                  <ArrowRight size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab?.("team")}
-                  className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 hover:border-neon/40"
-                >
-                  <span>Manage Direct Network</span>
-                  <ArrowRight size={14} />
-                </button>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* 6. Leader Income (Business Development Fund / BDF) */}
-        {(subTab === "all" || subTab === "leader") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-            <div className="flex flex-col gap-3">
-              <CardHeader
-                image={leafImage}
-                title="6. Leader Income (Business Dev Fund)"
-                right={<Pill tone="cyan">BDF Pool</Pill>}
-              />
-              <p className="text-xs text-muted leading-relaxed">
-                Business Development Fund (BDF) allocation distributed to qualifying network leaders, regional coordinators, and community ambassadors.
-              </p>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="well p-3">
-                  <div className="label">Available Leader / BDF Balance</div>
-                  <div className="text-base font-semibold text-neon-soft">
-                    {user ? usd(user.leaderIncomePending) : "$0.00"}
-                  </div>
-                </div>
-                <div className="well p-3">
-                  <div className="label">Lifetime BDF Withdrawn</div>
-                  <div className="text-base font-semibold text-text">
-                    {user ? usd(user.leaderIncomeWithdrawn) : "$0.00"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="well p-3.5 flex flex-col gap-2">
-                <Row
-                  label="Leader Status"
-                  value={user && user.usedLeader && user.usedLeader !== "0x0000000000000000000000000000000000000000" ? `Leader: ${shortAddr(user.usedLeader)}` : "No leader code used"}
-                  accent
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-white/[0.04]">
-              {isHome ? (
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab?.("withdraw")}
-                  className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 hover:border-neon/40"
-                >
-                  <span>Claim in Portal</span>
-                  <ArrowRight size={14} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!user || user.leaderIncomePending === 0n || !!tx.busy}
-                  onClick={() => callPlatform("Claiming Leader Income...", "withdrawLeaderIncome")}
-                  className="btn btn-primary w-full py-2.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming Leader Income..." ? (
-                    <Spinner />
-                  ) : (
-                    `Claim Leader Income (${user ? usd(user.leaderIncomePending) : "$0.00"})`
-                  )}
-                </button>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* 7. Rank Career Salary */}
-        {(subTab === "all" || subTab === "rank") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-            <div className="flex flex-col gap-3">
-              <CardHeader
-                image={leafImage}
-                title="7. Rank Salary & Career Overrides"
-                right={<Pill tone="gold">{rankLabel(user?.currentRank)}</Pill>}
-              />
-              <p className="text-xs text-muted leading-relaxed">
-                Weekly salary for qualifying career ranks (Rank 1 to Rank 15), based on your team leg business.
-              </p>
-
-              <div className="well p-3.5 flex flex-col gap-2">
-                <Row
-                  label="Current Career Rank"
-                  value={rankLabel(user?.currentRank)}
-                  accent
-                />
-                <Row
-                  label="Team Leg Balance"
-                  value={`${user ? usd(user.powerLegBusiness) : "$0"} (Power) / ${user ? usd(user.weakerLegBusiness) : "$0"} (Weaker)`}
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-white/[0.04]">
-              <button
-                type="button"
-                disabled={!user || !!tx.busy}
-                onClick={() => callPlatform("Claiming Rank Salary Income...", "claimWeeklySalaryBonus")}
-                className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5"
-              >
-                {tx.busy === "Claiming Rank Salary Income..." ? <Spinner /> : "Claim Rank Salary Income"}
-              </button>
             </div>
           </section>
         )}
 
         {/* 8. Daily Sponsor Price Contest */}
         {(subTab === "all" || subTab === "contests") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-            <div className="flex flex-col gap-3">
+          <section className="card torch flex flex-col justify-between gap-4 p-3.5 sm:gap-5 sm:p-6 border border-white/[0.08]">
+            <div className="flex flex-col gap-6">
               <CardHeader
-                image={leafImage}
-                title="8. Daily Sponsor Price Contest"
-                right={<Pill tone="green">Sponsor Pool</Pill>}
+                stacked
+                title="Leader Prize Contest"
+                right={
+                  <InfoSheet title="Leader Prize Contest">
+                    <p>
+                      Prize contest paid on days when the CARB price falls 5% or more from its daily high. The pool goes to the top sponsors by new business that day.
+                    </p>
+                    <SheetBlock title="Claim window">
+                      <dl>
+                        <Row label="History window" value="Up to 150 days" />
+                      </dl>
+                    </SheetBlock>
+                  </InfoSheet>
+                }
               />
-              <p className="text-xs text-muted leading-relaxed">
-                Daily prize contest distributed to top personal direct volume sponsors across each 24-hour cycle.
-              </p>
-
-              <div className="well p-3.5 flex items-center justify-between">
+              <div>
                 <div>
-                  <div className="label">Claimable Sponsor Contest</div>
-                  <div className="text-xl font-semibold text-neon-soft">
+                  <div className="text-base font-normal text-white">
                     {user ? usd(user.pendingContestRewards) : "$0.00"}
                   </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xs text-muted block">History Window</span>
-                  <span className="text-xs font-semibold text-white">Up to 150 Days</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-white/[0.04]">
-              <button
-                type="button"
-                disabled={!user || user.pendingContestRewards === 0n || !!tx.busy}
-                onClick={() => callPlatform("Claiming Contest Income...", "sweepContestRewards", [150n])}
-                className="btn btn-primary w-full py-2.5 text-xs font-semibold"
-              >
-                {tx.busy === "Claiming Contest Income..." ? <Spinner /> : "Claim Contest Income"}
-              </button>
-            </div>
+            {!isHome && (
+              <div className="pt-3">
+                <button
+                  type="button"
+                  disabled={!user || user.pendingContestRewards === 0n || !!tx.busy}
+                  onClick={() => callPlatform("Claiming Contest Income...", "sweepContestRewards", [150n])}
+                  className="btn btn-primary w-full py-2.5 text-xs font-semibold"
+                >
+                  {tx.busy === "Claiming Contest Income..." ? <Spinner /> : "Claim Contest Income"}
+                </button>
+              </div>
+            )}
           </section>
         )}
 
         {/* 9. Leader Prize Contest */}
         {(subTab === "all" || subTab === "contests") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-            <div className="flex flex-col gap-3">
+          <section className="card torch flex flex-col justify-between gap-4 p-3.5 sm:gap-5 sm:p-6 border border-white/[0.08]">
+            <div className="flex flex-col gap-6">
               <CardHeader
-                image={leafImage}
-                title="9. Leader Prize Contest"
-                right={<Pill tone="gold">Leader Pool</Pill>}
+                stacked
+                title="Daily Contest"
+                right={
+                  <InfoSheet title="Daily Contest">
+                    <p>
+                      Daily contest prize pool shared among the top leaders by newcomer business. It is paid every day, whatever the price does.
+                    </p>
+                    <SheetBlock title="Claim window">
+                      <dl>
+                        <Row label="History window" value="Up to 50 days" />
+                      </dl>
+                    </SheetBlock>
+                  </InfoSheet>
+                }
               />
-              <p className="text-xs text-muted leading-relaxed">
-                Daily contest prize pool allocated exclusively to top branch generation leaders and community builders.
-              </p>
-
-              <div className="well p-3.5 flex items-center justify-between">
+              <div>
                 <div>
-                  <div className="label">Claimable Leader Prize</div>
-                  <div className="text-xl font-semibold text-neon-soft">
+                  <div className="text-base font-normal text-white">
                     {user ? usd(user.pendingLeaderContestRewards) : "$0.00"}
                   </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xs text-muted block">History Window</span>
-                  <span className="text-xs font-semibold text-white">Up to 50 Days</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-white/[0.04]">
-              <button
-                type="button"
-                disabled={!user || user.pendingLeaderContestRewards === 0n || !!tx.busy}
-                onClick={() => callPlatform("Claiming Leader Contest Income...", "sweepLeaderContestRewards", [50n])}
-                className="btn btn-secondary w-full py-2.5 text-xs font-semibold"
-              >
-                {tx.busy === "Claiming Leader Contest Income..." ? <Spinner /> : "Claim Leader Contest Income"}
-              </button>
-            </div>
+            {!isHome && (
+              <div className="pt-3">
+                <button
+                  type="button"
+                  disabled={!user || user.pendingLeaderContestRewards === 0n || !!tx.busy}
+                  onClick={() => callPlatform("Claiming Leader Contest Income...", "sweepLeaderContestRewards", [50n])}
+                  className="btn btn-secondary w-full py-2.5 text-xs font-semibold"
+                >
+                  {tx.busy === "Claiming Leader Contest Income..." ? <Spinner /> : "Claim Leader Contest Income"}
+                </button>
+              </div>
+            )}
           </section>
         )}
 
         {/* 10. Protocol Reward Pool & Backing Horizon */}
         {(subTab === "all" || subTab === "rewardPool") && (
-          <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08] lg:col-span-2">
-            <div className="flex flex-col gap-3">
+          <section className="card torch flex flex-col justify-between gap-4 p-3.5 sm:gap-5 sm:p-6 border border-white/[0.08] col-span-2">
+            <div className="flex flex-col gap-6">
               <CardHeader
-                image={leafImage}
-                title="10. Protocol Reward Pool & Backing Horizon"
+                stacked
+                singleLine
+                title="Reward Pool"
+                right={
+                  <InfoSheet title="Reward Pool">
+                    <p>
+                      Withdrawal pool fees are split 70% Neon / 20% Hydra / 10% Genosis. Each pool auto-distributes to
+                      top leaders once it reaches its threshold.
+                    </p>
+                    <SheetBlock title="Pool progress">
+                      <dl>
+                        {(
+                          [
+                            ["Neon (70%)", market?.rewardPools.neon ?? 0n, 5_000n],
+                            ["Hydra (20%)", market?.rewardPools.hydra ?? 0n, 10_000n],
+                            ["Genosis (10%)", market?.rewardPools.genosis ?? 0n, 20_000n],
+                          ] as const
+                        ).map(([name, balance, threshold]) => (
+                          <Row key={name} label={name} value={`${usd(balance)} / ${usd(threshold * 10n ** 18n)}`} />
+                        ))}
+                      </dl>
+                    </SheetBlock>
+                    <SheetBlock title="Pool totals">
+                      <dl>
+                        <Row label="Unclaimed liabilities" value={usd(market?.rewardPoolLiabilities ?? 0n)} />
+                        <Row label="Lifetime routed" value={usd(market?.rewardPoolAccumulated ?? 0n)} />
+                        <Row
+                          label="Pool ledger contract"
+                          value={market?.rewardPoolEngine ? shortAddr(market.rewardPoolEngine) : "—"}
+                        />
+                      </dl>
+                    </SheetBlock>
+                  </InfoSheet>
+                }
               />
-              <p className="text-xs text-muted leading-relaxed">
-                Withdrawal pool fees are split 70% Neon / 20% Hydra / 10% Genosis. Each pool auto-distributes to top leaders once it reaches its threshold.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="well p-3.5">
-                  <div className="label">Reward Pool Balance</div>
-                  <div className="mt-1 text-xl font-semibold text-neon-soft">
-                    {usd(market?.rewardPoolBalance ?? 0n)}
-                  </div>
-                  <span className="text-2xs text-muted">
-                    Unclaimed liabilities: {usd(market?.rewardPoolLiabilities ?? 0n)}
-                  </span>
+              {/* Winnings from pool payouts that can be claimed now */}
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs text-muted">You can withdraw</div>
+                  <div className="mt-0.5 text-base font-normal text-white">{usd(poolWinTotal)}</div>
                 </div>
-                <div className="well p-3.5">
-                  <div className="label">Pool Ledger Contract</div>
-                  <div className="mt-1 text-sm font-mono font-semibold text-white">
-                    {market?.rewardPoolEngine ? shortAddr(market.rewardPoolEngine) : "—"}
-                  </div>
-                  <span className="text-2xs text-muted">
-                    Lifetime routed: {usd(market?.rewardPoolAccumulated ?? 0n)}
-                  </span>
-                </div>
-                <div className="well p-3.5">
-                  <div className="label">Total Platform Active Deposit</div>
-                  <div className="mt-1 text-xl font-semibold text-white">
-                    {market?.totalPlatformActiveDeposit !== undefined ? usd(market.totalPlatformActiveDeposit) : "—"}
-                  </div>
-                  <span className="text-2xs text-muted">Global Staked Principal</span>
-                </div>
+                <button
+                  type="button"
+                  disabled={!user || poolWinTotal === 0n || !!tx.busy}
+                  onClick={claimRewardPools}
+                  className="btn btn-primary !rounded-lg whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
+                >
+                  {tx.busy === "Claiming Reward Pool..." ? <Spinner /> : "Claim"}
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* How full each pool is against its payout threshold */}
+              <div className="flex flex-col gap-3">
                 {(
                   [
-                    ["Neon (70%)", market?.rewardPools.neon ?? 0n, 5_000n],
-                    ["Hydra (20%)", market?.rewardPools.hydra ?? 0n, 10_000n],
-                    ["Genosis (10%)", market?.rewardPools.genosis ?? 0n, 20_000n],
+                    ["Neon", market?.rewardPools.neon ?? 0n, 5_000n, ["#6b2a3c", "#ff5d7a"]],
+                    ["Hydra", market?.rewardPools.hydra ?? 0n, 10_000n, ["#6b4a1a", "#f5b04a"]],
+                    ["Genosis", market?.rewardPools.genosis ?? 0n, 20_000n, ["#17583a", "#3ddc84"]],
                   ] as const
-                ).map(([name, balance, threshold]) => (
-                  <div key={name} className="well p-3 flex justify-between gap-2 text-2xs">
-                    <span className="text-muted">{name}</span>
-                    <span className="font-medium text-text font-mono tabular-nums">
-                      {usd(balance)} / {usd(threshold * 10n ** 18n)}
-                    </span>
-                  </div>
-                ))}
+                ).map(([name, balance, threshold, [from, to]]) => {
+                  const target = threshold * 10n ** 18n;
+                  const filled = Math.min(100, (Number(balance) / Number(target)) * 100);
+                  const filledLabel =
+                    filled === 0 ? "0%" : filled < 0.1 ? "<0.1%" : filled < 10 ? `${filled.toFixed(1)}%` : `${Math.round(filled)}%`;
+                  return (
+                    <div key={name} className="flex items-center gap-3">
+                      <span className="w-16 shrink-0 text-sm font-medium text-white">{name}</span>
+                      <div className="relative h-9 min-w-0 flex-1 overflow-hidden rounded-xl bg-white/[0.04]">
+                        <div
+                          className="h-full rounded-xl transition-all duration-500"
+                          style={{
+                            width: `${filled}%`,
+                            minWidth: filled > 0 ? 8 : 0,
+                            background: `linear-gradient(90deg, ${from}, ${to})`,
+                          }}
+                        />
+                        <span className="absolute inset-y-0 left-3 flex items-center whitespace-nowrap text-xs text-white">
+                          {usd(balance)} of ${threshold.toLocaleString()}
+                        </span>
+                      </div>
+                      <span className="w-14 shrink-0 text-right text-sm text-white">{filledLabel}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </section>

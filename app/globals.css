@@ -19,8 +19,8 @@
   --color-neon-deep: #0a8a28;
   --color-forest: #082812;
   --color-text: #ffffff;
-  --color-muted: #8b968e;
-  --color-faint: #556157;
+  --color-muted: #b9c2bc;
+  --color-faint: #8f9a93;
   --color-gold: #6df585;
   --color-danger: #f05252;
 
@@ -136,7 +136,6 @@ body {
       0 0 18px 1px rgba(45, 225, 75, 0.38),
       0 6px 18px -2px rgba(10, 65, 22, 0.45);
     font-weight: 600;
-    letter-spacing: -0.01em;
   }
   .btn-primary:not(:disabled):hover {
     filter: brightness(1.03);
@@ -178,7 +177,6 @@ body {
     font-size: var(--text-sm);
     font-weight: 500;
     line-height: 1.25;
-    letter-spacing: -0.01em;
     transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
     white-space: nowrap;
@@ -214,7 +212,7 @@ body {
   .label {
     font-size: var(--text-2xs);
     font-weight: 400;
-    color: var(--color-muted);
+    color: #d6ddd8;
   }
 
   /* Headline figures */
@@ -250,3 +248,57 @@ body {
     animation: none;
   }
 }
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Concentric circles centred on the bottom-right corner (4 rings, fading out, grey); only a quarter of each ring shows inside the card.
+   Drawn behind the card content (z-index -1 inside the isolated card); inner content sits above it. */
+.torch {
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.torch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: repeating-radial-gradient(
+    circle at 100% 100%,
+    transparent 0,
+    transparent 23px,
+    rgb(190 198 193 / 0.34) 23px,
+    rgb(190 198 193 / 0.34) 25px
+  );
+  /* Brightest at the corner, fading out ring by ring; the outer ring is barely visible */
+  -webkit-mask-image: radial-gradient(
+    circle at 100% 100%,
+    #000 0,
+    #000 25px,
+    rgb(0 0 0 / 0.6) 50px,
+    rgb(0 0 0 / 0.25) 75px,
+    rgb(0 0 0 / 0.06) 100px,
+    transparent 112px
+  );
+  mask-image: radial-gradient(
+    circle at 100% 100%,
+    #000 0,
+    #000 25px,
+    rgb(0 0 0 / 0.6) 50px,
+    rgb(0 0 0 / 0.25) 75px,
+    rgb(0 0 0 / 0.06) 100px,
+    transparent 112px
+  );
+}
+

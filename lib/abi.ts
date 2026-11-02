@@ -5,6 +5,7 @@ export const platformAbi = parseAbi([
   "function register(address _sponsor, uint256 _leaderCode, uint256 amountUSDT, uint8 lockType)",
   "function invest(uint256 amountUSDT, uint8 lockType)",
   "function withdrawROI()",
+  "function claimRewardPool(uint8 poolType, uint256 cycleId)",
   "function withdrawBooster()",
   "function withdrawWorkingIncome(uint256 amountUSDT, uint8 vestingOption)",
   "function harvestLevelIncome()",
@@ -77,6 +78,13 @@ export const payoutPoolsAbi = parseAbi([
   "function hydraPoolBalance() view returns (uint256)",
   "function genosisPoolBalance() view returns (uint256)",
   "function totalRewardPoolLiabilities() view returns (uint256)",
+  "function neonCycleId() view returns (uint256)",
+  "function hydraCycleId() view returns (uint256)",
+  "function genosisCycleId() view returns (uint256)",
+  "function getPoolWinners(uint8 poolType, uint256 cycleId) view returns (address[])",
+  "function poolClaimed(uint8 poolType, uint256 cycleId, address user) view returns (bool)",
+  "function poolRewardPerWinner(uint8 poolType, uint256 cycleId) view returns (uint256)",
+  "function poolWinnerReward(uint8 poolType, uint256 cycleId, address user) view returns (uint256)",
 ]);
 
 export const lhrEngineAbi = parseAbi([
