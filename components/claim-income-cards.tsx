@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { platformAbi } from "@/lib/abi";
 import { LockType } from "@/lib/config";
 import { rankLabel, shortAddr, usd } from "@/lib/format";
@@ -15,7 +16,7 @@ import {
 } from "@/lib/roi";
 import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
 import { CardHeader, Notice, Row, Spinner, useTx } from "./ui";
-import { InfoSheet, SheetBlock } from "./info-sheet";
+import { BottomSheet, InfoSheet, SheetBlock } from "./info-sheet";
 import { LiveStreamTicker, useLiveIncomeStreams } from "./incomes-dashboard";
 import { useWallet } from "./wallet";
 
@@ -33,6 +34,10 @@ export function ClaimIncomeCards({
 }) {
   const { account, write } = useWallet();
   const tx = useTx(onDone);
+
+  const [rankSheetOpen, setRankSheetOpen] = useState(false);
+  // Fixed when the card mounts; enough to tell which weekly payouts are still ahead
+  const [nowSec] = useState(() => Math.floor(Date.now() / 1000));
 
   const isTopId = !!user?.isTopId;
   const lhrTier = market?.lhrTier ?? 0;
@@ -231,18 +236,17 @@ export function ClaimIncomeCards({
                   </InfoSheet>
                 }
               />
-              <div>
-                <div className="text-xs text-muted">Available</div>
-                <div className="mt-0.5 text-base font-normal text-white">
-                  {user ? usd(user.leaderIncomePending + user.pendingLeaderBonusAvailable) : "$0.00"}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <div className="text-base font-normal text-white">
+                  {user
+                    ? usd(user.leaderIncomePending + user.pendingLeaderBonusAvailable + user.pendingLeaderBonusLocked)
+                    : "$0.00"}
                 </div>
-              </div>
-              <div className="flex justify-end">
                 <button
                   type="button"
                   disabled={!user || user.leaderIncomePending + user.pendingLeaderBonusAvailable === 0n || !!tx.busy}
                   onClick={() => callPlatform("Claiming Leader Income...", "withdrawLeaderIncome")}
-                  className="btn btn-primary !rounded-lg whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
+                  className="btn btn-primary !rounded-lg justify-self-end whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
                 >
                   {tx.busy === "Claiming Leader Income..." ? <Spinner /> : "Claim"}
                 </button>
@@ -255,9 +259,9 @@ export function ClaimIncomeCards({
             <div className="flex flex-col gap-6">
               <CardHeader
                 stacked
-                title="Rank Salary"
+                title="Rank and Reward"
                 right={
-                  <InfoSheet title="Rank Salary">
+                  <InfoSheet title="Rank and Reward">
                     <p>
                       Weekly salary for qualifying career ranks (Rank 1 to Rank 15), based on your team leg business.
                     </p>
@@ -275,11 +279,69 @@ export function ClaimIncomeCards({
                 <button
                   type="button"
                   disabled={!user || user.currentRank === 0 || !!tx.busy}
-                  onClick={() => callPlatform("Claiming Rank Salary Income...", "claimWeeklySalaryBonus")}
+                  onClick={() => setRankSheetOpen(true)}
                   className="btn btn-primary !rounded-lg justify-self-end whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
                 >
                   {tx.busy === "Claiming Rank Salary Income..." ? <Spinner /> : "Claim"}
                 </button>
+                <BottomSheet open={rankSheetOpen} onClose={() => setRankSheetOpen(false)} title="Rank and Reward">
+                  <p>Your rank salary is paid weekly. Each rank has its own stream, and a week unlocks every 7 days.</p>
+                  {[...(user?.rankSalary.streams ?? [])].reverse().map((st) => {
+                    const WEEK = 7 * DAY_SECONDS;
+                    const finished = st.weeksClaimed + st.claimableWeeks >= st.durationWeeks && st.claimableWeeks === 0;
+                    const nextUnlock =
+                      st.startTime > 0
+                        ? st.startTime + (Math.floor(Math.max(0, nowSec - st.startTime) / WEEK) + 1) * WEEK
+                        : 0;
+                    const daysToNext = Math.max(0, Math.ceil((nextUnlock - nowSec) / DAY_SECONDS));
+                    return (
+                      <SheetBlock key={st.rank} title={`Rank ${st.rank}`}>
+                        <div className="flex items-center justify-between gap-3 text-sm text-white">
+                          <span>{usd(st.weeklyPayout)} per week</span>
+                          <span className="text-muted">
+                            {st.weeksClaimed} of {st.durationWeeks} weeks claimed
+                          </span>
+                        </div>
+                        {/* One dot per week: claimed, claimable now, still locked */}
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {Array.from({ length: st.durationWeeks }, (_, w) => {
+                            const claimed = w < st.weeksClaimed;
+                            const ready = !claimed && w < st.weeksClaimed + st.claimableWeeks;
+                            return (
+                              <span
+                                key={w}
+                                className="size-3.5 rounded-full"
+                                style={{
+                                  background: claimed ? "#3ddc84" : ready ? "#f5b83d" : "rgb(255 255 255 / 0.1)",
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div className="mt-3 text-xs text-white">
+                          {st.claimableWeeks > 0
+                            ? `${st.claimableWeeks} ${st.claimableWeeks === 1 ? "week" : "weeks"} ready to claim`
+                            : finished
+                            ? "All weeks claimed"
+                            : st.startTime === 0
+                            ? "First week unlocks 7 days after your first claim"
+                            : `Next week unlocks in ${daysToNext} ${daysToNext === 1 ? "day" : "days"}`}
+                        </div>
+                      </SheetBlock>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    disabled={!user || user.rankSalary.totalClaimable === 0n || !!tx.busy}
+                    onClick={() => {
+                      setRankSheetOpen(false);
+                      callPlatform("Claiming Rank Salary Income...", "claimWeeklySalaryBonus");
+                    }}
+                    className="btn btn-primary w-full py-2.5 text-xs font-semibold"
+                  >
+                    {user ? `Claim ${usd(user.rankSalary.totalClaimable)}` : "Claim"}
+                  </button>
+                </BottomSheet>
               </div>
             </div>
           </section>

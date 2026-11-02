@@ -9,6 +9,8 @@ import {
   pairAbi,
   erc20Abi,
   payoutPoolsAbi,
+  teamEngineAbi,
+  earnEngineAbi,
   lhrEngineAbi,
   liquidityFarmingAbi,
 } from "./abi";
@@ -113,6 +115,19 @@ export type PlatformUser = {
   pendingLeaderBonusLocked: bigint;
   /** Reward pool cycles this user won and has not claimed yet (poolType 1 Neon, 2 Hydra, 3 Genosis). */
   rewardPoolWins: { poolType: 1 | 2 | 3; cycleId: bigint; amount: bigint }[];
+  /** Weekly rank salary streams (one per rank reached) and what can be claimed now. */
+  rankSalary: {
+    totalClaimable: bigint;
+    streams: {
+      rank: number;
+      weeklyPayout: bigint;
+      startTime: number;
+      durationWeeks: number;
+      weeksClaimed: number;
+      claimableWeeks: number;
+      remainingWeeks: number;
+    }[];
+  };
   powerLegBusiness: bigint;
   weakerLegBusiness: bigint;
   /** Clean (first-package, no leader code used) business in the power leg — leader code qualification. */
@@ -131,6 +146,8 @@ export type PlatformUser = {
 /** Market fields are `undefined` until loaded or when the on-chain read fails (shown as "—"). */
 export type PlatformMarket = {
   spotPrice?: bigint;
+  /** All-time high CARB price recorded by the contest logic. */
+  athPrice?: bigint;
   twapPrice?: bigint;
   /** TWAP averaging window in seconds (oracle `twapWindow`). */
   twapWindowSec?: number;
@@ -269,6 +286,12 @@ export async function fetchPlatformData(account?: Address): Promise<{
     spotPrice = (usdtReserve * 10n ** 18n) / carbReserve;
   }
 
+  let athPrice: bigint | undefined;
+  try {
+    const earn = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "earnEngine" });
+    athPrice = await publicClient.readContract({ address: earn, abi: earnEngineAbi, functionName: "globalATHPrice" });
+  } catch {}
+
   let buybackPoolUSDT = 0n;
   let farmingPrincipalUSDT = 0n;
   let farmingLpValueUSDT = 0n;
@@ -307,6 +330,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
 
   const market: PlatformMarket = {
     spotPrice,
+    athPrice,
     twapPrice,
     twapWindowSec,
     totalPlatformActiveDeposit: totalActive,
@@ -439,6 +463,39 @@ export async function fetchPlatformData(account?: Address): Promise<{
       }
     }
 
+    // Rank salary: one weekly stream per rank reached
+    const rankSalary: PlatformUser["rankSalary"] = { totalClaimable: 0n, streams: [] };
+    const currentRank = Number(u.currentRank);
+    if (currentRank > 0) {
+      try {
+        const teamEngine = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "teamEngine" });
+        const [claimable, claimableWeeks] = await publicClient.readContract({
+          address: teamEngine,
+          abi: teamEngineAbi,
+          functionName: "getClaimableWeeklySalaryBonus",
+          args: [account],
+        });
+        rankSalary.totalClaimable = claimable;
+        for (let rank = 1; rank <= Math.min(currentRank, 15); rank++) {
+          const [weeklyPayout, startTime, durationWeeks, weeksClaimed, , remainingWeeks] = await publicClient.readContract({
+            address: teamEngine,
+            abi: teamEngineAbi,
+            functionName: "getUserRankStream",
+            args: [account, BigInt(rank)],
+          });
+          rankSalary.streams.push({
+            rank,
+            weeklyPayout,
+            startTime: Number(startTime),
+            durationWeeks: Number(durationWeeks),
+            weeksClaimed: Number(weeksClaimed),
+            claimableWeeks: Number(claimableWeeks[rank - 1]),
+            remainingWeeks: Number(remainingWeeks),
+          });
+        }
+      } catch {}
+    }
+
     const user: PlatformUser = {
       isRegistered,
       isTopId,
@@ -478,6 +535,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
       pendingLeaderBonusAvailable: pLeaderBonus[0],
       pendingLeaderBonusLocked: pLeaderBonus[1],
       rewardPoolWins,
+      rankSalary,
       powerLegBusiness: legBiz[0],
       weakerLegBusiness: legBiz[1],
       cleanPowerLegBusiness: cleanLegBiz[0],

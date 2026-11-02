@@ -5,6 +5,8 @@ export const platformAbi = parseAbi([
   "function register(address _sponsor, uint256 _leaderCode, uint256 amountUSDT, uint8 lockType)",
   "function invest(uint256 amountUSDT, uint8 lockType)",
   "function withdrawROI()",
+  "function teamEngine() view returns (address)",
+  "function earnEngine() view returns (address)",
   "function claimRewardPool(uint8 poolType, uint256 cycleId)",
   "function withdrawBooster()",
   "function withdrawWorkingIncome(uint256 amountUSDT, uint8 vestingOption)",
@@ -85,6 +87,17 @@ export const payoutPoolsAbi = parseAbi([
   "function poolClaimed(uint8 poolType, uint256 cycleId, address user) view returns (bool)",
   "function poolRewardPerWinner(uint8 poolType, uint256 cycleId) view returns (uint256)",
   "function poolWinnerReward(uint8 poolType, uint256 cycleId, address user) view returns (uint256)",
+]);
+
+/** Highest CARB price seen by the contest logic (`globalATHPrice`). */
+export const earnEngineAbi = parseAbi([
+  "function globalATHPrice() view returns (uint256)",
+]);
+
+/** Rank salary streams live on the team engine (`platform.teamEngine()`). */
+export const teamEngineAbi = parseAbi([
+  "function getClaimableWeeklySalaryBonus(address user) view returns (uint256 totalClaimableUSDT, uint256[15] claimableWeeksPerRank, uint256[15] remainingWeeksPerRank)",
+  "function getUserRankStream(address user, uint256 rank) view returns (uint128 weeklyPayout, uint256 startTime, uint256 durationWeeks, uint256 weeksClaimed, uint256 totalClaimedAmount, uint256 remainingWeeks)",
 ]);
 
 export const lhrEngineAbi = parseAbi([
