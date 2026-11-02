@@ -6,7 +6,7 @@ import { formatUnits } from "viem";
 import { Copy, Eye, EyeSlash, TickCircle } from "iconsax-react";
 import type { PlatformUser } from "@/lib/platform";
 import { useLiveIncomeStreams } from "./incomes-dashboard";
-import avatarImage from "@/public/3d-icons/boy.webp";
+import avatarImage from "@/public/new-icons/user.jpg";
 
 const fmt = (v: number) =>
   v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -46,8 +46,8 @@ export function IncomeHero({ user, lhrTier }: { user?: PlatformUser; lhrTier: nu
 
   return (
     <section className="flex items-center gap-3.5 py-3" aria-label="Total available to withdraw">
-      <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#14171d] shadow-xs">
-        <Image src={avatarImage} alt="Profile Avatar" width={44} height={44} className="object-contain" />
+      <div className="size-12 shrink-0 overflow-hidden rounded-2xl bg-white">
+        <Image src={avatarImage} alt="Profile Avatar" width={96} height={96} className="size-full object-cover" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-2xs text-muted">Total available to withdraw</div>

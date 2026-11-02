@@ -148,6 +148,9 @@ export type PlatformMarket = {
   spotPrice?: bigint;
   /** All-time high CARB price recorded by the contest logic. */
   athPrice?: bigint;
+  /** Today's (UTC) high price tracked by the price contest, and whether the 5% drop already triggered it. */
+  contestDayHigh?: bigint;
+  contestTriggered?: boolean;
   twapPrice?: bigint;
   /** TWAP averaging window in seconds (oracle `twapWindow`). */
   twapWindowSec?: number;
@@ -292,6 +295,15 @@ export async function fetchPlatformData(account?: Address): Promise<{
     athPrice = await publicClient.readContract({ address: earn, abi: earnEngineAbi, functionName: "globalATHPrice" });
   } catch {}
 
+  let contestDayHigh: bigint | undefined;
+  let contestTriggered: boolean | undefined;
+  try {
+    const day = BigInt(Math.floor(Date.now() / 1000 / 86400));
+    const [triggered, dayHigh] = await publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getContestDay", args: [day] });
+    contestDayHigh = dayHigh;
+    contestTriggered = triggered;
+  } catch {}
+
   let buybackPoolUSDT = 0n;
   let farmingPrincipalUSDT = 0n;
   let farmingLpValueUSDT = 0n;
@@ -331,6 +343,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
   const market: PlatformMarket = {
     spotPrice,
     athPrice,
+    contestDayHigh,
+    contestTriggered,
     twapPrice,
     twapWindowSec,
     totalPlatformActiveDeposit: totalActive,

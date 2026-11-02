@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { platformAbi } from "@/lib/abi";
 import { LockType } from "@/lib/config";
-import { price, shortAddr, usd } from "@/lib/format";
+import { shortAddr, usd } from "@/lib/format";
 import {
   CAP_MULTIPLIER,
   DAY_SECONDS,
@@ -20,7 +20,7 @@ import {
 import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
 import type { NavTab } from "./header";
 import { CardHeader, Notice, Row, Spinner, useTx } from "./ui";
-import { BottomSheet, InfoSheet, SheetBlock } from "./info-sheet";
+import { InfoSheet, SheetBlock } from "./info-sheet";
 import { useWallet } from "./wallet";
 import { IncomeSubTabs, type IncomeSubTabId } from "./income-sub-tabs";
 import { Hierarchy } from "iconsax-react";
@@ -223,53 +223,6 @@ export function LiveStreamTicker({
   );
 }
 
-/**
- * Price versus its all-time high, with the 5% drop line. The price contest pays out on days the
- * price falls 5% below its high, so the closer the marker gets to the dashed line, the closer a payout is.
- */
-function PriceDropGauge({ spot, ath }: { spot?: bigint; ath?: bigint }) {
-  if (!spot || !ath || ath === 0n) return null;
-  const spotNum = Number(spot) / 1e18;
-  const athNum = Math.max(Number(ath) / 1e18, spotNum);
-  const filled = Math.min(100, (spotNum / athNum) * 100);
-  const downPct = Math.max(0, (1 - spotNum / athNum) * 100);
-  const triggered = downPct >= 5;
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="relative h-8">
-        <div className="absolute inset-0 overflow-hidden rounded-lg bg-white/[0.06]">
-          <div
-            className="h-full rounded-lg transition-all duration-500"
-            style={{
-              width: `${filled}%`,
-              background: triggered
-                ? "linear-gradient(90deg, #6b2a3c, #ff5d7a)"
-                : "linear-gradient(90deg, #17583a, #3ddc84)",
-            }}
-          />
-        </div>
-        {/* 5% drop line */}
-        <div
-          className="absolute -inset-y-1 border-l-2 border-dashed border-white/80"
-          style={{ left: "95%" }}
-          aria-hidden="true"
-        />
-      </div>
-      <div className="flex items-center justify-between gap-2 text-2xs text-muted">
-        <span className="text-white">
-          {downPct === 0 ? "At all-time high" : `${downPct.toFixed(1)}% below all-time high`}
-        </span>
-        <span className="shrink-0">-5% line</span>
-      </div>
-      <div className="flex items-center justify-between gap-2 text-2xs text-muted">
-        <span>Now {price(spot)}</span>
-        <span>High {price(ath)}</span>
-      </div>
-    </div>
-  );
-}
-
 export function IncomesDashboard({
   user,
   addresses,
@@ -289,7 +242,6 @@ export function IncomesDashboard({
   const tx = useTx(onDone);
 
   const [subTab, setSubTab] = useState<IncomeSubTabId>("all");
-  const [priceSheetOpen, setPriceSheetOpen] = useState(false);
 
   // Real-time live streaming values grounded in on-chain parameters
   const lhrTier = market?.lhrTier ?? 0;
@@ -462,24 +414,8 @@ export function IncomesDashboard({
                   </InfoSheet>
                 }
               />
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <div className="text-base font-normal text-white">
-                  {user ? usd(user.pendingContestRewards) : "$0.00"}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPriceSheetOpen(true)}
-                  className="btn btn-secondary !rounded-lg justify-self-end whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
-                >
-                  View
-                </button>
-                <BottomSheet open={priceSheetOpen} onClose={() => setPriceSheetOpen(false)} title="Price vs all-time high">
-                  <p>
-                    The Leader Prize Contest pays on days when the CARB price falls 5% or more. The dashed line marks
-                    that 5% drop from the all-time high.
-                  </p>
-                  <PriceDropGauge spot={market?.spotPrice} ath={market?.athPrice} />
-                </BottomSheet>
+              <div className="text-base font-normal text-white">
+                {user ? usd(user.pendingContestRewards) : "$0.00"}
               </div>
             </div>
 

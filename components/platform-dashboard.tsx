@@ -25,6 +25,7 @@ import { PackagesList } from "./packages-list";
 import { RegisterCard } from "./register-card";
 import { BoosterTiersCard } from "./booster-tiers-card";
 import { LeaderCodeCard } from "./leader-code-card";
+import { LeaderPrizeContestCard } from "./leader-prize-contest-card";
 import { LockMixCard } from "./lock-mix-card";
 import { QuickActions } from "./quick-actions";
 import { UnlockScheduleCard } from "./unlock-schedule-card";
@@ -241,6 +242,8 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
             isHome={true}
             onNavigateTab={setActiveTab}
           />
+
+          <LeaderPrizeContestCard market={market} />
 
           <LeaderCodeCard user={user ?? undefined} addresses={addresses} onDone={refresh} />
 

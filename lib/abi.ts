@@ -7,6 +7,7 @@ export const platformAbi = parseAbi([
   "function withdrawROI()",
   "function teamEngine() view returns (address)",
   "function earnEngine() view returns (address)",
+  "function getContestDay(uint256 dayId) view returns (bool isSLTriggered, uint256 dayHighPrice, uint256 dailyDepositVolume, uint256 top10Count, address[10] top10Uplines, uint256[10] top10Volumes)",
   "function claimRewardPool(uint8 poolType, uint256 cycleId)",
   "function withdrawBooster()",
   "function withdrawWorkingIncome(uint256 amountUSDT, uint8 vestingOption)",
