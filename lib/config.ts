@@ -11,6 +11,10 @@ const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? bscTestnet.id);
 
 export const chain: Chain = chains[chainId] ?? bscTestnet;
 export const rpcUrl: string = process.env.NEXT_PUBLIC_RPC_URL || "https://data-seed-prebsc-1-s1.bnbchain.org:8545";
+/** RPC used only for historical log queries (the main RPC rejects them). Must allow ~49k block ranges. */
+export const logsRpcUrl: string =
+  process.env.NEXT_PUBLIC_LOGS_RPC_URL ||
+  (chainId === bsc.id ? "https://bsc-rpc.publicnode.com" : "https://bsc-testnet-rpc.publicnode.com");
 export const wsUrl: string | undefined = process.env.NEXT_PUBLIC_WS_URL || undefined;
 
 // Deployed BSC Testnet Contract Addresses

@@ -243,7 +243,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
             onNavigateTab={setActiveTab}
           />
 
-          <LeaderPrizeContestCard market={market} />
+          <LeaderPrizeContestCard market={market} addresses={addresses} />
 
           <LeaderCodeCard user={user ?? undefined} addresses={addresses} onDone={refresh} />
 

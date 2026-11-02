@@ -12,7 +12,8 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { price } from "@/lib/format";
-import type { PlatformMarket } from "@/lib/platform";
+import { fetchPriceHistory, type PricePoint } from "@/lib/price-history";
+import type { PlatformAddresses, PlatformMarket } from "@/lib/platform";
 import { InfoSheet, SheetBlock } from "./info-sheet";
 import { Row } from "./ui";
 
@@ -74,12 +75,30 @@ function useTodaysPrices(spot?: number) {
   return samples;
 }
 
-export function LeaderPrizeContestCard({ market }: { market?: PlatformMarket }) {
+export function LeaderPrizeContestCard({ market, addresses }: { market?: PlatformMarket; addresses?: PlatformAddresses }) {
   const spot = market?.spotPrice ? Number(market.spotPrice) / 1e18 : undefined;
-  const samples = useTodaysPrices(spot);
+  const liveSamples = useTodaysPrices(spot);
+
+  // Older ups and downs rebuilt from the pair's swap history
+  const [history, setHistory] = useState<PricePoint[]>([]);
+  const pair = addresses?.pair;
+  const carbIsToken0 = addresses ? addresses.carb.toLowerCase() < addresses.usdt.toLowerCase() : true;
+  useEffect(() => {
+    if (!pair) return;
+    let cancelled = false;
+    fetchPriceHistory(pair, carbIsToken0).then((points) => {
+      if (!cancelled) setHistory(points);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pair, carbIsToken0]);
+
+  const samples: Sample[] = [...history, ...liveSamples].sort((a, b) => a[0] - b[0]);
 
   const contestHigh = market?.contestDayHigh ? Number(market.contestDayHigh) / 1e18 : 0;
-  const sampleHigh = samples.reduce((m, s) => Math.max(m, s[1]), 0);
+  const [todayStart] = useState(() => Math.floor(Date.now() / 1000 / 86400) * 86400);
+  const sampleHigh = samples.reduce((m, s) => (s[0] >= todayStart ? Math.max(m, s[1]) : m), 0);
   const dayHigh = Math.max(contestHigh, sampleHigh, spot ?? 0);
   const target = dayHigh * DROP_TARGET;
   const current = spot ?? samples[samples.length - 1]?.[1];
@@ -94,6 +113,7 @@ export function LeaderPrizeContestCard({ market }: { market?: PlatformMarket }) 
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const linesRef = useRef<IPriceLine[]>([]);
+  const didFit = useRef(false);
 
   useEffect(() => {
     const box = chartBox.current;
@@ -105,8 +125,9 @@ export function LeaderPrizeContestCard({ market }: { market?: PlatformMarket }) 
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.12 } },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
       crosshair: { mode: 1 },
-      handleScroll: false,
-      handleScale: false,
+      handleScroll: true,
+      handleScale: true,
+      kineticScroll: { touch: true, mouse: true },
     });
     const series = chart.addSeries(AreaSeries, {
       lineColor: "#3ddc84",
@@ -148,7 +169,17 @@ export function LeaderPrizeContestCard({ market }: { market?: PlatformMarket }) 
         series.createPriceLine({ price: target, color: "#ff5d7a", lineWidth: 2, lineStyle: LineStyle.Dashed, title: "-5% target" })
       );
     }
-    chart.timeScale().fitContent();
+    // Start on the last 24 hours; scroll or pinch to go back to older ups and dips
+    if (!didFit.current && data.length > 1) {
+      const now = Math.floor(Date.now() / 1000);
+      const oldest = data[0].time as number;
+      if (now - oldest > 86400) {
+        chart.timeScale().setVisibleRange({ from: (now - 86400) as UTCTimestamp, to: (now + 600) as UTCTimestamp });
+      } else {
+        chart.timeScale().fitContent();
+      }
+      didFit.current = true;
+    }
   }, [samples, dayHigh, target, current]);
 
   return (
@@ -166,7 +197,7 @@ export function LeaderPrizeContestCard({ market }: { market?: PlatformMarket }) 
               <Row label="5% target" value={dayHigh ? fmt(target) : "—"} accent />
             </dl>
           </SheetBlock>
-          <p>The line shows prices seen while this app is open today, so it fills in as you keep it open.</p>
+          <p>The chart starts on the last 24 hours. Drag it sideways, or pinch, to go back to older ups and dips. Older prices come from the pool&apos;s swap history, and the line keeps filling in live while the app is open.</p>
         </InfoSheet>
       </div>
 

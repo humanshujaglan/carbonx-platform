@@ -38,7 +38,7 @@ export function IncomeSubTabs({
 }) {
   return (
     <nav
-      className="flex w-full min-w-0 flex-row items-center gap-1.5 overflow-x-auto no-scrollbar select-none"
+      className="-mx-4 flex min-w-0 flex-row items-center gap-1.5 overflow-x-auto px-4 no-scrollbar select-none sm:-mx-6 sm:px-6"
       aria-label="Income Streams Navigation"
     >
         {SUB_TABS.map((tab) => {
