@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { type Address, isAddress, getAddress } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Profile2User,
   ArrowLeft,
   ArrowRight2,
   ArrowUp2,
@@ -16,12 +17,11 @@ import {
   TickCircle,
   Wallet3,
 } from "iconsax-react";
-import analysisImage from "@/public/analysis.png";
 import { rankLabel, shortAddr, usd } from "@/lib/format";
 import { platformAbi } from "@/lib/abi";
 import { viewAddress, platformAddress } from "@/lib/config";
 import { publicClient, type PlatformAddresses, type PlatformUser } from "@/lib/platform";
-import { CardHeader, Pill, Spinner, useToast } from "./ui";
+import { Pill, Spinner, useToast } from "./ui";
 import { useWallet } from "./wallet";
 
 export type DetailedUserNode = {
@@ -41,14 +41,21 @@ export type DetailedUserNode = {
   directs: DetailedUserNode[];
 };
 
+export type TeamView = "tree" | "list";
+
+const MAX_LEVEL = 20;
+const MAX_ROWS = 200;
+
 export function StructureView({
   user,
   addresses,
   onDone,
+  view,
 }: {
   user?: PlatformUser;
   addresses?: PlatformAddresses;
   onDone: () => void;
+  view: TeamView;
 }) {
   const { account } = useWallet();
   const toast = useToast();
@@ -61,7 +68,15 @@ export function StructureView({
   const [rootNode, setRootNode] = useState<DetailedUserNode | null>(null);
 
   // History path to navigate down and up the tree hierarchy
+  // Previously viewed roots, so "Back" can return to them
+  const [rootHistory, setRootHistory] = useState<Address[]>([]);
   const [navPath, setNavPath] = useState<DetailedUserNode[]>([]);
+
+  // Level inspected in list view
+  const [level, setLevel] = useState<number>(1);
+  const [levelInput, setLevelInput] = useState<string>("1");
+  const [levelNodes, setLevelNodes] = useState<DetailedUserNode[]>([]);
+  const [levelLoading, setLevelLoading] = useState<boolean>(false);
 
   // Selected member for the user details modal
   const [modalUser, setModalUser] = useState<DetailedUserNode | null>(null);
@@ -182,19 +197,60 @@ export function StructureView({
   // Current focused user in the graph
   const currentFocus = navPath[navPath.length - 1] ?? rootNode;
   const isAtRoot = navPath.length <= 1;
+
+  // List view: members exactly `level` levels below the focused user
+  useEffect(() => {
+    if (view !== "list" || !currentFocus) return;
+    if (level === 1) {
+      setLevelNodes(currentFocus.directs);
+      return;
+    }
+    let cancelled = false;
+    setLevelLoading(true);
+    (async () => {
+      try {
+        let addrs: Address[] = currentFocus.directs.map((d) => d.address);
+        for (let l = 2; l <= level && addrs.length > 0; l++) {
+          const next = await Promise.all(
+            addrs.map((a) =>
+              publicClient
+                .readContract({ address: viewAddress, abi: platformAbi, functionName: "getDirectDownlines", args: [a] })
+                .catch(() => [] as Address[])
+            )
+          );
+          addrs = (next as Address[][]).flat();
+        }
+        const nodes = await Promise.all(addrs.slice(0, MAX_ROWS).map((a) => fetchNode(a, "power", 1)));
+        if (!cancelled) setLevelNodes(nodes);
+      } catch {
+        if (!cancelled) setLevelNodes([]);
+      } finally {
+        if (!cancelled) setLevelLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, level, currentFocus, fetchNode]);
+
+  function applyLevel(raw: string) {
+    setLevelInput(raw);
+    const n = Math.floor(Number(raw));
+    if (Number.isFinite(n) && n >= 1) setLevel(Math.min(n, MAX_LEVEL));
+  }
   const uplineUser = navPath.length > 1 ? navPath[navPath.length - 2] : null;
 
-  async function handleViewMore(directUser: DetailedUserNode) {
-    setLoading(true);
-    try {
-      // Fetch full children for the clicked user
-      const fullNode = await fetchNode(directUser.address, directUser.leg, 0);
-      setNavPath((prev) => [...prev, fullNode]);
-    } catch {
-      setNavPath((prev) => [...prev, directUser]);
-    } finally {
-      setLoading(false);
-    }
+  function changeRoot(addr: Address) {
+    if (addr === activeRoot) return;
+    setRootHistory((prev) => [...prev, activeRoot]);
+    setActiveRoot(addr);
+  }
+
+  function goBackRoot() {
+    const prev = rootHistory[rootHistory.length - 1];
+    if (!prev) return;
+    setRootHistory((h) => h.slice(0, -1));
+    setActiveRoot(prev);
   }
 
   function handleGoToPrevious() {
@@ -217,7 +273,7 @@ export function StructureView({
     const q = searchInput.trim();
     if (!q) return;
     if (isAddress(q)) {
-      setActiveRoot(getAddress(q));
+      changeRoot(getAddress(q));
       setSearchInput("");
     } else {
       toast.show("Please enter a valid BSC address (0x...)");
@@ -226,104 +282,86 @@ export function StructureView({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Network Overview Summary */}
-      <section className="card p-5 sm:p-6" aria-label="Structure summary">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/[0.04]">
-          <CardHeader
-            image={analysisImage}
-            title="Real Multi-Generation Network Tree"
-            sub="Live 100% on-chain downlines, personal deposits, power/weaker leg business, and rank telemetry."
-            right={
-              <button
-                type="button"
-                onClick={loadTree}
-                disabled={loading}
-                className="btn btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Refresh2 size={14} className={loading ? "animate-spin" : ""} />
-                Refresh On-Chain
-              </button>
-            }
-          />
+      {/* Network tree: search any wallet and see its numbers */}
+      <section className="card p-5 sm:p-6 flex flex-col gap-5" aria-label="Structure summary">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-medium text-text">Network tree</h3>
+          <button
+            type="button"
+            onClick={loadTree}
+            disabled={loading}
+            aria-label="Refresh"
+            className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-white/[0.08] bg-panel text-muted transition hover:border-white/20 hover:text-white"
+          >
+            <Refresh2 size={16} className={loading ? "animate-spin" : ""} />
+          </button>
         </div>
 
-        {/* Address Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2 mb-4">
-          <div className="relative flex-1">
+        <form onSubmit={handleSearchSubmit} className="flex flex-col gap-2">
+          <div className="relative">
             <input
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search any BSC Testnet address to inspect their live tree (0x...)"
-              className="well w-full py-2.5 pl-10 pr-4 text-xs text-text outline-none focus:border-neon/50"
+              placeholder="Search a wallet address (0x...)"
+              className="w-full rounded-xl border border-white/10 bg-[#14171d] py-3 pl-10 pr-4 text-xs text-white outline-none placeholder:text-muted/60 focus:border-[#22c55e]"
             />
-            <SearchNormal1 size={16} className="absolute left-3.5 top-3 text-muted" />
+            <SearchNormal1 size={16} className="absolute left-3.5 top-3.5 text-muted" />
           </div>
-          <div className="flex items-center gap-2">
-            <button type="submit" className="btn btn-primary text-xs !py-2.5 !px-4">
-              Inspect Tree
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="submit" className="btn btn-primary !rounded-lg px-4 py-2 text-xs font-semibold">
+              Search
             </button>
             {account && activeRoot !== account && (
               <button
                 type="button"
-                onClick={() => setActiveRoot(account)}
-                className="btn btn-secondary text-xs !py-2.5 !px-3.5"
+                onClick={() => changeRoot(account)}
+                className="btn btn-secondary !rounded-lg px-4 py-2 text-xs font-semibold"
               >
-                My Wallet
+                My wallet
               </button>
             )}
             {topIdRoot && activeRoot !== topIdRoot && (
               <button
                 type="button"
-                onClick={() => setActiveRoot(topIdRoot)}
-                className="btn btn-secondary text-xs !py-2.5 !px-3.5"
+                onClick={() => changeRoot(topIdRoot)}
+                className="btn btn-secondary !rounded-lg px-4 py-2 text-xs font-semibold"
               >
-                Top ID Tree
+                Top ID
               </button>
             )}
           </div>
         </form>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="well p-4">
-            <div className="label">Inspected Account Deposit</div>
-            <div className="mt-1 text-xl font-semibold text-gradient text-neon-soft">
-              {currentFocus ? usd(currentFocus.totalInvestment) : "—"}
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-white/[0.06] pt-4">
+          {(
+            [
+              ["Deposit", currentFocus ? usd(currentFocus.totalInvestment) : "—"],
+              ["Directs", `${currentFocus?.directCount ?? 0}`],
+              ["Team business", currentFocus ? usd(currentFocus.teamVolume) : "—"],
+              ["Rank", `${currentFocus?.rank ?? "Member"}`],
+            ] as const
+          ).map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-xs text-muted">{label}</dt>
+              <dd className="mt-0.5 text-base text-white">{value}</dd>
             </div>
-          </div>
-          <div className="well p-4">
-            <div className="label">Direct Team Partners</div>
-            <div className="mt-1 text-xl font-semibold text-text">
-              {currentFocus?.directCount ?? 0} members
-            </div>
-          </div>
-          <div className="well p-4">
-            <div className="label">Total Team Business</div>
-            <div className="mt-1 text-xl font-semibold text-text">
-              {currentFocus ? usd(currentFocus.teamVolume) : "—"}
-            </div>
-          </div>
-          <div className="well p-4">
-            <div className="label">Rank Progression</div>
-            <div className="mt-1 text-xl font-semibold text-gold">
-              {currentFocus?.rank ?? "Member"}
-            </div>
-          </div>
-        </div>
+          ))}
+        </dl>
       </section>
 
       {/* Prominent Back to Upline & Breadcrumbs Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#101114] border border-white/[0.06]">
         <div className="flex flex-wrap items-center gap-2">
           {/* Dedicated Back / Upline Button */}
-          {!isAtRoot ? (
+          {rootHistory.length > 0 ? (
             <button
               type="button"
-              onClick={handleGoToPrevious}
+              onClick={goBackRoot}
               className="btn btn-primary !py-2 !px-4 text-xs flex items-center gap-2 shadow-[0_0_12px_rgba(31,224,58,0.3)] cursor-pointer"
             >
               <ArrowLeft size={16} color="currentColor" />
-              <span>Back to Previous User ({shortAddr(uplineUser?.address ?? "")})</span>
+              <span>Back to Previous User ({shortAddr(rootHistory[rootHistory.length - 1])})</span>
             </button>
           ) : (
             <div className="px-3 py-1.5 rounded-xl bg-white/[0.04] text-xs text-muted border border-white/[0.05]">
@@ -368,22 +406,9 @@ export function StructureView({
 
       {/* Visual Downline Tree Canvas */}
       <section className="card p-5 sm:p-6" aria-label="Visual downline tree">
-        <CardHeader
-          image={analysisImage}
-          title="On-Chain Tree View"
-          right={
-            currentFocus && (
-              <button
-                type="button"
-                onClick={() => setModalUser(currentFocus)}
-                className="btn btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <InfoCircle size={15} color="currentColor" />
-                View User Details
-              </button>
-            )
-          }
-        />
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-medium text-text">Downline Team</h3>
+        </div>
 
         {loading ? (
           <div className="p-16 flex flex-col items-center justify-center gap-3">
@@ -394,139 +419,186 @@ export function StructureView({
           <div className="well p-10 text-center text-xs text-muted">
             No on-chain user found at this address.
           </div>
+        ) : view === "list" ? (
+          <div className="mt-5 flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-xs text-muted">
+                Level
+                <input
+                  type="number"
+                  min={1}
+                  max={MAX_LEVEL}
+                  value={levelInput}
+                  onChange={(e) => applyLevel(e.target.value)}
+                  onBlur={() => setLevelInput(String(level))}
+                  className="w-20 rounded-lg border border-white/10 bg-[#14171d] px-3 py-1.5 text-xs text-white outline-none focus:border-[#22c55e]"
+                />
+              </label>
+              <span className="text-xs text-muted">
+                {levelLoading ? "Loading…" : `${levelNodes.length} member${levelNodes.length === 1 ? "" : "s"}`}
+                {levelNodes.length >= MAX_ROWS && ` (first ${MAX_ROWS})`}
+              </span>
+            </div>
+
+            {levelLoading ? (
+              <div className="flex justify-center p-10">
+                <Spinner />
+              </div>
+            ) : levelNodes.length === 0 ? (
+              <div className="well p-8 text-center text-xs text-muted">No members at level {level}.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-max border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-white/[0.08] text-muted">
+                      {["#", "Address", "Sponsor", "Rank", "Deposit", "Team business", "Directs", "Booster", "Leader code", ""].map(
+                        (h, i) => (
+                          <th key={h + i} className="whitespace-nowrap px-3 py-2 font-normal">
+                            {h}
+                          </th>
+                        )
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {levelNodes.map((n, idx) => (
+                      <tr
+                        key={n.address}
+                        onClick={() => changeRoot(n.address)}
+                        className="cursor-pointer border-b border-white/[0.05] text-white transition hover:bg-white/[0.03]"
+                      >
+                        <td className="px-3 py-2.5 text-muted">{idx + 1}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5">
+                          <span className="inline-flex items-center gap-1.5">
+                            {shortAddr(n.address)}
+                            <button
+                              type="button"
+                              aria-label="Copy address"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyAddr(n.address);
+                              }}
+                              className="cursor-pointer text-muted transition hover:text-neon"
+                            >
+                              <Copy size={13} />
+                            </button>
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5">{shortAddr(n.sponsor)}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-neon-soft">{n.rank}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5">{usd(n.totalInvestment)}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5">{usd(n.teamVolume)}</td>
+                        <td className="px-3 py-2.5">{n.directCount}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5">{n.boosterActive ? `Tier ${n.boosterTier}` : "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5">{n.leaderCode ?? "—"}</td>
+                        <td className="px-3 py-2.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setModalUser(n);
+                            }}
+                            className="btn btn-primary !rounded-lg px-3 py-1 text-xs font-semibold cursor-pointer"
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="mt-8 flex flex-col items-center w-full">
             {/* Upline Node (Visible if navigated below root) */}
             {uplineUser && (
-              <div className="flex flex-col items-center mb-1">
+              <div className="mb-1 flex flex-col items-center">
                 <button
                   type="button"
                   onClick={handleGoToPrevious}
-                  title="Click to go back to this upline user"
-                  className="well px-4 py-2 rounded-2xl border border-white/[0.1] hover:border-neon/50 bg-panel-2/70 hover:bg-panel-2 transition flex items-center gap-3 cursor-pointer group"
+                  title="Go back to this upline"
+                  className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/[0.08] bg-panel-2 px-4 py-2.5 text-left transition hover:border-white/20"
                 >
-                  <div className="size-7 rounded-xl bg-white/[0.08] group-hover:bg-neon/20 flex items-center justify-center text-muted group-hover:text-neon">
+                  <span className="flex size-8 items-center justify-center rounded-full bg-white/[0.06] text-muted">
                     <ArrowUp2 size={15} color="currentColor" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-2xs text-muted group-hover:text-neon-soft">
-                      Upline User (Click to Go Back)
-                    </div>
-                    <div className="text-xs font-semibold text-text">
-                      {shortAddr(uplineUser.address)}
-                    </div>
-                  </div>
+                  </span>
+                  <span>
+                    <span className="block text-xs text-muted">Upline</span>
+                    <span className="block text-sm text-white">{shortAddr(uplineUser.address)}</span>
+                  </span>
                 </button>
-
-                <div className="w-0.5 h-6 bg-white/20" />
+                <div className="h-6 w-px bg-white/20" />
               </div>
             )}
 
             {/* Current Focused User (Parent Node) */}
-            <div className="relative flex flex-col items-center z-10">
-              <div className="w-72 sm:w-80 rounded-2xl p-4 bg-gradient-to-b from-[#1b221d] to-[#121613] border-2 border-neon shadow-[0_0_24px_rgba(31,224,58,0.25)] flex flex-col gap-3">
-                <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-                  <div className="flex items-center gap-2">
-                    <div className="size-8 rounded-xl bg-neon/20 flex items-center justify-center text-neon font-semibold text-xs">
-                      {currentFocus.rank.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="text-xs font-semibold text-text flex items-center gap-1.5">
-                        <span>{shortAddr(currentFocus.address)}</span>
-                        <button
-                          type="button"
-                          onClick={() => copyAddr(currentFocus.address)}
-                          className="text-muted hover:text-text cursor-pointer"
-                        >
-                          <Copy size={12} />
-                        </button>
-                      </div>
-                      <div className="text-2xs text-muted">
-                        Sponsor: {shortAddr(currentFocus.sponsor)}
-                      </div>
-                    </div>
-                  </div>
-                  <Pill tone="gold">{currentFocus.rank}</Pill>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="well p-2">
-                    <div className="text-2xs text-muted">Personal Active</div>
-                    <div className="font-semibold text-text">{usd(currentFocus.totalInvestment)}</div>
-                  </div>
-                  <div className="well p-2">
-                    <div className="text-2xs text-muted">Team Volume</div>
-                    <div className="font-semibold text-neon-soft">{usd(currentFocus.teamVolume)}</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-2xs text-muted pt-1">
-                  <span>Direct Partners: <strong className="text-text">{currentFocus.directCount}</strong></span>
-                  {currentFocus.boosterActive && (
-                    <span className="text-gold font-medium">Booster Tier {currentFocus.boosterTier}</span>
-                  )}
-                </div>
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="flex w-36 flex-col items-center gap-2 rounded-2xl border border-[#22c55e] bg-panel-2 px-4 py-4 shadow-[0_0_18px_rgba(34,197,94,0.18)]">
+                <span className="flex size-12 items-center justify-center rounded-2xl bg-neon/10 text-neon">
+                  <Profile2User size={26} color="currentColor" variant="Bulk" />
+                </span>
+                <span className="text-sm text-white">{shortAddr(currentFocus.address)}</span>
+                <button
+                  type="button"
+                  onClick={() => setModalUser(currentFocus)}
+                  className="btn btn-primary !rounded-lg w-full px-3 py-1.5 text-xs font-semibold cursor-pointer"
+                >
+                  View
+                </button>
               </div>
 
               {/* Trunk line going down to children */}
-              {currentFocus.directs.length > 0 && <div className="w-0.5 h-8 bg-neon/50" />}
+              {currentFocus.directs.length > 0 && <div className="h-8 w-px bg-[#22c55e]/60" />}
             </div>
 
             {/* Direct Children Row */}
             {currentFocus.directs.length > 0 ? (
               <div className="w-full overflow-x-auto pb-6 pt-2">
-                <div className="flex justify-center items-start gap-4 min-w-max px-4">
+                <div className="flex min-w-max items-start justify-center gap-3 px-4">
                   {currentFocus.directs.map((direct) => (
-                    <div key={direct.address} className="flex flex-col items-center">
-                      <div className="w-64 rounded-2xl p-3.5 bg-panel-2 border border-white/[0.08] hover:border-neon/40 transition flex flex-col gap-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-text">{shortAddr(direct.address)}</span>
-                          <span className="text-2xs px-2 py-0.5 rounded-full bg-white/[0.05] text-muted">
-                            {direct.rank}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5 text-2xs">
-                          <div className="well p-1.5">
-                            <span className="text-muted block text-2xs">Deposit</span>
-                            <span className="font-semibold text-text">{usd(direct.totalInvestment)}</span>
-                          </div>
-                          <div className="well p-1.5">
-                            <span className="text-muted block text-2xs">Team</span>
-                            <span className="font-semibold text-neon-soft">{usd(direct.teamVolume)}</span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleViewMore(direct)}
-                          className="btn btn-secondary w-full py-1.5 text-xs flex items-center justify-center gap-1 cursor-pointer"
-                        >
-                          <span>Explore Branch</span>
-                          <ArrowRight2 size={12} />
-                        </button>
-                      </div>
+                    <div
+                      key={direct.address}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => changeRoot(direct.address)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") changeRoot(direct.address);
+                      }}
+                      className="flex w-32 cursor-pointer flex-col items-center gap-2 rounded-2xl border border-white/[0.08] bg-panel-2 px-3 py-3.5 transition hover:border-white/20 active:scale-[0.98]"
+                    >
+                      <span className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.06] text-neon">
+                        <Profile2User size={22} color="currentColor" variant="Bulk" />
+                      </span>
+                      <span className="text-sm text-white">{shortAddr(direct.address)}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setModalUser(direct);
+                        }}
+                        className="btn btn-primary !rounded-lg w-full px-3 py-1.5 text-xs font-semibold cursor-pointer"
+                      >
+                        View
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="mt-4 well p-6 text-center max-w-md w-full">
-                <div className="size-10 rounded-full bg-white/[0.05] flex items-center justify-center mx-auto mb-2 text-muted">
-                  <Hierarchy size={20} />
-                </div>
-                <div className="text-xs font-semibold text-text mb-1">No Direct Downlines on Chain</div>
-                <div className="text-2xs text-muted mb-3 font-normal">
-                  This wallet has 0 direct partners registered under it on BSC Testnet. Share your referral link to build your multi-level network!
-                </div>
+              <div className="mt-4 flex w-full max-w-md flex-col items-center gap-3 text-center">
+                <p className="text-xs text-muted">No direct members under this wallet yet.</p>
                 {account && (
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard?.writeText(`${window.location.origin}/?ref=${account}`);
+                      navigator.clipboard?.writeText(`${window.location.origin}/register?ref=${account}`);
                       toast.show("Referral link copied!");
                     }}
-                    className="btn btn-primary text-xs py-2 px-4 mx-auto"
+                    className="btn btn-primary !rounded-lg px-4 py-2 text-xs font-semibold"
                   >
-                    Copy Referral Link
+                    Copy referral link
                   </button>
                 )}
               </div>

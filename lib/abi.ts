@@ -56,6 +56,9 @@ export const platformAbi = parseAbi([
   "function getDynamicTreasuryFeeBps() view returns (uint256)",
   "function treasuryWallet() view returns (address)",
   "function payoutEngine() view returns (address)",
+  "function getCurrentMonth() view returns (uint256)",
+  "function requestTopIdPartner()",
+  "function claimTopIdPartnerPool(uint256 monthId)",
   "function deploymentStartTime() view returns (uint256)",
   "function getTotalActuarialLiabilities() view returns (uint256)",
   "function getPendingLeaderContestRewards(address user) view returns (uint256)",
@@ -103,8 +106,21 @@ export const earnEngineAbi = parseAbi([
 
 /** Rank salary streams live on the team engine (`platform.teamEngine()`). */
 export const teamEngineAbi = parseAbi([
+  "function monthlyNewBusiness(uint256 monthId, address user) view returns (uint256)",
   "function getClaimableWeeklySalaryBonus(address user) view returns (uint256 totalClaimableUSDT, uint256[15] claimableWeeksPerRank, uint256[15] remainingWeeksPerRank)",
   "function getUserRankStream(address user, uint256 rank) view returns (uint128 weeklyPayout, uint256 startTime, uint256 durationWeeks, uint256 weeksClaimed, uint256 totalClaimedAmount, uint256 remainingWeeks)",
+]);
+
+/** Top ID partner pool ledger on the payout engine (`platform.payoutEngine()`). */
+export const partnerPoolAbi = parseAbi([
+  "function topIdPartners(address partner) view returns (address partnerAddress, uint256 approvedAt, bool active)",
+  "function partnerRequestStatus(address candidate) view returns (uint8)",
+  "function activeTopIdPartnerCount() view returns (uint256)",
+  "function getActiveTopIdPartners() view returns (address[])",
+  "function monthlyTopIdPartnerPool(uint256 monthId) view returns (uint256)",
+  "function initialMonthlyTopIdPartnerPool(uint256 monthId) view returns (uint256)",
+  "function initialTotalPartnersBiz(uint256 monthId) view returns (uint256)",
+  "function monthlyPartnerClaimed(uint256 monthId, address partner) view returns (bool)",
 ]);
 
 export const lhrEngineAbi = parseAbi([

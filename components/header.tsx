@@ -21,7 +21,7 @@ export type NavTab =
   | "incomes"
   | "withdraw"
   | "team"
-  | "structure";
+  | "partner";
 
 export function Header({
   activeTab,

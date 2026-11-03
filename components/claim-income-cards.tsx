@@ -83,7 +83,7 @@ export function ClaimIncomeCards({
                 stacked
                 title="Daily ROI"
                 right={
-                  <InfoSheet title="Package ROI">
+                  <InfoSheet title="Daily ROI">
                     <p>
                       Daily returns on your active packages. Flexible packages run on a 30-day cycle split into six
                       5-day slots; the daily rate rises each slot and depends on the current liquidity tier. The cycle
@@ -259,9 +259,9 @@ export function ClaimIncomeCards({
             <div className="flex flex-col gap-6">
               <CardHeader
                 stacked
-                title="Rank and Reward"
+                title="Rank Income"
                 right={
-                  <InfoSheet title="Rank and Reward">
+                  <InfoSheet title="Rank Income">
                     <p>
                       Weekly salary for qualifying career ranks (Rank 1 to Rank 15), based on your team leg business.
                     </p>
@@ -284,7 +284,7 @@ export function ClaimIncomeCards({
                 >
                   {tx.busy === "Claiming Rank Salary Income..." ? <Spinner /> : "Claim"}
                 </button>
-                <BottomSheet open={rankSheetOpen} onClose={() => setRankSheetOpen(false)} title="Rank and Reward">
+                <BottomSheet open={rankSheetOpen} onClose={() => setRankSheetOpen(false)} title="Rank Income">
                   <p>Your rank salary is paid weekly. Each rank has its own stream, and a week unlocks every 7 days.</p>
                   {[...(user?.rankSalary.streams ?? [])].reverse().map((st) => {
                     const WEEK = 7 * DAY_SECONDS;

@@ -19,6 +19,7 @@ import { Header, type NavTab } from "./header";
 import { ClaimIncomeCards } from "./claim-income-cards";
 import { IncomesDashboard } from "./incomes-dashboard";
 import { IncomeHero } from "./income-hero";
+import { PartnerPoolPage, useIsPartner } from "./partner-pool-page";
 import { WithdrawDashboard } from "./withdraw-dashboard";
 import { InvestCard } from "./invest-card";
 import { MarketRibbon } from "./market-ribbon";
@@ -32,7 +33,7 @@ import { QuickActions } from "./quick-actions";
 import { UnlockScheduleCard } from "./unlock-schedule-card";
 import { RankBusinessCard } from "./rank-business-card";
 import { RoiCycleChart } from "./roi-cycle-chart";
-import { TeamTree } from "./team-tree";
+import { TeamPage } from "./team-page";
 import { StructureView } from "./structure-view";
 import { BottomNavbar } from "./bottom-navbar";
 import { SocialLinks } from "./social-links";
@@ -44,6 +45,12 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
   const { account, connect, hasWallet, ready } = useWallet();
   const { addresses, market, user, error, refresh, loading } = usePlatform(account);
   const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
+  const isPartner = useIsPartner(account, addresses);
+
+  // The partner page is for active Top ID partners only
+  useEffect(() => {
+    if (activeTab === "partner" && isPartner === false) setActiveTab("dashboard");
+  }, [activeTab, isPartner]);
   // Pages opened from the home quick actions behave like in-app screens: no header or bottom bar, back arrow instead
   const [internalScreen, setInternalScreen] = useState(false);
 
@@ -230,7 +237,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
           <UnlockScheduleCard user={user ?? undefined} onNavigateTab={setActiveTab} />
 
-          <BoosterTiersCard user={user ?? undefined} />
+          <BoosterTiersCard user={user ?? undefined} lhrTier={market.lhrTier} />
 
           <RankBusinessCard user={user ?? undefined} onNavigateTab={setActiveTab} />
 
@@ -276,15 +283,11 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
         />
       )}
 
-      {/* Tab 4: Team & Network */}
-      {activeTab === "team" && (
-        <TeamTree user={user} addresses={addresses} onDone={refresh} />
-      )}
+      {/* Top ID partner pool (to be limited to approved partners) */}
+      {activeTab === "partner" && isPartner && <PartnerPoolPage addresses={addresses} onDone={refresh} />}
 
-      {/* Tab 5: Complete Downline Structure */}
-      {activeTab === "structure" && (
-        <StructureView user={user} addresses={addresses} onDone={refresh} />
-      )}
+      {/* Tab 4: Team & Network */}
+      {activeTab === "team" && <TeamPage user={user} addresses={addresses} onDone={refresh} />}
 
       {!internalScreen && (
         <>
@@ -294,7 +297,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
           </div>
 
           {/* Floating Designer Bottom Navbar */}
-          <BottomNavbar activeTab={activeTab} onTabChange={setActiveTab} />
+          <BottomNavbar activeTab={activeTab} onTabChange={setActiveTab} showPartner={isPartner === true} />
         </>
       )}
     </div>

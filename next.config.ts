@@ -9,7 +9,8 @@ const nextConfig: NextConfig = {
       { source: "/invest", destination: "/dashboard/invest", permanent: false },
       { source: "/withdraw", destination: "/dashboard/withdraw", permanent: false },
       { source: "/team", destination: "/dashboard/team", permanent: false },
-      { source: "/structure", destination: "/dashboard/structure", permanent: false },
+      { source: "/structure", destination: "/dashboard/team", permanent: false },
+      { source: "/dashboard/structure", destination: "/dashboard/team", permanent: false },
       { source: "/incomes", destination: "/dashboard/incomes", permanent: false },
     ];
   },

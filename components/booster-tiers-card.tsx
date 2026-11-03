@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { formatUnits } from "viem";
-import { BOOSTER_TIERS, BOOSTER_WINDOW_DAYS, DAY_SECONDS } from "@/lib/roi";
+import { BOOSTER_TIERS, BOOSTER_WINDOW_DAYS, DAY_SECONDS, boosterShare, cycleMaxBps } from "@/lib/roi";
 import type { PlatformUser } from "@/lib/platform";
 
-const BAR_HEIGHT = 224;
+const BAR_HEIGHT = 320;
 const MIN_SEGMENT_PX = 28;
 // Top-to-bottom gradient per tier [top, bottom]
 const TIER_GRADIENTS: Record<number, readonly [string, string]> = {
@@ -16,9 +16,8 @@ const TIER_GRADIENTS: Record<number, readonly [string, string]> = {
 const usd0 = (v: number) =>
   `$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-export function BoosterTiersCard({ user }: { user?: PlatformUser }) {
+export function BoosterTiersCard({ user, lhrTier = 0 }: { user?: PlatformUser; lhrTier?: number }) {
   const [now] = useState(() => Math.floor(Date.now() / 1000));
-  const [tip, setTip] = useState<number | null>(null);
 
   const directUsd = user ? Number(formatUnits(user.totalDirectBusiness, 18)) : 0;
   const tier = user?.boosterTier ?? 0;
@@ -36,10 +35,23 @@ export function BoosterTiersCard({ user }: { user?: PlatformUser }) {
     return { ...t, span, progress };
   }).reverse();
 
-  const rows: [string, string][] = [
+  // Extra monthly ROI the booster adds on top of the package's own monthly ROI (share of the flexible schedule)
+  const flexMonthlyPct = cycleMaxBps(lhrTier) / 100;
+  const message = (t: number): ReactNode => (
+    <>
+      {+flexMonthlyPct.toFixed(2)}% + <span className="text-neon">{+(boosterShare(t) * flexMonthlyPct).toFixed(2)}%</span> extra now
+    </>
+  );
+  const boost: [string, ReactNode] =
+    tier > 0
+      ? ["Extra income", message(tier)]
+      : ["Tier 1 adds", message(1)];
+
+  const rows: [string, ReactNode][] = [
     ["Tier", tier > 0 ? `Tier ${tier}` : "No tier"],
     ["Direct business", usd0(directUsd)],
     ["Qualify window", `${daysUsed} out of ${BOOSTER_WINDOW_DAYS} days`],
+    boost,
   ];
 
   return (
@@ -50,13 +62,10 @@ export function BoosterTiersCard({ user }: { user?: PlatformUser }) {
         {/* Vertical tier bar: one separated block per tier, sized by its requirement */}
         <div className="flex w-28 shrink-0 flex-col gap-2 sm:w-36" style={{ height: BAR_HEIGHT }}>
           {segments.map((seg) => (
-            <button
+            <div
               key={seg.tier}
-              type="button"
-              onClick={() => setTip((cur) => (cur === seg.tier ? null : seg.tier))}
-              onBlur={() => setTip(null)}
-              aria-label={`Tier ${seg.tier}`}
-              className="relative cursor-pointer rounded-xl bg-white/[0.06]"
+              aria-label={`Tier ${seg.tier}: ${usd0(seg.thresholdUsd)} direct business needed`}
+              className="relative rounded-xl bg-white/[0.06]"
               style={{ flexGrow: seg.span, flexBasis: 0, minHeight: MIN_SEGMENT_PX }}
             >
               <span className="absolute inset-0 overflow-hidden rounded-xl">
@@ -69,12 +78,13 @@ export function BoosterTiersCard({ user }: { user?: PlatformUser }) {
                   }}
                 />
               </span>
-              {tip === seg.tier && (
-                <span className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg border border-white/[0.08] bg-[#171a1f] px-3 py-1.5 text-sm font-medium text-white shadow-lg">
-                  Tier {seg.tier}
+              {/* What the tier needs, not what it pays */}
+              <span className="absolute inset-0 z-10 flex items-center justify-center">
+                <span className="text-sm font-semibold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">
+                  {usd0(seg.thresholdUsd)}
                 </span>
-              )}
-            </button>
+              </span>
+            </div>
           ))}
         </div>
 
@@ -83,7 +93,13 @@ export function BoosterTiersCard({ user }: { user?: PlatformUser }) {
           {rows.map(([label, value]) => (
             <div key={label}>
               <dt className="text-sm text-muted">{label}</dt>
-              <dd className={`mt-0.5 font-semibold text-white ${label === "Tier" ? "text-3xl" : "text-lg"}`}>{value}</dd>
+              <dd
+                className={`mt-0.5 font-semibold ${
+                  label === "Tier" ? "text-3xl text-white" : "text-lg text-white"
+                }`}
+              >
+                {value}
+              </dd>
             </div>
           ))}
         </dl>
