@@ -37,6 +37,8 @@ import { publicClient } from "@/lib/platform";
 
 export type WalletState = {
   account: Address | undefined;
+  /** False until the wallet has finished (re)connecting, so pages know the account is really absent. */
+  ready: boolean;
   wrongNetwork: boolean;
   hasWallet: boolean;
   connect: () => Promise<void>;
@@ -58,7 +60,7 @@ export type WriteRequest = {
 const WalletContext = createContext<WalletState | null>(null);
 
 function InnerWalletProvider({ children }: { children: ReactNode }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, status } = useAccount();
   const currentChainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
@@ -141,6 +143,7 @@ function InnerWalletProvider({ children }: { children: ReactNode }) {
 
   const value: WalletState = {
     account,
+    ready: mounted && status !== "connecting" && status !== "reconnecting",
     wrongNetwork,
     hasWallet: true,
     connect,

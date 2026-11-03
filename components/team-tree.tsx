@@ -31,9 +31,9 @@ export function TeamTree({
 
   const leaderParam = user?.leaderCode && user.leaderCode > 0n ? `&leader=${user.leaderCode.toString()}` : "";
   const refUrl = typeof window !== "undefined" && account
-    ? `${window.location.origin}/?ref=${account}${leaderParam}`
+    ? `${window.location.origin}/register?ref=${account}${leaderParam}`
     : account
-    ? `https://carbonx.network/?ref=${account}${leaderParam}`
+    ? `https://carbonx.network/register?ref=${account}${leaderParam}`
     : "";
 
   const cleanPower = user?.cleanPowerLegBusiness ?? 0n;

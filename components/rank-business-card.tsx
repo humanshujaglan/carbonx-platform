@@ -36,8 +36,8 @@ export function RankBusinessCard({
   const counted = weaker + powerCounted;
 
   const segments = [
-    { name: "Weaker legs", share: "60%", value: weaker, cap: weakerCap, ratio: WEAKER_LEGS_SHARE, color: "#1fe03a" },
-    { name: "Power leg", share: "40%", value: powerCounted, cap: powerCap, ratio: POWER_LEG_SHARE, color: "#f5b83d" },
+    { name: "Weaker legs", share: "60%", value: weaker, cap: weakerCap, ratio: WEAKER_LEGS_SHARE, color: "linear-gradient(to bottom, #3bf857, #0a7a24)" },
+    { name: "Power leg", share: "40%", value: powerCounted, cap: powerCap, ratio: POWER_LEG_SHARE, color: "linear-gradient(to bottom, #ffd166, #e8590c)" },
   ];
 
   return (

@@ -39,6 +39,7 @@ export function AuthPortal({
   user,
   market,
   loadingUser = false,
+  initialView,
   onEnterDashboard,
   onRefresh,
 }: {
@@ -46,6 +47,8 @@ export function AuthPortal({
   user?: PlatformUser;
   market?: PlatformMarket;
   loadingUser?: boolean;
+  /** Which screen to open first (used by the separate /login and /register pages). */
+  initialView?: "starter" | "register_form" | "login_wallets";
   onEnterDashboard: () => void;
   onRefresh: () => void;
 }) {
@@ -64,6 +67,7 @@ export function AuthPortal({
 
   // View state: 'starter' (matching reference image) | 'register_form' | 'login_wallets'
   const [viewStep, setViewStep] = useState<"starter" | "register_form" | "login_wallets">(() => {
+    if (initialView) return initialView;
     if (typeof window !== "undefined") {
       const v = new URLSearchParams(window.location.search).get("view");
       if (v === "register") return "register_form";

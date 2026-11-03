@@ -1,0 +1,1 @@
+import{j as s}from"./index-DhbZHNht.js";function l(){return s.jsxs("div",{className:"hero-glow","aria-hidden":"true",children:[s.jsx("img",{className:"hero-glow__img",src:"/images/glow_ellipse.svg",alt:""}),s.jsx("img",{className:"hero-glow__img hero-glow__img--lg",src:"/images/glow_ellipse.svg",alt:""})]})}export{l as H};

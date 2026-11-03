@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 163 42" width="163" height="42"><defs>
+<linearGradient id="gC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2f5f4"/><stop offset=".55" stop-color="#9aa7a2"/><stop offset="1" stop-color="#4b5753"/></linearGradient>
+<linearGradient id="gL" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#0b8f5e"/><stop offset="1" stop-color="#3cf2ac"/></linearGradient>
+<linearGradient id="gW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#9aa8a3"/></linearGradient>
+<linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1fd69a" stop-opacity=".35"/><stop offset="1" stop-color="#1fd69a" stop-opacity="0"/></linearGradient>
+<radialGradient id="gR" cx=".5" cy="0" r=".9"><stop offset="0" stop-color="#1fd69a" stop-opacity=".18"/><stop offset="1" stop-color="#1fd69a" stop-opacity="0"/></radialGradient>
+</defs><g transform="translate(1 1) scale(1)">
+<path d="M33 9.5A16 16 0 1 0 33 30.5" fill="none" stroke="url(#gC)" stroke-width="6.5" stroke-linecap="round"/>
+<path d="M13 29C12 19 19 11 33 10c1 13-7 21-20 19z" fill="url(#gL)"/>
+<path d="M14 28C19 22 24 17 30 13" stroke="#062b1c" stroke-width="1.4" fill="none" stroke-linecap="round"/></g>
+<text x="48" y="27.5" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="15.5" font-weight="700" letter-spacing="2.6" fill="url(#gW)">CARBON<tspan fill="#1fd69a">X</tspan></text></svg>

@@ -39,8 +39,8 @@ export function LockMixCard({
   if (flexible <= 0 || locked <= 0) return null;
 
   const segments = [
-    { name: "Flexible", value: flexible, color: "#1fe03a" },
-    { name: "Lock-in", value: locked, color: "#f5b83d" },
+    { name: "Flexible", value: flexible, color: "linear-gradient(to bottom, #3bf857, #0a7a24)" },
+    { name: "Lock-in", value: locked, color: "linear-gradient(to bottom, #ffd166, #e8590c)" },
   ];
   const pct = (v: number) => (total > 0 ? Math.round((v / total) * 100) : 0);
 

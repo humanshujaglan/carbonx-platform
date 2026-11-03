@@ -186,6 +186,7 @@ type PackageInput = {
   lockedAt: number;
   roiAccrued: bigint;
   flexRoiAccrued: bigint;
+  lockRoiAccrued: bigint;
   completedCycles: number;
   lastAccruedCycleBps: number;
   active: boolean;
@@ -265,4 +266,38 @@ export function packageLiveRoi(pos: PackageInput, owner: PackageOwner, lhrTier: 
     capUsd,
     schedule: parts.join(" · "),
   };
+}
+
+export type HybridHalves = {
+  flexAccruedUsd: number;
+  lockAccruedUsd: number;
+  /** Each half pays up to 2.5x of its own half. */
+  halfCapUsd: number;
+  flexDailyUsd: number;
+  lockDailyUsd: number;
+};
+
+/** A 50/50 package is two packages in one: a flexible half and a locked (compounding) half. Values per half. */
+export function hybridHalves(pos: PackageInput, owner: PackageOwner, lhrTier: number, t: number): HybridHalves {
+  const half = toUsd18(pos.initialPrincipal) / 2;
+  const halfCapUsd = half * CAP_MULTIPLIER;
+  const done = !pos.active || pos.isCapped;
+
+  const flexCredited = toUsd18(pos.flexRoiAccrued);
+  const lockCredited = toUsd18(pos.lockRoiAccrued);
+  if (done) {
+    return { flexAccruedUsd: flexCredited, lockAccruedUsd: lockCredited, halfCapUsd, flexDailyUsd: 0, lockDailyUsd: 0 };
+  }
+
+  const elapsedFlex = Math.max(0, t - (owner.roiCycleStartTime || pos.createdAt));
+  const room = Math.max(0, halfCapUsd - flexCredited);
+  const delta = (half * deltaBpsSinceCheckpoint(lhrTier, elapsedFlex, pos.completedCycles, pos.lastAccruedCycleBps)) / 10_000;
+  const flexAccruedUsd = flexCredited + Math.min(delta, room);
+  const flexDailyUsd = delta < room ? (half * flexDailyBps(lhrTier, elapsedFlex)) / 10_000 : 0;
+
+  const elapsedLock = pos.lockedAt > 0 ? Math.max(0, t - pos.lockedAt) : 0;
+  const lockAccruedUsd = pos.lockedAt > 0 ? Math.min(lockedGain(half, elapsedLock), halfCapUsd) : lockCredited;
+  const lockDaily = pos.lockedAt > 0 ? lockedDailyUsd(half, elapsedLock) : 0;
+
+  return { flexAccruedUsd, lockAccruedUsd, halfCapUsd, flexDailyUsd, lockDailyUsd: lockDaily };
 }

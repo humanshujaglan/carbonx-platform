@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><defs>
+<linearGradient id="gC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2f5f4"/><stop offset=".55" stop-color="#9aa7a2"/><stop offset="1" stop-color="#4b5753"/></linearGradient>
+<linearGradient id="gL" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#0b8f5e"/><stop offset="1" stop-color="#3cf2ac"/></linearGradient>
+<linearGradient id="gW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#9aa8a3"/></linearGradient>
+<linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1fd69a" stop-opacity=".35"/><stop offset="1" stop-color="#1fd69a" stop-opacity="0"/></linearGradient>
+<radialGradient id="gR" cx=".5" cy="0" r=".9"><stop offset="0" stop-color="#1fd69a" stop-opacity=".18"/><stop offset="1" stop-color="#1fd69a" stop-opacity="0"/></radialGradient>
+</defs><circle cx="20" cy="20" r="20" fill="#0f241b"/><circle cx="20" cy="20" r="19" fill="none" stroke="#1fd69a" stroke-opacity=".45"/><path d="M11 20h7m0 0l5-6h6m-11 6l5 6h6m-6-6h6" fill="none" stroke="#1fd69a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>

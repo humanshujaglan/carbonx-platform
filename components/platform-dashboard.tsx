@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft2,
   Copy,
@@ -37,10 +38,10 @@ import { BottomNavbar } from "./bottom-navbar";
 import { SocialLinks } from "./social-links";
 import { CardHeader, Notice } from "./ui";
 import { useWallet } from "./wallet";
-import { AuthPortal } from "./auth-portal";
 
 export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: NavTab } = {}) {
-  const { account, connect, hasWallet } = useWallet();
+  const router = useRouter();
+  const { account, connect, hasWallet, ready } = useWallet();
   const { addresses, market, user, error, refresh, loading } = usePlatform(account);
   const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
   // Pages opened from the home quick actions behave like in-app screens: no header or bottom bar, back arrow instead
@@ -83,15 +84,24 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
       sessionStorage.removeItem(`cx_entered_${account.toLowerCase()}`);
     }
     setHasEnteredDashboard(false);
+    router.push("/login");
   };
+
+  // The dashboard is only for signed-in members; everyone else goes to the login page
+  useEffect(() => {
+    if (!ready || loading) return;
+    const entered =
+      !!account && isUserRegistered && sessionStorage.getItem(`cx_entered_${account.toLowerCase()}`) === "true";
+    if (!entered) router.replace("/login");
+  }, [ready, loading, account, isUserRegistered, router]);
 
   // Once the leader code is unlocked it travels with the referral link, so new members register under it
   const leaderParam = user?.leaderCode && user.leaderCode > 0n ? `&leader=${user.leaderCode.toString()}` : "";
   const refUrl =
     typeof window !== "undefined" && account
-      ? `${window.location.origin}/?ref=${account}${leaderParam}`
+      ? `${window.location.origin}/register?ref=${account}${leaderParam}`
       : account
-      ? `https://carbonx.finance/?ref=${account}${leaderParam}`
+      ? `https://carbonx.finance/register?ref=${account}${leaderParam}`
       : "";
 
   const copyReferralLink = () => {
@@ -112,18 +122,9 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
     }
   };
 
-  // STRICT GATING: Without registration or login (or prior to clicking "Enter Dashboard"), show AuthPortal
+  // Nothing to show until the member is confirmed (the effect above redirects everyone else)
   if (!account || !isUserRegistered || !hasEnteredDashboard) {
-    return (
-      <AuthPortal
-        addresses={addresses}
-        user={user}
-        market={market}
-        loadingUser={loading}
-        onEnterDashboard={handleEnterDashboard}
-        onRefresh={refresh}
-      />
-    );
+    return null;
   }
 
   return (
@@ -254,13 +255,9 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
       {/* Tab: Invest & Packages (Dedicated Investment Page) */}
       {activeTab === "invest" && (
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-          <div className="flex flex-col gap-6">
-            <InvestCard addresses={addresses} user={user} lhrTier={market.lhrTier} onDone={refresh} />
-          </div>
-          <div className="flex flex-col gap-6">
-            <PackagesList positions={user?.positions ?? []} user={user} lhrTier={market.lhrTier} />
-          </div>
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+          <InvestCard addresses={addresses} user={user} lhrTier={market.lhrTier} onDone={refresh} />
+          <PackagesList positions={user?.positions ?? []} user={user} lhrTier={market.lhrTier} />
         </div>
       )}
 

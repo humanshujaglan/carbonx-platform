@@ -1,0 +1,1 @@
+import{c as i,d as o}from"./swiper-DmLVsyGG.js";function d(l,m,r,a){const n=r??{},f=m??{};return l.params.createElements&&Object.keys(a).forEach(e=>{if(!n[e]&&n.auto===!0){let t=i(l.el,`.${a[e]}`)[0];t||(t=o("div",a[e]),t.className=a[e],l.el.append(t)),n[e]=t,f[e]=t}}),n}export{d as c};

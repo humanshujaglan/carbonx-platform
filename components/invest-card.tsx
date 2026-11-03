@@ -2,16 +2,23 @@
 
 import { useState } from "react";
 import { parseUnits } from "viem";
-import walletImage from "@/public/wallet.png";
 import { erc20Abi, platformAbi } from "@/lib/abi";
 import { packageRates } from "@/lib/roi";
 import { LOCK_DETAILS, LockType, MIN_DEPOSIT_USDT, MAX_DEPOSIT_USDT } from "@/lib/config";
 import { usd } from "@/lib/format";
 import type { PlatformAddresses, PlatformUser } from "@/lib/platform";
-import { CardHeader, Notice, Pill, Spinner, useTx } from "./ui";
+import { Notice, Row, Spinner, useTx } from "./ui";
+import { InfoSheet, SheetBlock } from "./info-sheet";
 import { useWallet } from "./wallet";
 
-const PRESET_AMOUNTS = [10, 50, 100, 500, 1000, 2500, 5000];
+const PRESET_AMOUNTS = [10, 100, 500, 1000, 5000];
+const PLANS = [LockType.FLEXIBLE, LockType.LOCKED_100, LockType.LOCKED_50] as const;
+const PLAN_LABEL: Record<LockType, string> = {
+  [LockType.FLEXIBLE]: "Flexible",
+  [LockType.LOCKED_100]: "Locked",
+  [LockType.LOCKED_50]: "50/50",
+};
+const INVEST_LABEL = "Investing...";
 
 export function InvestCard({
   addresses,
@@ -44,34 +51,35 @@ export function InvestCard({
   const isAboveMax = depositUsdt > MAX_DEPOSIT_USDT;
   const lockInfo = LOCK_DETAILS[selectedLock];
   const lockRates = packageRates(selectedLock, lhrTier);
-  const estDailyUsd = ((Number(depositUsdt) / 1e18) * lockRates.avgDailyPct) / 100;
-  const maxCapUsd = (Number(depositUsdt) / 1e18) * lockInfo.capMultiplier;
+  const amountUsd = Number(depositUsdt) / 1e18;
+  const estDailyUsd = (amountUsd * lockRates.avgDailyPct) / 100;
+  const maxCapUsd = amountUsd * lockInfo.capMultiplier;
+  const notEnough = !!user && depositUsdt > user.usdtBalance;
 
-  const needsApproval =
-    !!addresses && !!user && user.usdtAllowance < depositUsdt && depositUsdt > 0n;
+  const needsApproval = !!addresses && !!user && user.usdtAllowance < depositUsdt && depositUsdt > 0n;
+  const invalid = isBelowMin || isAboveMax || notEnough;
+  const hint = isBelowMin
+    ? "Minimum is $10"
+    : isAboveMax
+    ? "Maximum is $5,000"
+    : notEnough
+    ? "Not enough USDT in your wallet"
+    : null;
 
-  async function handleApprove() {
-    if (!addresses || !account) return;
-    await tx.run(
-      "Approving USDT...",
-      async () => {
-        return write({
-          address: addresses.usdt,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [addresses.platform, 2n ** 256n - 1n],
-        });
-      },
-      (hash) => <span>USDT approved. You can now activate your package.</span>
-    );
-  }
-
+  // One tap: approve first when needed, then invest
   async function handleInvest() {
-    if (!addresses || !account || isBelowMin || isAboveMax) return;
-
+    if (!addresses || !account || invalid) return;
     await tx.run(
-      "Creating investment package...",
+      INVEST_LABEL,
       async () => {
+        if (needsApproval) {
+          await write({
+            address: addresses.usdt,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [addresses.platform, 2n ** 256n - 1n],
+          });
+        }
         return write({
           address: addresses.platform,
           abi: platformAbi,
@@ -79,178 +87,139 @@ export function InvestCard({
           args: [depositUsdt, selectedLock],
         });
       },
-      (hash) => <span>New package activated successfully!</span>
+      () => <span>Package activated!</span>
     );
   }
 
   return (
     <section className="card flex flex-col gap-5 p-5 sm:p-6" aria-label="Create new package">
-      <CardHeader
-        image={walletImage}
-        title="Activate Additional Package"
-        right={<Pill tone="gold">Max $5,000</Pill>}
-      />
-
-      {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
-      {isBelowMin && (
-        <Notice tone="warn">Minimum investment package is 10 USDT.</Notice>
-      )}
-      {isAboveMax && (
-        <Notice tone="error">Maximum investment package is 5,000 USDT.</Notice>
-      )}
-
-      {/* Package Amount */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <label htmlFor="invest-amount-input" className="label text-muted">
-            Deposit Amount (USDT)
-          </label>
-          {user && (
-            <span className="text-2xs text-muted">
-              Available: <strong className="font-medium text-text">{usd(user.usdtBalance)}</strong>
-            </span>
-          )}
-        </div>
-
-        <div className="relative">
-          <input
-            id="invest-amount-input"
-            type="number"
-            min="50"
-            step="10"
-            value={amountStr}
-            onChange={(e) => setAmountStr(e.target.value)}
-            className="well w-full py-3.5 pl-4 pr-20 text-xl font-semibold text-text outline-none transition focus:border-neon/50"
-            placeholder="50"
-          />
-          <div className="absolute inset-y-0 right-3 flex items-center gap-1.5 pointer-events-none">
-            <span className="rounded-md bg-white/[0.08] px-2 py-1 text-xs font-semibold text-text">USDT</span>
-          </div>
-        </div>
-
-        {/* Preset Chips */}
-        <div className="grid grid-cols-5 gap-1.5">
-          {PRESET_AMOUNTS.map((amt) => (
-            <button
-              key={amt}
-              type="button"
-              onClick={() => setAmountStr(String(amt))}
-              className={`rounded-xl py-2 text-xs font-semibold transition cursor-pointer ${
-                amountStr === String(amt)
-                  ? "bg-neon text-[#03140a] shadow-[0_0_12px_rgba(31,224,58,0.4)]"
-                  : "well text-muted hover:text-white"
-              }`}
-            >
-              ${amt.toLocaleString()}
-            </button>
-          ))}
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-medium text-text">Invest</h3>
+        <div className="flex items-center gap-3">
+          {user && <span className="text-xs text-muted">Balance {usd(user.usdtBalance)}</span>}
+          <InfoSheet title="Investment plans">
+            <p>Pick how your package earns. Every plan can earn up to 2.5x of your amount.</p>
+            {PLANS.map((type) => (
+              <SheetBlock key={type} title={LOCK_DETAILS[type].name}>
+                <p>{LOCK_DETAILS[type].description}</p>
+              </SheetBlock>
+            ))}
+            <SheetBlock title="After you invest">
+              <dl>
+                <Row label="Active deposit" value={user ? usd(user.totalActiveDeposit + depositUsdt) : "—"} accent />
+                {user && user.boosterTier > 0 && (
+                  <Row label="Booster" value={`Tier ${user.boosterTier} on your first package`} />
+                )}
+              </dl>
+            </SheetBlock>
+          </InfoSheet>
         </div>
       </div>
 
-      {/* Lock Strategy */}
-      <div className="flex flex-col gap-2">
-        <label className="label text-muted">Investment Plan</label>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {(
-            [
-              LockType.FLEXIBLE,
-              LockType.LOCKED_100,
-              LockType.LOCKED_50,
-            ] as const
-          ).map((type) => {
-            const item = LOCK_DETAILS[type];
-            const isSelected = selectedLock === type;
+      {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
+
+      {/* Amount */}
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-baseline justify-center gap-1">
+          <span className="text-3xl font-medium text-muted">$</span>
+          <input
+            id="invest-amount-input"
+            type="number"
+            inputMode="decimal"
+            min="10"
+            step="10"
+            value={amountStr}
+            onChange={(e) => setAmountStr(e.target.value)}
+            aria-label="Amount in USDT"
+            placeholder="0"
+            style={{ fontSize: 36, width: `${Math.max(2, amountStr.length + 1)}ch` }}
+            className="min-w-[2ch] max-w-full bg-transparent text-center font-medium text-white outline-none placeholder:text-muted/50"
+          />
+        </div>
+        <div className={`text-xs ${hint ? "text-danger" : "text-muted"}`}>{hint ?? "USDT"}</div>
+
+        <div className="grid w-full grid-cols-5 gap-2">
+          {PRESET_AMOUNTS.map((amt) => {
+            const active = amountStr === String(amt);
             return (
               <button
-                key={type}
+                key={amt}
                 type="button"
-                onClick={() => setSelectedLock(type)}
-                className={`relative flex flex-col gap-1.5 rounded-2xl p-3.5 text-left transition cursor-pointer ${
-                  isSelected
-                    ? "bg-panel-2 border border-neon/50 shadow-[0_0_14px_rgba(31,224,58,0.2)]"
-                    : "well hover:border-white/15"
+                onClick={() => setAmountStr(String(amt))}
+                className={`cursor-pointer rounded-xl border py-2 text-xs font-medium transition ${
+                  active
+                    ? "border-[#22c55e] bg-[#0a1b0f] text-white"
+                    : "border-white/10 bg-[#14171d] text-[#b9c2bc] hover:text-white"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className={`text-sm font-semibold ${isSelected ? "text-neon-soft" : "text-text"}`}>
-                    {item.name}
-                  </span>
-                  {isSelected && <span className="size-2 rounded-full bg-neon animate-pulse" />}
-                </div>
-                <div className="text-2xs font-medium text-neon-soft">{item.tagline}</div>
+                {amt >= 1000 ? `${amt / 1000}K` : amt}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Projected Summary */}
-      <div className="well p-4 flex flex-col gap-2">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted">Estimated Base Return:</span>
-          <span className="font-semibold text-neon-soft">
-            ~${estDailyUsd.toFixed(2)} / day avg (~{lockRates.monthlyPct.toFixed(2)}% / month)
-          </span>
-        </div>
-        {user && user.boosterTier > 0 && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted">Personal Booster Bonus:</span>
-            <span className="font-semibold text-gold">
-              Tier {user.boosterTier}: {user.boosterTier >= 3 ? "full" : `${user.boosterTier}/3 of`} flexible schedule on first package
-            </span>
+      {/* Plan */}
+      <div className="grid grid-cols-3 gap-2">
+        {PLANS.map((type) => {
+          const active = selectedLock === type;
+          return (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setSelectedLock(type)}
+              className={`cursor-pointer rounded-2xl border py-3 text-sm font-medium transition ${
+                active
+                  ? "border-[#22c55e] bg-[radial-gradient(120%_100%_at_50%_30%,rgba(34,197,94,0.3),rgba(8,38,16,0.7))] text-white"
+                  : "border-white/10 bg-[#14171d] text-[#b9c2bc] hover:text-white"
+              }`}
+            >
+              {PLAN_LABEL[type]}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* What you get */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-xs text-muted">Earns about</div>
+          <div className="mt-0.5 text-base text-white">
+            ${estDailyUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} / day
           </div>
-        )}
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted">Maximum Earnings Ceiling (2.5x):</span>
-          <span className="font-semibold text-text">
-            ${maxCapUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT (250% Cap)
-          </span>
         </div>
-        <div className="flex items-center justify-between text-xs border-t border-white/[0.04] pt-2">
-          <span className="text-muted">Personal Active Deposit After:</span>
-          <span className="font-medium text-neon-soft">
-            {user ? usd(user.totalActiveDeposit + depositUsdt) : "—"}
-          </span>
+        <div>
+          <div className="text-xs text-muted">Up to</div>
+          <div className="mt-0.5 text-base text-white">
+            ${maxCapUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </div>
         </div>
       </div>
 
-      {/* Actions */}
+      {/* One button */}
       {!account ? (
         <button
           type="button"
           disabled={!hasWallet}
           onClick={() => connect().catch(() => {})}
-          className="btn btn-primary w-full py-3.5 text-sm"
+          className="btn btn-primary w-full py-3 text-sm font-semibold"
         >
-          {hasWallet ? "Connect Wallet to Invest" : "Install Web3 Wallet"}
-        </button>
-      ) : needsApproval ? (
-        <button
-          type="button"
-          disabled={Boolean(tx.busy) || isBelowMin || isAboveMax}
-          onClick={handleApprove}
-          className="btn btn-primary w-full py-3.5 text-sm"
-        >
-          {tx.busy === "Approving USDT..." ? <Spinner /> : "Approve USDT"}
+          {hasWallet ? "Connect wallet" : "Install a wallet"}
         </button>
       ) : (
-        <button
-          type="button"
-          disabled={Boolean(tx.busy) || isBelowMin || isAboveMax}
-          onClick={handleInvest}
-          className="btn btn-primary w-full py-3.5 text-sm"
-        >
-          {tx.busy === "Creating investment package..." ? (
-            <span className="flex items-center gap-2">
-              <Spinner />
-              Confirming Deposit...
-            </span>
-          ) : isAboveMax ? (
-            "Exceeds 5,000 USDT Max Limit"
-          ) : (
-            `Invest $${Number(depositUsdt / 10n ** 18n).toLocaleString()} USDT`
+        <div className="flex flex-col items-center gap-2">
+          <button
+            type="button"
+            disabled={Boolean(tx.busy) || invalid}
+            onClick={handleInvest}
+            className="btn btn-primary w-full py-3 text-sm font-semibold"
+          >
+            {tx.busy === INVEST_LABEL ? <Spinner /> : `Invest $${amountUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+          </button>
+          {needsApproval && !invalid && (
+            <span className="text-2xs text-muted">First time: you confirm an approval, then the investment.</span>
           )}
-        </button>
+        </div>
       )}
     </section>
   );

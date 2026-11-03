@@ -10,6 +10,7 @@ import {
   erc20Abi,
   payoutPoolsAbi,
   teamEngineAbi,
+  harvestPreviewAbi,
   earnEngineAbi,
   lhrEngineAbi,
   liquidityFarmingAbi,
@@ -113,6 +114,10 @@ export type PlatformUser = {
   pendingLeaderBonusAvailable: bigint;
   /** Leader bonus slips still inside their lock period. */
   pendingLeaderBonusLocked: bigint;
+  /** Rank salary already claimed and waiting to be withdrawn. */
+  rankIncomePending: bigint;
+  /** What `harvestLevelIncome` would credit to the working balance right now (previewed with eth_call). */
+  levelIncomeHarvestable: bigint;
   /** Reward pool cycles this user won and has not claimed yet (poolType 1 Neon, 2 Hydra, 3 Genosis). */
   rewardPoolWins: { poolType: 1 | 2 | 3; cycleId: bigint; amount: bigint }[];
   /** Weekly rank salary streams (one per rank reached) and what can be claimed now. */
@@ -370,7 +375,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
   // Read User Data
   try {
     const isTopId = topIdAddr !== "0x0000000000000000000000000000000000000000" && account.toLowerCase() === topIdAddr.toLowerCase();
-    const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, pLeaderBonus, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode] =
+    const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, pLeaderBonus, rankIncome, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode] =
       await Promise.all([
         publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUser", args: [account] }),
         publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserWorkingCapHeadroom", args: [account] }).catch(() => 0n),
@@ -379,6 +384,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
         publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingContestRewards", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonus", args: [account] }).catch(() => [0n, 0n] as const),
         publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingLeaderBonus", args: [account] }).catch(() => [0n, 0n] as const),
+        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "rankIncomePending", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "balanceOf", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: carbAddr, abi: erc20Abi, functionName: "balanceOf", args: [account] }).catch(() => 0n),
         publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "allowance", args: [account, pAddr] }).catch(() => 0n),
@@ -477,6 +483,18 @@ export async function fetchPlatformData(account?: Address): Promise<{
       }
     }
 
+    // Referral (level) income has no stored balance: preview what a harvest would credit
+    let levelIncomeHarvestable = 0n;
+    try {
+      const { result } = await publicClient.simulateContract({
+        account,
+        address: pAddr,
+        abi: harvestPreviewAbi,
+        functionName: "harvestLevelIncome",
+      });
+      levelIncomeHarvestable = result[1];
+    } catch {}
+
     // Rank salary: one weekly stream per rank reached
     const rankSalary: PlatformUser["rankSalary"] = { totalClaimable: 0n, streams: [] };
     const currentRank = Number(u.currentRank);
@@ -548,6 +566,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
       pendingDirectBonusLocked: pDirectBonus[1],
       pendingLeaderBonusAvailable: pLeaderBonus[0],
       pendingLeaderBonusLocked: pLeaderBonus[1],
+      rankIncomePending: rankIncome,
+      levelIncomeHarvestable,
       rewardPoolWins,
       rankSalary,
       powerLegBusiness: legBiz[0],

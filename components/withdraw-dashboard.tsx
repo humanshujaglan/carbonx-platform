@@ -1,32 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { formatUnits, parseUnits } from "viem";
-import leafImage from "@/public/leave.png";
-import analysisImage from "@/public/analysis.png";
-import timerImage from "@/public/timer.png";
-import walletImage from "@/public/wallet.png";
-import depositImage from "@/public/deposit.png";
+import { ArrowLeft2, Award, CardReceive, Cup, Flash, Profile2User, SecuritySafe, Share, Timer, TrendUp, Wallet3 } from "iconsax-react";
 import { platformAbi } from "@/lib/abi";
-import { formatWorkingCapHeadroom, rankLabel, usd } from "@/lib/format";
-import { VestingOptions } from "./vesting-options";
+import { formatWorkingCapHeadroom, usd } from "@/lib/format";
 import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
-import { MIN_WITHDRAWAL_USD, TOP_ID_DAILY_RATE, TOP_ID_KEEP_SHARE } from "@/lib/roi";
+import { MIN_WITHDRAWAL_USD, VESTING_OPTIONS } from "@/lib/roi";
 import { useLiveIncomeStreams } from "./incomes-dashboard";
-import { CardHeader, Notice, Pill, Row, Spinner, useTx } from "./ui";
+import { InfoSheet, SheetBlock } from "./info-sheet";
+import { Notice, Row, Spinner, useTx } from "./ui";
 import { useWallet } from "./wallet";
-import {
-  ArrowDown2,
-  CardReceive,
-  Flash,
-  Hierarchy,
-  SecuritySafe,
-  TickCircle,
-  Timer,
-  TrendUp,
-  Wallet3,
-} from "iconsax-react";
+
+type Mode = "claim" | "withdraw";
+
+type Item = {
+  id: string;
+  icon: typeof Wallet3;
+  name: string;
+  /** Shown on the pill and as the big figure; undefined when the amount can't be read ahead of time. */
+  amount?: number;
+  /** One line under the amount: where the money goes. */
+  note: string;
+  min?: number;
+  label: string;
+  call: { fn: string; args?: readonly unknown[] };
+};
+
+const PERCENTS = [25, 50, 75, 100];
+const pill = (active: boolean) =>
+  active
+    ? "border-[#22c55e] bg-[radial-gradient(120%_100%_at_50%_30%,rgba(34,197,94,0.3),rgba(8,38,16,0.7))] text-white"
+    : "border-white/10 bg-[#14171d] text-[#b9c2bc] hover:text-white";
+const money = (v: number) =>
+  `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function WithdrawDashboard({
   user,
@@ -42,526 +49,292 @@ export function WithdrawDashboard({
   const { account, write } = useWallet();
   const tx = useTx(onDone);
 
-  // ROI and booster are settled inside withdrawROI / withdrawBooster, so the stored pending values
-  // stay 0 until a withdrawal or accrual tx. Show what the contract would pay right now instead.
-  const { settledRoi, settledBooster, roiSchedule } = useLiveIncomeStreams(user, market?.lhrTier ?? 0);
-  const money = (v: number) => `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // ROI and booster settle inside their withdraw calls, so show what the contract would pay right now
+  const { settledRoi, settledBooster } = useLiveIncomeStreams(user, market?.lhrTier ?? 0);
 
-  const [workingAmountStr, setWorkingAmountStr] = useState<string>("");
-  const [vestingOption, setVestingOption] = useState<number>(0);
+  const [mode, setMode] = useState<Mode>("claim");
+  // null = showing the income cards; an id = that income's claim / withdraw screen
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [amountStr, setAmountStr] = useState("");
+  const [vestingOption, setVestingOption] = useState(0);
 
-  // Quick total calculations
-  const totalPending = user
-    ? user.roiIncomePending +
-      user.boosterIncomePending +
-      user.workingIncomePending +
-      user.leaderIncomePending +
-      user.pendingDirectBonusAvailable +
-      user.pendingLeaderContestRewards +
-      user.pendingContestRewards
-    : 0n;
+  const toUsd = (v: bigint) => Number(formatUnits(v, 18));
+  const workingBalance = user ? toUsd(user.workingIncomePending) : 0;
+  const poolWins = user?.rewardPoolWins ?? [];
 
-  const totalClaimableUsd = user
-    ? Number(formatUnits(totalPending - user.roiIncomePending - user.boosterIncomePending, 18)) + settledRoi + settledBooster
-    : 0;
+  // Incomes that are claimed first: they land in your working balance (or rank balance), then get withdrawn
+  const claimItems: Item[] = [
+    { id: "direct", icon: Profile2User, name: "Direct Income", amount: user ? toUsd(user.pendingDirectBonusAvailable) : 0, note: "Goes to your working balance", label: "Claiming Direct Income...", call: { fn: "accrueUserROI", args: account ? [account] : [] } },
+    { id: "referral", icon: Share, name: "Referral Income", amount: user ? toUsd(user.levelIncomeHarvestable) : 0, note: "Goes to your working balance", label: "Claiming Level Income...", call: { fn: "harvestLevelIncome" } },
+    { id: "prize", icon: Cup, name: "Leader Prize Contest", amount: user ? toUsd(user.pendingContestRewards) : 0, note: "Goes to your working balance", label: "Claiming Contest Income...", call: { fn: "sweepContestRewards", args: [150n] } },
+    { id: "daily", icon: Timer, name: "Daily Contest", amount: user ? toUsd(user.pendingLeaderContestRewards) : 0, note: "Goes to your working balance", label: "Claiming Leader Contest Income...", call: { fn: "sweepLeaderContestRewards", args: [50n] } },
+    { id: "pool", icon: SecuritySafe, name: "Reward Pool", amount: toUsd(poolWins.reduce((s, w) => s + w.amount, 0n)), note: "Goes to your working balance", label: "Claiming Reward Pool...", call: { fn: "claimRewardPool" } },
+    { id: "rank", icon: Award, name: "Rank and Reward", amount: user ? toUsd(user.rankSalary.totalClaimable) : 0, note: "Weekly salary. Goes to Rank Income, then withdraw it.", label: "Claiming Rank Salary Income...", call: { fn: "claimWeeklySalaryBonus" } },
+  ];
 
-  const totalWithdrawn = user
-    ? user.roiIncomeWithdrawn +
-      user.boosterIncomeWithdrawn +
-      user.workingIncomeWithdrawn +
-      user.leaderIncomeWithdrawn
-    : 0n;
+  // Incomes you can withdraw: paid out directly, or available after you claimed them
+  const withdrawItems: Item[] = [
+    { id: "working", icon: Wallet3, name: "Working Balance", amount: workingBalance, note: "Paid in CARB over the time you pick", min: MIN_WITHDRAWAL_USD, label: "Claiming Working Income...", call: { fn: "withdrawWorkingIncome" } },
+    { id: "roi", icon: TrendUp, name: "Package ROI", amount: settledRoi, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming ROI Income...", call: { fn: "withdrawROI" } },
+    { id: "booster", icon: Flash, name: "Booster Income", amount: settledBooster, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Booster Income...", call: { fn: "withdrawBooster" } },
+    { id: "leader", icon: Profile2User, name: "Leader Income", amount: user ? toUsd(user.leaderIncomePending + user.pendingLeaderBonusAvailable) : 0, note: "Paid in CARB, 5% fee", label: "Claiming Leader Income...", call: { fn: "withdrawLeaderIncome" } },
+    { id: "rankpay", icon: CardReceive, name: "Rank Income", amount: user ? toUsd(user.rankIncomePending) : 0, note: "Claimed rank salary. Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Rank Income...", call: { fn: "withdrawRankIncome" } },
+  ];
 
-  async function callPlatform(label: string, fnName: string, args: readonly unknown[] = []) {
+  const items = mode === "claim" ? claimItems : withdrawItems;
+  const item = items.find((i) => i.id === selectedId) ?? items[0];
+  const isWorking = mode === "withdraw" && item.id === "working";
+  const isOpen = selectedId !== null;
+
+  const total = item.amount ?? 0;
+  const option = VESTING_OPTIONS.find((o) => o.id === vestingOption) ?? VESTING_OPTIONS[0];
+  const typed = isWorking && amountStr ? Number(amountStr) : total;
+  const net = (typed * (100 - option.deductionPct)) / 100;
+
+  const below = item.min !== undefined && typed < item.min;
+  const above = isWorking && typed > total + 1e-9;
+  const nothing = item.amount !== undefined && total === 0;
+  const hint = !user
+    ? null
+    : below
+    ? `Minimum is $${item.min}`
+    : above
+    ? "More than your balance"
+    : nothing
+    ? mode === "claim"
+      ? "Nothing to claim yet"
+      : "Nothing to withdraw yet"
+    : null;
+
+  async function send(label: string, fn: string, args: readonly unknown[] = []) {
     if (!addresses || !account) return;
     await tx.run(
       label,
-      async () => {
-        return write({
-          address: addresses.platform,
-          abi: platformAbi,
-          functionName: fnName,
-          args,
-        });
-      },
-      () => <span>Withdrawal submitted and confirmed on-chain!</span>
+      async () => write({ address: addresses.platform, abi: platformAbi, functionName: fn, args }),
+      () => (
+        <span>
+          {mode === "claim" ? "Claimed. Find it under Withdraw." : "Withdrawal confirmed on-chain."}
+        </span>
+      )
     );
   }
 
-  // Handle Working Income input amount
-  const workingBalanceMax = user ? user.workingIncomePending : 0n;
-  const workingBalanceNum = Number(formatUnits(workingBalanceMax, 18));
-
-  const setWorkingPercent = (pct: number) => {
-    if (!user) return;
-    if (pct === 100) {
-      setWorkingAmountStr(formatUnits(workingBalanceMax, 18));
-    } else {
-      const fraction = (workingBalanceNum * pct) / 100;
-      setWorkingAmountStr(fraction.toFixed(2));
+  async function submit() {
+    if (!user || !addresses || !account || !!hint) return;
+    if (isWorking) {
+      const amt = amountStr && Number(amountStr) > 0 ? parseUnits(amountStr, 18) : user.workingIncomePending;
+      await send(item.label, "withdrawWorkingIncome", [amt, vestingOption]);
+      setAmountStr("");
+      return;
     }
-  };
+    if (item.id === "pool") {
+      // One claimRewardPool call per cycle won; they run back to back
+      await tx.run(
+        item.label,
+        async () => {
+          let hash: Awaited<ReturnType<typeof write>> | undefined;
+          for (const win of poolWins) {
+            hash = await write({ address: addresses.platform, abi: platformAbi, functionName: "claimRewardPool", args: [win.poolType, win.cycleId] });
+          }
+          return hash as Awaited<ReturnType<typeof write>>;
+        },
+        () => <span>Claimed. Find it under Withdraw.</span>
+      );
+      return;
+    }
+    await send(item.label, item.call.fn, item.call.args ?? []);
+  }
+
+  const infoSheet = (
+    <InfoSheet title="Claim and withdraw">
+            <p>
+              Some incomes are paid straight out when you withdraw them: Package ROI, Booster and Leader Income. Others
+              are claimed first and land in your working balance or rank balance, and you withdraw them after that.
+            </p>
+            <SheetBlock title="Claim first">
+              <p>Direct Income, Referral Income, Leader Prize Contest, Daily Contest, Reward Pool and Rank and Reward. Rank and Reward unlocks weekly and lands in Rank Income, which you withdraw from the Withdraw tab.</p>
+            </SheetBlock>
+            <SheetBlock title="Withdraw">
+              <dl>
+                <Row label="Working balance" value={user ? usd(user.workingIncomePending) : "$0.00"} accent />
+                <Row label="Headroom left" value={formatWorkingCapHeadroom(user)} />
+                <Row label="Minimum" value={`$${MIN_WITHDRAWAL_USD}`} />
+              </dl>
+            </SheetBlock>
+            <p>Every withdrawal is paid in CARB at the current price, with a 5% deduction (2.5% burned, 2.5% to the reward pools).</p>
+    </InfoSheet>
+  );
+
+  const verb = mode === "claim" ? "Claim" : "Withdraw";
+  const buttonText = isWorking
+    ? `Withdraw ${money(Math.max(0, typed))}`
+    : item.amount === undefined
+    ? "Claim"
+    : `${verb} ${money(total)}`;
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Transaction Result Notice */}
-      {tx.result && (
-        <Notice tone={tx.result.tone}>{tx.result.text}</Notice>
-      )}
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-5">
+      {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
 
-      {/* Hero Overview Card */}
-      <section className="card p-6 sm:p-7 border border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.7)]">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="flex size-7 items-center justify-center rounded-xl bg-neon/15 text-neon">
-                <CardReceive size={16} color="#1fe03a" variant="Bold" />
-              </span>
-              <span className="text-xs font-semibold text-muted">
-                Withdrawal & Payout Portal
-              </span>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <h1 className="text-3xl font-semibold text-white">
-                {money(totalClaimableUsd)}
-              </h1>
-              <span className="text-xs font-semibold text-muted">Total Available</span>
-            </div>
-            <p className="mt-1 text-xs text-muted">
-              Live accrued yield across Daily ROI, Booster, Level Harvest, Working Balance, and Contests.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-2 text-xs">
-            <div className="well px-3.5 py-2 flex items-center gap-2">
-              <span className="text-muted">Lifetime Withdrawn:</span>
-              <span className="font-semibold text-white">{user ? usd(totalWithdrawn) : "$0.00"}</span>
-            </div>
-            <div className="well px-3.5 py-2 flex items-center gap-2">
-              <span className="text-muted">Cap Headroom:</span>
-              <span className="font-semibold text-neon-soft">
-                {formatWorkingCapHeadroom(user)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Stat Grid */}
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-white/[0.06]">
-          <div className="well p-3.5">
-            <div className="text-2xs text-muted">Available Daily ROI</div>
-            <div className="mt-1 text-xl font-semibold text-neon-soft">
-              {money(settledRoi)}
-            </div>
-          </div>
-          <div className="well p-3.5">
-            <div className="text-2xs text-muted">Working Balance</div>
-            <div className="mt-1 text-xl font-semibold text-neon-soft">
-              {user ? usd(user.workingIncomePending) : "$0.00"}
-            </div>
-          </div>
-          <div className="well p-3.5">
-            <div className="text-2xs text-muted">Booster Yield</div>
-            <div className="mt-1 text-xl font-semibold text-neon-soft">
-              {money(settledBooster)}
-            </div>
-          </div>
-          <div className="well p-3.5">
-            <div className="text-2xs text-muted">Contests & Pools</div>
-            <div className="mt-1 text-xl font-semibold text-neon-soft">
-              {user ? usd(user.pendingContestRewards + user.pendingLeaderContestRewards) : "$0.00"}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Withdrawal Streams Grid */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* 1. Daily ROI Yield Withdrawal */}
-        <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-          <div className="flex flex-col gap-4">
-            <CardHeader
-              image={timerImage}
-              title="Daily  Yield"
-              right={
-                <Pill tone="green">
-                  {user?.isTopId
-                    ? `${(TOP_ID_DAILY_RATE * 100).toFixed(2)}%/day · ${TOP_ID_KEEP_SHARE * 100}% kept`
-                    : roiSchedule.cycleDay !== undefined
-                    ? `Day ${roiSchedule.cycleDay}/30 · Slot ${roiSchedule.slot}/6`
-                    : "Slot schedule"}
-                </Pill>
-              }
-            />
-            <p className="text-xs text-muted leading-relaxed">
-              Daily yield from your active packages, settled by the contract when you withdraw (minimum ${MIN_WITHDRAWAL_USD}). Withdrawing restarts the 30-day slot cycle.
-            </p>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="well p-3.5">
-                <div className="text-2xs text-muted">Claimable ROI</div>
-                <div className="text-xl font-semibold text-neon-soft">
-                  {money(settledRoi)}
-                </div>
-              </div>
-              <div className="well p-3.5">
-                <div className="text-2xs text-muted">Total ROI Withdrawn</div>
-                <div className="text-xl font-semibold text-white">
-                  {user ? usd(user.roiIncomeWithdrawn) : "$0.00"}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 pt-3 border-t border-white/[0.06]">
-            <button
-              type="button"
-              disabled={!user || settledRoi < MIN_WITHDRAWAL_USD || !!tx.busy}
-              onClick={() => callPlatform("Claiming ROI Income...", "withdrawROI")}
-              className="btn btn-primary flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-2"
-            >
-              {tx.busy === "Claiming ROI Income..." ? <Spinner /> : (
-                <>
-                  <ArrowDown2 size={16} />
-                  <span>Claim ROI Income ({money(settledRoi)})</span>
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              disabled={!user || !!tx.busy}
-              onClick={() => account && callPlatform("Accruing ROI...", "accrueUserROI", [account])}
-              className="btn btn-secondary py-3 px-3.5 text-xs font-semibold"
-              title="Settle accrued ROI and booster into your contract balance"
-            >
-              Accrue All
-            </button>
-          </div>
-        </section>
-
-        {/* 2. Working Income Payout & Custom Amount */}
-        <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-          <div className="flex flex-col gap-4">
-            <CardHeader
-              image={walletImage}
-              title="Working Balance Withdrawal"
-              right={<Pill tone="gold">Working Cap</Pill>}
-            />
-            <p className="text-xs text-muted leading-relaxed">
-              Commissions from downline level income, direct bonuses, and network volume. Pick a vesting period: shorter periods carry a larger deduction.
-            </p>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="well p-3.5">
-                <div className="text-2xs text-muted">Working Balance</div>
-                <div className="text-xl font-semibold text-neon-soft">
-                  {user ? usd(user.workingIncomePending) : "$0.00"}
-                </div>
-              </div>
-              <div className="well p-3.5">
-                <div className="text-2xs text-muted">Headroom Remaining</div>
-                <div className="text-xl font-semibold text-white">
-                  {formatWorkingCapHeadroom(user)}
-                </div>
-              </div>
-            </div>
-
-            {/* Custom Amount Input & Quick Pct Buttons */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted">Withdrawal Amount (USDT)</span>
-                <span className="text-muted">Max: {user ? usd(user.workingIncomePending) : "$0.00"}</span>
-              </div>
-              <div className="relative flex items-center">
-                <input
-                  type="number"
-                  placeholder={user ? formatUnits(user.workingIncomePending, 18) : "0.00"}
-                  value={workingAmountStr}
-                  onChange={(e) => setWorkingAmountStr(e.target.value)}
-                  className="w-full rounded-2xl bg-[#0c120e] px-4 py-3 text-sm font-semibold text-white placeholder-zinc-600 border border-white/[0.08] focus:border-neon/40 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setWorkingPercent(100)}
-                  className="absolute right-2 rounded-xl bg-neon/15 px-3 py-1.5 text-xs font-semibold text-neon hover:bg-neon/25 transition cursor-pointer"
-                >
-                  MAX
-                </button>
-              </div>
-
-              {/* Quick Select Buttons */}
-              <div className="grid grid-cols-4 gap-1.5 pt-1">
-                {[25, 50, 75, 100].map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setWorkingPercent(p)}
-                    className="rounded-xl well py-1.5 text-center text-xs font-medium text-muted hover:text-white hover:border-neon/30 transition cursor-pointer"
-                  >
-                    {p}%
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <VestingOptions
-              value={vestingOption}
-              onChange={setVestingOption}
-              amountUsd={workingAmountStr && Number(workingAmountStr) > 0 ? Number(workingAmountStr) : workingBalanceNum}
-            />
-          </div>
-
-          <div className="pt-3 border-t border-white/[0.06]">
-            <button
-              type="button"
-              disabled={!user || workingBalanceNum < MIN_WITHDRAWAL_USD || !!tx.busy}
-              onClick={() => {
-                if (!user) return;
-                const amt = workingAmountStr && Number(workingAmountStr) > 0
-                  ? parseUnits(workingAmountStr, 18)
-                  : user.workingIncomePending;
-                callPlatform("Claiming Working Income...", "withdrawWorkingIncome", [amt, vestingOption]);
-              }}
-              className="btn btn-primary w-full py-3 text-xs font-semibold flex items-center justify-center gap-2"
-            >
-              {tx.busy === "Claiming Working Income..." ? (
-                <Spinner />
-              ) : (
-                <>
-                  <ArrowDown2 size={16} />
-                  <span>Claim Working Income</span>
-                </>
-              )}
-            </button>
-          </div>
-        </section>
-
-        {/* 3. Daily Booster Yield Withdrawal */}
-        <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-          <div className="flex flex-col gap-4">
-            <CardHeader
-              image={leafImage}
-              title="Daily Booster Income"
-              right={
-                <Pill tone={user && user.boosterTier > 0 ? "gold" : "neutral"}>
-                  Tier {user?.boosterTier ?? 0} · {(user?.boosterTier ?? 0) > 0 ? `${Math.min(user?.boosterTier ?? 0, 3)}/3 schedule` : "Inactive"}
-                </Pill>
-              }
-            />
-            <p className="text-xs text-muted leading-relaxed">
-              Booster pays 1/3, 2/3 or the full flexible ROI slot schedule on your first package (Tier 1-3), up to 1.0x of that package.
-            </p>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="well p-3.5">
-                <div className="text-2xs text-muted">Claimable Booster</div>
-                <div className="text-xl font-semibold text-neon-soft">
-                  {money(settledBooster)}
-                </div>
-              </div>
-              <div className="well p-3.5">
-                <div className="text-2xs text-muted">Total Booster Withdrawn</div>
-                <div className="text-xl font-semibold text-white">
-                  {user ? usd(user.boosterIncomeWithdrawn) : "$0.00"}
-                </div>
-              </div>
-            </div>
-
-            <div className="well p-3.5 flex items-center justify-between text-xs">
-              <span className="text-muted">Total Direct Volume:</span>
-              <span className="font-semibold text-white">{user ? usd(user.totalDirectBusiness) : "$0.00"}</span>
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-white/[0.06]">
-            <button
-              type="button"
-              disabled={!user || settledBooster < MIN_WITHDRAWAL_USD || !!tx.busy}
-              onClick={() => callPlatform("Claiming Booster Income...", "withdrawBooster")}
-              className="btn btn-primary w-full py-3 text-xs font-semibold flex items-center justify-center gap-2"
-            >
-              {tx.busy === "Claiming Booster Income..." ? <Spinner /> : (
-                <>
-                  <ArrowDown2 size={16} />
-                  <span>Claim Booster Income ({money(settledBooster)})</span>
-                </>
-              )}
-            </button>
-          </div>
-        </section>
-
-        {/* 4. Leader Income (BDF) & Rank Salary */}
-        <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-          <div className="flex flex-col gap-4">
-            <CardHeader
-              image={depositImage}
-              title="Leader Income (Business Dev Fund) & Rank Salary"
-              right={<Pill tone="gold">BDF & Rank</Pill>}
-            />
-            <p className="text-xs text-muted leading-relaxed">
-              Business Development Fund (BDF) for qualifying team leaders, plus weekly career rank milestone salaries.
-            </p>
-
-            <div className="well p-3.5 flex flex-col gap-2">
-              <Row
-                label="Current Rank"
-                value={rankLabel(user?.currentRank)}
-                accent
-              />
-              <Row
-                label="Pending Leader / BDF Income"
-                value={user ? usd(user.leaderIncomePending) : "$0.00"}
-              />
-              <Row
-                label="Total Leader / BDF Withdrawn"
-                value={user ? usd(user.leaderIncomeWithdrawn) : "$0.00"}
-              />
-              <Row
-                label="Unlocked Direct Referral Slips"
-                value={user ? usd(user.pendingDirectBonusAvailable) : "$0.00"}
-              />
-              <Row
-                label="Direct Lock-In (Locked Slips)"
-                value={user ? usd(user.pendingDirectBonusLocked) : "$0.00"}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 pt-3 border-t border-white/[0.06]">
-            <button
-              type="button"
-              disabled={!user || user.leaderIncomePending === 0n || !!tx.busy}
-              onClick={() => callPlatform("Claiming Leader Income...", "withdrawLeaderIncome")}
-              className="btn btn-primary flex-1 py-3 text-xs font-semibold"
-            >
-              {tx.busy === "Claiming Leader Income..." ? (
-                <Spinner />
-              ) : (
-                `Claim Leader Income (${user ? usd(user.leaderIncomePending) : "$0.00"})`
-              )}
-            </button>
-            <button
-              type="button"
-              disabled={!user || !!tx.busy}
-              onClick={() => callPlatform("Claiming Rank Salary Income...", "claimWeeklySalaryBonus")}
-              className="btn btn-secondary flex-1 py-3 text-xs font-semibold"
-            >
-              {tx.busy === "Claiming Rank Salary Income..." ? <Spinner /> : "Claim Rank Salary Income"}
-            </button>
-          </div>
-        </section>
-
-        {/* 5. Downline Level Harvest */}
-        <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-          <div className="flex flex-col gap-4">
-            <CardHeader
-              image={analysisImage}
-              title="Team Level Harvest"
-              right={<Pill tone="cyan">Unilevel Tree</Pill>}
-            />
-            <p className="text-xs text-muted leading-relaxed">
-              Trigger on-chain distribution of all pending unilevel downline earnings directly into your working balance.
-            </p>
-
-            <div className="well p-3.5 flex flex-col gap-2">
-              <Row
-                label="Direct Downlines Active"
-                value={`${user?.activeDirectCount ?? 0} sponsors`}
-              />
-              <Row
-                label="Total Team Volume"
-                value={user ? usd(user.totalTeamBusiness) : "$0.00"}
-                accent
-              />
-              <Row
-                label="Power Leg Business"
-                value={user ? usd(user.powerLegBusiness) : "$0.00"}
-              />
-              <Row
-                label="Weaker Legs Business"
-                value={user ? usd(user.weakerLegBusiness) : "$0.00"}
-              />
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-white/[0.06]">
-            <button
-              type="button"
-              disabled={!user || !!tx.busy}
-              onClick={() => callPlatform("Claiming Level Income...", "harvestLevelIncome")}
-              className="btn btn-primary w-full py-3 text-xs font-semibold flex items-center justify-center gap-2"
-            >
-              {tx.busy === "Claiming Level Income..." ? <Spinner /> : (
-                <>
-                  <Hierarchy size={16} />
-                  <span>Claim Level Income</span>
-                </>
-              )}
-            </button>
-          </div>
-        </section>
-
-        {/* 6. Daily Contests & Pool Sweeps */}
-        <section className="card flex flex-col justify-between gap-5 p-5 sm:p-6 border border-white/[0.08]">
-          <div className="flex flex-col gap-4">
-            <CardHeader
-              image={leafImage}
-              title="Daily Contests & Sweep Pools"
-              right={<Pill tone="green">Daily Pools</Pill>}
-            />
-            <p className="text-xs text-muted leading-relaxed">
-              Sweep accumulated daily community prize pools and leader rewards over historical cycle windows.
-            </p>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="well p-3.5">
-                <div className="text-2xs text-muted">Price Contest Rewards</div>
-                <div className="text-xl font-semibold text-neon-soft">
-                  {user ? usd(user.pendingContestRewards) : "$0.00"}
-                </div>
-              </div>
-              <div className="well p-3.5">
-                <div className="text-2xs text-muted">Leader Contest Rewards</div>
-                <div className="text-xl font-semibold text-neon-soft">
-                  {user ? usd(user.pendingLeaderContestRewards) : "$0.00"}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 pt-3 border-t border-white/[0.06]">
-            <button
-              type="button"
-              disabled={!user || user.pendingContestRewards === 0n || !!tx.busy}
-              onClick={() => callPlatform("Claiming Contest Income...", "sweepContestRewards", [150n])}
-              className="btn btn-primary flex-1 py-3 text-xs font-semibold"
-            >
-              {tx.busy === "Claiming Contest Income..." ? <Spinner /> : "Claim Contest Income"}
-            </button>
-            <button
-              type="button"
-              disabled={!user || user.pendingLeaderContestRewards === 0n || !!tx.busy}
-              onClick={() => callPlatform("Claiming Leader Contest Income...", "sweepLeaderContestRewards", [50n])}
-              className="btn btn-secondary flex-1 py-3 text-xs font-semibold"
-            >
-              {tx.busy === "Claiming Leader Contest Income..." ? <Spinner /> : "Claim Leader Contest Income"}
-            </button>
-          </div>
-        </section>
+      {/* Claim first, then withdraw */}
+      <div className="grid grid-cols-2 gap-2">
+        {(["claim", "withdraw"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setMode(m);
+              setSelectedId(null);
+              setAmountStr("");
+            }}
+            className={`cursor-pointer rounded-2xl py-3 text-sm font-semibold transition ${
+              mode === m ? "btn btn-primary !rounded-2xl !py-3" : "bg-[#1b1f26] text-[#b9c2bc] hover:text-white"
+            }`}
+          >
+            {m === "claim" ? "Claim" : "Withdraw"}
+          </button>
+        ))}
       </div>
 
-      {/* Protocol Safety & Fee Policy Footer */}
-      <section className="card p-5 sm:p-6 border border-white/[0.08] flex items-start gap-3.5">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-neon/15 text-neon mt-0.5">
-          <SecuritySafe size={18} color="#1fe03a" variant="Bold" />
-        </span>
-        <div className="flex flex-col gap-1 text-xs text-muted leading-relaxed">
-          <span className="font-semibold text-white">Smart Contract Withdrawal Safety</span>
-          <p>
-            Every withdrawal deducts 5% (2.5% burned, 2.5% to the reward pools); working income deductions of 5% to 25% already include it. The net amount is paid in CARB at the current spot price, with a ${MIN_WITHDRAWAL_USD} minimum per withdrawal.
-          </p>
+      {/* Step 1: pick an income. Its screen opens and the cards hide. */}
+      {!isOpen && (
+        <section className="flex flex-col gap-3" aria-label="Choose an income">
+          <div className="flex items-center justify-between gap-3 px-1">
+            <h3 className="text-sm font-medium text-text">
+              {mode === "claim" ? "Choose an income to claim" : "Choose an income to withdraw"}
+            </h3>
+            {infoSheet}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {items.map((i) => {
+              const Icon = i.icon;
+              const ready = i.amount === undefined || i.amount > 0;
+              return (
+                <button
+                  key={i.id}
+                  type="button"
+                  onClick={() => setSelectedId(i.id)}
+                  className="card torch flex cursor-pointer flex-col gap-4 border border-white/[0.08] p-4 text-left transition hover:border-white/20 active:scale-[0.98]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`flex size-10 items-center justify-center rounded-2xl ${
+                        ready ? "bg-neon/10 text-neon" : "bg-white/[0.06] text-muted"
+                      }`}
+                    >
+                      <Icon size={22} color="currentColor" variant="Bulk" />
+                    </span>
+                    {ready && <span className="size-2 rounded-full bg-neon shadow-[0_0_8px_#1fe03a]" aria-label="Ready" />}
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-muted">{i.name}</span>
+                    <span className={`text-lg ${ready ? "text-white" : "text-muted"}`}>
+                      {i.amount === undefined ? "Tap to collect" : money(i.amount)}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {isOpen && (
+      <section className="card flex flex-col gap-5 p-5 sm:p-6" aria-label={verb}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedId(null);
+                setAmountStr("");
+              }}
+              aria-label="Back"
+              className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-white/[0.08] bg-panel text-white transition hover:border-white/20"
+            >
+              <ArrowLeft2 size={18} color="currentColor" />
+            </button>
+            <h3 className="text-sm font-medium text-text">{item.name}</h3>
+          </div>
+          {infoSheet}
         </div>
+
+        {/* 2. The amount */}
+        {isWorking ? (
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-baseline justify-center gap-1">
+              <span className="text-3xl font-medium text-muted">$</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                value={amountStr}
+                onChange={(e) => setAmountStr(e.target.value)}
+                aria-label="Amount to withdraw"
+                placeholder={total ? total.toFixed(2) : "0"}
+                style={{ fontSize: 36, width: `${Math.max(3, (amountStr || total.toFixed(2)).length + 1)}ch` }}
+                className="min-w-[2ch] max-w-full bg-transparent text-center font-medium text-white outline-none placeholder:text-muted/50"
+              />
+            </div>
+            <div className={`text-xs ${hint ? "text-danger" : "text-muted"}`}>{hint ?? item.note}</div>
+            <div className="grid w-full grid-cols-4 gap-2">
+              {PERCENTS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  disabled={!user}
+                  onClick={() => setAmountStr(p === 100 ? formatUnits(user!.workingIncomePending, 18) : ((total * p) / 100).toFixed(2))}
+                  className="cursor-pointer rounded-xl border border-white/10 bg-[#14171d] py-2 text-xs font-medium text-[#b9c2bc] transition hover:text-white disabled:opacity-40"
+                >
+                  {p === 100 ? "Max" : `${p}%`}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid w-full grid-cols-5 gap-2">
+              {VESTING_OPTIONS.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => setVestingOption(o.id)}
+                  className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-2xl border py-2.5 text-xs font-medium transition ${pill(vestingOption === o.id)}`}
+                >
+                  <span>{o.duration.replace(" hours", "h").replace(" days", "d").replace(" day", "d")}</span>
+                  <span className="text-2xs opacity-80">−{o.deductionPct}%</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="grid w-full grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-muted">You get</div>
+                <div className="mt-0.5 text-base text-white">{money(Math.max(0, net))}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted">Paid over</div>
+                <div className="mt-0.5 text-base text-white">{option.duration}</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-1.5 py-2 text-center">
+            <div className="text-xs text-muted">{mode === "claim" ? "You can claim" : "You can withdraw"}</div>
+            <div className="text-4xl font-medium text-white">{item.amount === undefined ? "—" : money(total)}</div>
+            <div className={`text-xs ${hint ? "text-danger" : "text-muted"}`}>{hint ?? item.note}</div>
+          </div>
+        )}
+
+        {/* 3. One button */}
+        <button
+          type="button"
+          disabled={!user || !!hint || !!tx.busy}
+          onClick={submit}
+          className="btn btn-primary w-full py-3 text-sm font-semibold"
+        >
+          {tx.busy === item.label ? <Spinner /> : buttonText}
+        </button>
       </section>
+      )}
     </div>
   );
 }

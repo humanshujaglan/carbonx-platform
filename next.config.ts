@@ -2,6 +2,32 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Old platform URLs now live under /dashboard; old referral links (/?ref=0x...) open the register page
+  async redirects() {
+    return [
+      { source: "/", has: [{ type: "query", key: "ref" }], destination: "/register", permanent: false },
+      { source: "/invest", destination: "/dashboard/invest", permanent: false },
+      { source: "/withdraw", destination: "/dashboard/withdraw", permanent: false },
+      { source: "/team", destination: "/dashboard/team", permanent: false },
+      { source: "/structure", destination: "/dashboard/structure", permanent: false },
+      { source: "/incomes", destination: "/dashboard/incomes", permanent: false },
+    ];
+  },
+  // The landing page files were patched in place and keep their old hashed names, so make browsers revalidate them
+  async headers() {
+    return [
+      { source: "/", headers: [{ key: "Cache-Control", value: "no-cache" }] },
+      { source: "/assets/:path*", headers: [{ key: "Cache-Control", value: "no-cache" }] },
+    ];
+  },
+  // The landing page is a prebuilt static site served from public/index.html at "/"
+  async rewrites() {
+    return {
+      beforeFiles: [{ source: "/", destination: "/index.html" }],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

@@ -6,6 +6,7 @@ export const platformAbi = parseAbi([
   "function invest(uint256 amountUSDT, uint8 lockType)",
   "function withdrawROI()",
   "function teamEngine() view returns (address)",
+  "function rankIncomePending(address user) view returns (uint256)",
   "function earnEngine() view returns (address)",
   "function getContestDay(uint256 dayId) view returns (bool isSLTriggered, uint256 dayHighPrice, uint256 dailyDepositVolume, uint256 top10Count, address[10] top10Uplines, uint256[10] top10Volumes)",
   "function claimRewardPool(uint8 poolType, uint256 cycleId)",
@@ -88,6 +89,11 @@ export const payoutPoolsAbi = parseAbi([
   "function poolClaimed(uint8 poolType, uint256 cycleId, address user) view returns (bool)",
   "function poolRewardPerWinner(uint8 poolType, uint256 cycleId) view returns (uint256)",
   "function poolWinnerReward(uint8 poolType, uint256 cycleId, address user) view returns (uint256)",
+]);
+
+/** `harvestLevelIncome` with its return values, used with eth_call to preview the amount a harvest would credit. */
+export const harvestPreviewAbi = parseAbi([
+  "function harvestLevelIncome() returns (uint256 grossAmount, uint256 approvedAmount, uint256 burnedAmount)",
 ]);
 
 /** Highest CARB price seen by the contest logic (`globalATHPrice`). */
