@@ -39,8 +39,11 @@ export function AuthPortal({
   user,
   market,
   loadingUser = false,
+  loginStatus = "idle",
   initialView,
   onEnterDashboard,
+  onLogin,
+  onRequestUser,
   onRefresh,
 }: {
   addresses?: PlatformAddresses;
@@ -49,7 +52,13 @@ export function AuthPortal({
   loadingUser?: boolean;
   /** Which screen to open first (used by the separate /login and /register pages). */
   initialView?: "starter" | "register_form" | "login_wallets";
+  /** Progress of a Login click: user details are fetched only after it. */
+  loginStatus?: "idle" | "loading" | "unregistered" | "error";
   onEnterDashboard: () => void;
+  /** Login click: connect if needed, fetch the user and enter the dashboard. */
+  onLogin: () => void;
+  /** Register click: the register form needs the user's balance and allowance. */
+  onRequestUser: () => void;
   onRefresh: () => void;
 }) {
   const {
@@ -231,19 +240,9 @@ export function AuthPortal({
     }
   }
 
-  // Handle Main Button Click (Register / Login / Connect)
-  const handleMainAction = () => {
-    if (!account) {
-      connect().catch(() => {});
-      return;
-    }
-    if (isRegistered) {
-      // User is already registered -> Login directly to dashboard!
-      onEnterDashboard();
-    } else {
-      // User is not registered -> Go to register form!
-      setViewStep("register_form");
-    }
+  const handleRegisterClick = () => {
+    onRequestUser();
+    setViewStep("register_form");
   };
 
   return (
@@ -488,9 +487,7 @@ export function AuthPortal({
                 {/* Header inside the curved card (font-normal, */}
                 <div className="text-center pt-0.5">
                   <span className="text-xs font-normal text-white">
-                    {account && isRegistered
-                      ? "Welcome Back To CarbonX!"
-                      : "Don't Have An Account Yet?"}
+                    Welcome To CarbonX!
                   </span>
                 </div>
 
@@ -556,53 +553,49 @@ export function AuthPortal({
                   )}
                 </div>
 
-                {/* DYNAMIC ACTION BUTTON: "Register" if not registered, "Login" if already registered */}
+                {/* LOGIN: connects the wallet if needed, then fetches the user */}
                 <button
                   type="button"
-                  onClick={handleMainAction}
+                  onClick={onLogin}
+                  disabled={loginStatus === "loading"}
                   className="btn btn-primary w-full rounded-2xl py-4 text-base font-semibold flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {!account ? (
-                    <span>Connect Wallet</span>
-                  ) : isRegistered ? (
-                    <>
-                      <span>Login</span>
-                      <ArrowRight size={18} color="#051207" />
-                    </>
+                  {loginStatus === "loading" ? (
+                    <span>Checking account...</span>
+                  ) : !account ? (
+                    <span>Connect Wallet &amp; Login</span>
                   ) : (
                     <>
-                      <span>Register</span>
+                      <span>Login</span>
                       <ArrowRight size={18} color="#051207" />
                     </>
                   )}
                 </button>
 
-                {/* Subtext: font-normal, */}
+                {/* REGISTER: separate button */}
+                <button
+                  type="button"
+                  onClick={handleRegisterClick}
+                  className="w-full rounded-2xl border border-neon/40 bg-transparent py-4 text-base font-semibold text-neon transition hover:bg-neon/10 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Register</span>
+                </button>
+
                 <div className="text-center text-xs font-normal text-muted pt-0.5">
-                  {!account ? (
+                  {loginStatus === "unregistered" ? (
+                    <span className="text-danger">This wallet is not registered yet. Tap Register to join.</span>
+                  ) : loginStatus === "error" ? (
+                    <span className="text-danger">Could not load your account. Please try again.</span>
+                  ) : !account ? (
                     <span>Connect Your Web3 Wallet To Start</span>
-                  ) : isRegistered ? (
-                    <span>
-                      Detected Active Registered Member ·{" "}
-                      <button
-                        type="button"
-                        onClick={() => disconnect()}
-                        className="text-danger hover:underline font-normal cursor-pointer"
-                      >
-                        Disconnect
-                      </button>
-                    </span>
                   ) : (
-                    <span>
-                      Already Have An Account?{" "}
-                      <button
-                        type="button"
-                        onClick={() => setViewStep("login_wallets")}
-                        className="text-neon font-normal hover:underline cursor-pointer"
-                      >
-                        Log In
-                      </button>
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => disconnect()}
+                      className="text-danger hover:underline font-normal cursor-pointer"
+                    >
+                      Disconnect
+                    </button>
                   )}
                 </div>
 
