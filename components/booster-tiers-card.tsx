@@ -80,7 +80,7 @@ export function BoosterTiersCard({ user, lhrTier = 0 }: { user?: PlatformUser; l
               </span>
               {/* What the tier needs, not what it pays */}
               <span className="absolute inset-0 z-10 flex items-center justify-center">
-                <span className="text-sm font-semibold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.7)]">
+                <span className="text-sm font-semibold text-white">
                   {usd0(seg.thresholdUsd)}
                 </span>
               </span>

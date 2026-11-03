@@ -6,13 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Profile2User,
   ArrowLeft,
-  ArrowRight2,
   ArrowUp2,
   CloseCircle,
   Copy,
   Hierarchy,
   InfoCircle,
-  Refresh2,
   SearchNormal1,
   TickCircle,
   Wallet3,
@@ -259,10 +257,6 @@ export function StructureView({
     }
   }
 
-  function handleJumpToBreadcrumb(index: number) {
-    setNavPath((prev) => prev.slice(0, index + 1));
-  }
-
   function copyAddr(addr: string) {
     navigator.clipboard?.writeText(addr);
     toast.show("Address copied!");
@@ -286,15 +280,6 @@ export function StructureView({
       <section className="card p-5 sm:p-6 flex flex-col gap-5" aria-label="Structure summary">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-medium text-text">Network tree</h3>
-          <button
-            type="button"
-            onClick={loadTree}
-            disabled={loading}
-            aria-label="Refresh"
-            className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-white/[0.08] bg-panel text-muted transition hover:border-white/20 hover:text-white"
-          >
-            <Refresh2 size={16} className={loading ? "animate-spin" : ""} />
-          </button>
         </div>
 
         <form onSubmit={handleSearchSubmit} className="flex flex-col gap-2">
@@ -321,15 +306,6 @@ export function StructureView({
                 My wallet
               </button>
             )}
-            {topIdRoot && activeRoot !== topIdRoot && (
-              <button
-                type="button"
-                onClick={() => changeRoot(topIdRoot)}
-                className="btn btn-secondary !rounded-lg px-4 py-2 text-xs font-semibold"
-              >
-                Top ID
-              </button>
-            )}
           </div>
         </form>
 
@@ -350,64 +326,26 @@ export function StructureView({
         </dl>
       </section>
 
-      {/* Prominent Back to Upline & Breadcrumbs Toolbar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#101114] border border-white/[0.06]">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Dedicated Back / Upline Button */}
-          {rootHistory.length > 0 ? (
-            <button
-              type="button"
-              onClick={goBackRoot}
-              className="btn btn-primary !py-2 !px-4 text-xs flex items-center gap-2 shadow-[0_0_12px_rgba(31,224,58,0.3)] cursor-pointer"
-            >
-              <ArrowLeft size={16} color="currentColor" />
-              <span>Back to Previous User ({shortAddr(rootHistory[rootHistory.length - 1])})</span>
-            </button>
-          ) : (
-            <div className="px-3 py-1.5 rounded-xl bg-white/[0.04] text-xs text-muted border border-white/[0.05]">
-              Viewing Root Node: <strong className="text-neon-soft">{shortAddr(activeRoot)}</strong>
-            </div>
-          )}
-
-          {/* Breadcrumb Trail */}
-          <div className="flex flex-wrap items-center gap-1.5 ml-1">
-            {navPath.map((node, index) => {
-              const isLast = index === navPath.length - 1;
-              const isRootNode = index === 0;
-
-              return (
-                <div key={node.address + index} className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleJumpToBreadcrumb(index)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition cursor-pointer ${
-                      isLast
-                        ? "bg-neon/15 text-neon border border-neon/40 font-semibold"
-                        : "text-muted hover:text-text hover:bg-white/[0.04]"
-                    }`}
-                  >
-                    <span>{isRootNode ? "Root" : shortAddr(node.address)}</span>
-                    {isLast && (
-                      <span className="size-1.5 rounded-full bg-neon animate-pulse" />
-                    )}
-                  </button>
-                  {!isLast && <ArrowRight2 size={12} color="#5b616b" className="shrink-0" />}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="text-xs text-muted flex items-center gap-1">
-          <span>Active Focus:</span>
-          <strong className="text-neon-soft">{currentFocus ? shortAddr(currentFocus.address) : "—"}</strong>
-        </div>
-      </div>
-
       {/* Visual Downline Tree Canvas */}
       <section className="card p-5 sm:p-6" aria-label="Visual downline tree">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-medium text-text">Downline Team</h3>
+          <div className="flex items-center gap-3">
+            {rootHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={goBackRoot}
+                aria-label="Back"
+                className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-white/[0.08] bg-panel text-white transition hover:border-white/20"
+              >
+                <ArrowLeft size={18} color="currentColor" />
+              </button>
+            )}
+            <h3 className="text-sm font-medium text-text">Downline Team</h3>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted">
+            <span>Selected ID:</span>
+            <strong className="text-neon-soft">{currentFocus ? shortAddr(currentFocus.address) : "—"}</strong>
+          </div>
         </div>
 
         {loading ? (
