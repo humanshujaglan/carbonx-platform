@@ -41,6 +41,7 @@ export function AuthPortal({
   registration = "none",
   initialView,
   onLogin,
+  onBackToLogin,
   onRetry,
   onRefresh,
 }: {
@@ -53,6 +54,8 @@ export function AuthPortal({
   registration?: "none" | "checking" | "registered" | "unregistered" | "error";
   /** Login click for a registered wallet: enter the dashboard. */
   onLogin: () => void;
+  /** Register screen popup for an already registered wallet: back to the login page. */
+  onBackToLogin: () => void;
   /** Re-run a failed registration check. */
   onRetry: () => void;
   onRefresh: () => void;
@@ -618,6 +621,32 @@ export function AuthPortal({
             </button>
             <Image src={headerLogo} alt="CarbonX" priority className="h-8 w-auto object-contain sm:h-9" />
           </div>
+
+          {registration === "registered" && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="already-registered-title"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+            >
+              <div className="card flex w-full max-w-sm flex-col items-center gap-4 p-6 text-center">
+                <TickCircle size={40} color="#1fe03a" variant="Bold" />
+                <div>
+                  <h2 id="already-registered-title" className="text-base font-medium text-white">
+                    Already registered
+                  </h2>
+                  <p className="mt-1.5 text-xs text-muted">This wallet is already a CarbonX member. Log in to open your dashboard.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onBackToLogin}
+                  className="btn btn-primary w-full cursor-pointer py-3 text-sm font-semibold"
+                >
+                  Back to Login
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="mt-8 flex w-full max-w-[480px] flex-col gap-4">
             {wrongNetwork && (

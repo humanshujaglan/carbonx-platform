@@ -42,6 +42,7 @@ export function AuthPage({ initialView }: { initialView: "starter" | "login_wall
       market={market}
       registration={registration}
       onLogin={handleEnter}
+      onBackToLogin={() => router.push("/login")}
       onRetry={recheck}
       initialView={initialView}
       onRefresh={() => {
