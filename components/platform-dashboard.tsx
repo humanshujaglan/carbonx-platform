@@ -129,6 +129,15 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
     }
   };
 
+  // Wallet still reconnecting or the member's data still loading: show a spinner, not a blank page
+  if (!ready || (account && loading && !isUserRegistered)) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center text-neon" role="status" aria-label="Loading dashboard">
+        <span className="size-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
+      </div>
+    );
+  }
+
   // Nothing to show until the member is confirmed (the effect above redirects everyone else)
   if (!account || !isUserRegistered || !hasEnteredDashboard) {
     return null;

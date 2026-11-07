@@ -34,6 +34,8 @@ import {
 export const publicClient = createPublicClient({
   chain,
   transport: http(rpcUrl),
+  // Batches the many parallel reads into a few multicall3 requests (when the chain has multicall3)
+  batch: { multicall: true },
 });
 
 export type PlatformAddresses = {
@@ -198,6 +200,14 @@ function getEmptyMarket(): PlatformMarket {
   };
 }
 
+const ZERO = "0x0000000000000000000000000000000000000000" as Address;
+
+/** Cheap membership check (one eth_call), used to decide between Login and Register before any heavy fetch. */
+export async function fetchIsRegistered(account: Address): Promise<boolean> {
+  const u = await publicClient.readContract({ address: platformAddress, abi: platformAbi, functionName: "getUser", args: [account] });
+  return u.registrationTime > 0n;
+}
+
 export async function fetchPlatformData(account?: Address): Promise<{
   addresses: PlatformAddresses;
   market: PlatformMarket;
@@ -208,17 +218,20 @@ export async function fetchPlatformData(account?: Address): Promise<{
   let carbAddr = tokenAddress;
   let pairAddr = pairAddress;
   let oracleAddr = oracleAddress;
-  let topIdAddr = "0x0000000000000000000000000000000000000000" as Address;
+  let topIdAddr = ZERO;
+  let poolEngine: Address | undefined;
   let totalActive: bigint | undefined;
   let lhrTier = 0;
 
+  // Everything below depends on these platform reads, so they go first (one parallel round)
   try {
-    const [uToken, cToken, tId, tActive, tier] = await Promise.all([
+    const [uToken, cToken, tId, tActive, tier, pe] = await Promise.all([
       publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "usdtToken" }).catch(() => usdtAddr),
       publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "carbonToken" }).catch(() => carbAddr),
       publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "topId" }).catch(() => topIdAddr),
       publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "totalPlatformActiveDeposit" }).catch(() => undefined),
       publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getActiveLhrTier" }).catch(() => 0),
+      publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "payoutEngine" }).catch(() => undefined),
     ]);
 
     usdtAddr = uToken;
@@ -226,38 +239,291 @@ export async function fetchPlatformData(account?: Address): Promise<{
     topIdAddr = tId;
     totalActive = tActive;
     lhrTier = Number(tier);
+    if (pe && pe !== ZERO) poolEngine = pe;
   } catch {}
 
-  try {
-    const [p, o] = await Promise.all([
+  // User data and market data load side by side
+  const userPromise = account ? loadUser(account) : Promise.resolve(undefined);
+
+  async function loadUser(acct: Address): Promise<PlatformUser | undefined> {
+    try {
+      const isTopId = topIdAddr !== ZERO && acct.toLowerCase() === topIdAddr.toLowerCase();
+      const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, pLeaderBonus, rankIncome, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode] =
+        await Promise.all([
+          publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUser", args: [acct] }),
+          publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserWorkingCapHeadroom", args: [acct] }).catch(() => 0n),
+          publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getLegBusiness", args: [acct] }).catch(() => [0n, 0n] as const),
+          publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingLeaderContestRewards", args: [acct] }).catch(() => 0n),
+          publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingContestRewards", args: [acct] }).catch(() => 0n),
+          publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonus", args: [acct] }).catch(() => [0n, 0n] as const),
+          publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingLeaderBonus", args: [acct] }).catch(() => [0n, 0n] as const),
+          publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "rankIncomePending", args: [acct] }).catch(() => 0n),
+          publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "balanceOf", args: [acct] }).catch(() => 0n),
+          publicClient.readContract({ address: carbAddr, abi: erc20Abi, functionName: "balanceOf", args: [acct] }).catch(() => 0n),
+          publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "allowance", args: [acct, pAddr] }).catch(() => 0n),
+          publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "userBoosterCompletedCycles", args: [acct] }).catch(() => 0n),
+          publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "userBoosterLastAccruedCycleBps", args: [acct] }).catch(() => 0n),
+          isTopId ? publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "topIdCurrentPrincipal" }).catch(() => 0n) : 0n,
+          isTopId ? publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "topIdLastCompoundedTime" }).catch(() => 0n) : 0n,
+          publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getFirstTopUpLegBusiness", args: [acct] }).catch(() => [0n, 0n] as const),
+          publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "leaderCodeOf", args: [acct] }).catch(() => 0n),
+        ]);
+
+      const isRegistered = u.registrationTime > 0n;
+      const currentRank = Number(u.currentRank);
+
+      // Positions, downlines, pool wins, level income and rank salary only need `u`, so they run together
+      const [positions, directs, rewardPoolWins, levelIncomeHarvestable, rankSalary] = await Promise.all([
+        Promise.all(
+          (u.positionIds ?? []).map(async (posId): Promise<EnhancedPosition> => {
+            try {
+              const [pos, live, cycles, lastBps] = await Promise.all([
+                publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPosition", args: [posId] }),
+                publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPositionLiveAccruedRoi", args: [posId] }),
+                publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "positionCompletedCycles", args: [posId] }).catch(() => 0n),
+                publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "positionLastAccruedCycleBps", args: [posId] }).catch(() => 0n),
+              ]);
+              return {
+                id: pos.id,
+                user: pos.user,
+                initialPrincipal: pos.initialPrincipal,
+                createdAt: Number(pos.createdAt),
+                lastUpdateTime: Number(pos.lastUpdateTime),
+                lockType: Number(pos.lockType) as LockType,
+                lockedAt: Number(pos.lockedAt),
+                roiAccrued: pos.roiAccrued,
+                roiWithdrawn: pos.roiWithdrawn,
+                flexRoiAccrued: pos.flexRoiAccrued,
+                lockRoiAccrued: pos.lockRoiAccrued,
+                liveAccruedRoi: live[0],
+                completedCycles: Number(cycles),
+                lastAccruedCycleBps: Number(lastBps),
+                maxCap: live[1],
+                isCapped: live[2],
+                active: pos.active,
+                cappedOut: pos.cappedOut,
+              };
+            } catch {
+              return {
+                id: posId,
+                user: acct,
+                initialPrincipal: 0n,
+                createdAt: 0,
+                lastUpdateTime: 0,
+                lockType: LockType.FLEXIBLE,
+                lockedAt: 0,
+                roiAccrued: 0n,
+                roiWithdrawn: 0n,
+                flexRoiAccrued: 0n,
+                lockRoiAccrued: 0n,
+                liveAccruedRoi: 0n,
+                completedCycles: 0,
+                lastAccruedCycleBps: 0,
+                maxCap: 0n,
+                isCapped: false,
+                active: false,
+                cappedOut: false,
+              };
+            }
+          })
+        ),
+        publicClient
+          .readContract({ address: viewAddress, abi: platformAbi, functionName: "getDirectDownlines", args: [acct] })
+          .then((d) => [...d])
+          .catch(() => [] as Address[]),
+        loadRewardPoolWins(acct),
+        // Referral (level) income has no stored balance: preview what a harvest would credit
+        publicClient
+          .simulateContract({ account: acct, address: pAddr, abi: harvestPreviewAbi, functionName: "harvestLevelIncome" })
+          .then(({ result }) => result[1])
+          .catch(() => 0n),
+        loadRankSalary(acct, currentRank),
+      ]);
+
+      return {
+        isRegistered,
+        isTopId,
+        topIdPrincipal,
+        topIdLastCompoundedTime: Number(topIdLastCompounded),
+        sponsor: u.sponsor,
+        registrationTime: Number(u.registrationTime),
+        firstDepositTime: Number(u.firstDepositTime),
+        totalPersonalDeposit: u.totalPersonalDeposit,
+        totalActiveDeposit: u.totalActiveDeposit,
+        totalDirectBusiness: u.totalDirectBusiness,
+        totalTeamBusiness: u.totalTeamBusiness,
+        activeDirectCount: Number(u.activeDirectCount),
+        boosterTier: Number(u.boosterTier),
+        boosterFirstPackageAmount: u.boosterFirstPackageAmount,
+        boosterAccrued: u.boosterAccrued,
+        boosterCapReached: u.boosterCapReached,
+        boosterCompletedCycles: Number(boosterCycles),
+        boosterLastAccruedCycleBps: Number(boosterLastBps),
+        currentRank,
+        usedLeader: u.usedLeader,
+        roiCycleStartTime: Number(u.roiCycleStartTime),
+        workingIncomePending: u.workingIncomePending,
+        workingIncomeWithdrawn: u.workingIncomeWithdrawn,
+        roiIncomePending: u.roiIncomePending,
+        roiIncomeWithdrawn: u.roiIncomeWithdrawn,
+        boosterIncomePending: u.boosterIncomePending,
+        boosterIncomeWithdrawn: u.boosterIncomeWithdrawn,
+        leaderIncomePending: u.leaderIncomePending,
+        leaderIncomeWithdrawn: u.leaderIncomeWithdrawn,
+        workingCapConsumed: u.workingCapConsumed,
+        workingCapHeadroom: headroom,
+        pendingLeaderContestRewards: pLeaderContest,
+        pendingContestRewards: pContest,
+        pendingDirectBonusAvailable: pDirectBonus[0],
+        pendingDirectBonusLocked: pDirectBonus[1],
+        pendingLeaderBonusAvailable: pLeaderBonus[0],
+        pendingLeaderBonusLocked: pLeaderBonus[1],
+        rankIncomePending: rankIncome,
+        levelIncomeHarvestable,
+        rewardPoolWins,
+        rankSalary,
+        powerLegBusiness: legBiz[0],
+        weakerLegBusiness: legBiz[1],
+        cleanPowerLegBusiness: cleanLegBiz[0],
+        cleanWeakerLegBusiness: cleanLegBiz[1],
+        leaderCode,
+        positions,
+        directDownlines: directs,
+        usdtBalance: usdtBal,
+        carbBalance: carbBal,
+        usdtAllowance: usdtAllow,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  // Reward pool cycles won by this user and not yet claimed (looks at the latest cycles of each pool)
+  async function loadRewardPoolWins(acct: Address): Promise<PlatformUser["rewardPoolWins"]> {
+    if (!poolEngine) return [];
+    const engine = poolEngine;
+    const cycleFns = { 1: "neonCycleId", 2: "hydraCycleId", 3: "genosisCycleId" } as const;
+    const perPool = await Promise.all(
+      ([1, 2, 3] as const).map(async (poolType) => {
+        try {
+          const latest = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: cycleFns[poolType] });
+          const first = latest > 30n ? latest - 29n : 1n;
+          const cycleIds: bigint[] = [];
+          for (let id = first; id <= latest; id++) cycleIds.push(id);
+          const wins = await Promise.all(
+            cycleIds.map(async (cycleId) => {
+              try {
+                const winners = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "getPoolWinners", args: [poolType, cycleId] });
+                if (!winners.some((w) => w.toLowerCase() === acct.toLowerCase())) return undefined;
+                const claimed = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "poolClaimed", args: [poolType, cycleId, acct] });
+                if (claimed) return undefined;
+                let amount = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "poolWinnerReward", args: [poolType, cycleId, acct] });
+                if (amount === 0n) {
+                  amount = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "poolRewardPerWinner", args: [poolType, cycleId] });
+                }
+                return { poolType, cycleId, amount };
+              } catch {
+                return undefined;
+              }
+            })
+          );
+          return wins.filter((w): w is NonNullable<typeof w> => !!w);
+        } catch {
+          return [];
+        }
+      })
+    );
+    return perPool.flat();
+  }
+
+  // Rank salary: one weekly stream per rank reached
+  async function loadRankSalary(acct: Address, currentRank: number): Promise<PlatformUser["rankSalary"]> {
+    const rankSalary: PlatformUser["rankSalary"] = { totalClaimable: 0n, streams: [] };
+    if (currentRank <= 0) return rankSalary;
+    try {
+      const teamEngine = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "teamEngine" });
+      const [claimable, claimableWeeks] = await publicClient.readContract({
+        address: teamEngine,
+        abi: teamEngineAbi,
+        functionName: "getClaimableWeeklySalaryBonus",
+        args: [acct],
+      });
+      rankSalary.totalClaimable = claimable;
+      const ranks = Array.from({ length: Math.min(currentRank, 15) }, (_, i) => i + 1);
+      rankSalary.streams = await Promise.all(
+        ranks.map(async (rank) => {
+          const [weeklyPayout, startTime, durationWeeks, weeksClaimed, , remainingWeeks] = await publicClient.readContract({
+            address: teamEngine,
+            abi: teamEngineAbi,
+            functionName: "getUserRankStream",
+            args: [acct, BigInt(rank)],
+          });
+          return {
+            rank,
+            weeklyPayout,
+            startTime: Number(startTime),
+            durationWeeks: Number(durationWeeks),
+            weeksClaimed: Number(weeksClaimed),
+            claimableWeeks: Number(claimableWeeks[rank - 1]),
+            remainingWeeks: Number(remainingWeeks),
+          };
+        })
+      );
+    } catch {}
+    return rankSalary;
+  }
+
+  // Market reads that do not depend on each other run together
+  const [tokenLinks, pools, athPrice, contest, blockTimestamp] = await Promise.all([
+    Promise.all([
       publicClient.readContract({ address: carbAddr, abi: tokenContractAbi, functionName: "dexPair" }).catch(() => pairAddr),
       publicClient.readContract({ address: carbAddr, abi: tokenContractAbi, functionName: "twapOracle" }).catch(() => oracleAddr),
-    ]);
-    if (p && p !== "0x0000000000000000000000000000000000000000") pairAddr = p;
-    if (o && o !== "0x0000000000000000000000000000000000000000") oracleAddr = o;
-  } catch {}
+    ]),
+    // Reward pools are a ledger inside the payout engine; the USDT itself sits in the platform contract.
+    // (rewardPoolWallet() returns the admin/Top ID wallet, so its USDT balance is NOT the pool.)
+    (async () => {
+      const rewardPools = { neon: 0n, hydra: 0n, genosis: 0n };
+      let accumulated = 0n;
+      let liabilities = 0n;
+      if (poolEngine) {
+        const pe = poolEngine;
+        const read = (functionName: "neonPoolBalance" | "hydraPoolBalance" | "genosisPoolBalance" | "accumulatedPoolBalance" | "totalRewardPoolLiabilities") =>
+          publicClient.readContract({ address: pe, abi: payoutPoolsAbi, functionName }).catch(() => 0n);
+        [rewardPools.neon, rewardPools.hydra, rewardPools.genosis, accumulated, liabilities] = await Promise.all([
+          read("neonPoolBalance"),
+          read("hydraPoolBalance"),
+          read("genosisPoolBalance"),
+          read("accumulatedPoolBalance"),
+          read("totalRewardPoolLiabilities"),
+        ]);
+      }
+      return { rewardPools, accumulated, liabilities };
+    })(),
+    (async () => {
+      try {
+        const earn = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "earnEngine" });
+        return await publicClient.readContract({ address: earn, abi: earnEngineAbi, functionName: "globalATHPrice" });
+      } catch {
+        return undefined;
+      }
+    })(),
+    (async () => {
+      try {
+        const day = BigInt(Math.floor(Date.now() / 1000 / 86400));
+        const [triggered, dayHigh] = await publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getContestDay", args: [day] });
+        return { contestDayHigh: dayHigh as bigint | undefined, contestTriggered: triggered as boolean | undefined };
+      } catch {
+        return { contestDayHigh: undefined, contestTriggered: undefined };
+      }
+    })(),
+    publicClient.getBlock().then((b) => Number(b.timestamp)).catch(() => Math.floor(Date.now() / 1000)),
+  ]);
 
-  // Reward pools are a ledger inside the payout engine; the USDT itself sits in the platform contract.
-  // (rewardPoolWallet() returns the admin/Top ID wallet, so its USDT balance is NOT the pool.)
-  let poolEngine: Address | undefined;
-  const rewardPools = { neon: 0n, hydra: 0n, genosis: 0n };
-  let rewardPoolAccumulated = 0n;
-  let rewardPoolLiabilities = 0n;
-  try {
-    const pe = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "payoutEngine" });
-    if (pe && pe !== "0x0000000000000000000000000000000000000000") {
-      poolEngine = pe;
-      const read = (functionName: "neonPoolBalance" | "hydraPoolBalance" | "genosisPoolBalance" | "accumulatedPoolBalance" | "totalRewardPoolLiabilities") =>
-        publicClient.readContract({ address: pe, abi: payoutPoolsAbi, functionName }).catch(() => 0n);
-      [rewardPools.neon, rewardPools.hydra, rewardPools.genosis, rewardPoolAccumulated, rewardPoolLiabilities] = await Promise.all([
-        read("neonPoolBalance"),
-        read("hydraPoolBalance"),
-        read("genosisPoolBalance"),
-        read("accumulatedPoolBalance"),
-        read("totalRewardPoolLiabilities"),
-      ]);
-    }
-  } catch {}
+  const [p, o] = tokenLinks;
+  if (p && p !== ZERO) pairAddr = p;
+  if (o && o !== ZERO) oracleAddr = o;
+  const { rewardPools, accumulated: rewardPoolAccumulated, liabilities: rewardPoolLiabilities } = pools;
+  const { contestDayHigh, contestTriggered } = contest;
 
   const addresses: PlatformAddresses = {
     platform: pAddr,
@@ -273,41 +539,43 @@ export async function fetchPlatformData(account?: Address): Promise<{
     rewardPool: poolEngine ?? pAddr,
   };
 
-  // Read DEX pool reserves
+  // Pair and oracle addresses are known now: DEX reserves and TWAP load together
   let reserves: [bigint, bigint, number] | undefined;
   let token0Addr: Address = carbAddr;
-  try {
-    const [res, t0] = await Promise.all([
-      publicClient.readContract({ address: pairAddr, abi: pairAbi, functionName: "getReserves" }),
-      publicClient.readContract({ address: pairAddr, abi: pairAbi, functionName: "token0" }),
-    ]);
-    reserves = [BigInt(res[0]), BigInt(res[1]), Number(res[2])];
-    token0Addr = t0;
-  } catch {}
+  let twapPrice: bigint | undefined;
+  let twapWindowSec: number | undefined;
+  await Promise.all([
+    (async () => {
+      try {
+        const [res, t0] = await Promise.all([
+          publicClient.readContract({ address: pairAddr, abi: pairAbi, functionName: "getReserves" }),
+          publicClient.readContract({ address: pairAddr, abi: pairAbi, functionName: "token0" }),
+        ]);
+        reserves = [BigInt(res[0]), BigInt(res[1]), Number(res[2])];
+        token0Addr = t0;
+      } catch {}
+    })(),
+    (async () => {
+      try {
+        const [twapRes, window] = await Promise.all([
+          publicClient.readContract({ address: oracleAddr, abi: oracleAbi, functionName: "getLatestTwap" }),
+          publicClient.readContract({ address: oracleAddr, abi: oracleAbi, functionName: "twapWindow" }).catch(() => undefined),
+        ]);
+        if (twapRes[0] > 0n) twapPrice = twapRes[0];
+        if (window !== undefined) twapWindowSec = Number(window);
+      } catch {}
+    })(),
+  ]);
 
   const isToken0Carb = token0Addr.toLowerCase() === carbAddr.toLowerCase();
-  const carbReserve = reserves ? (isToken0Carb ? reserves[0] : reserves[1]) : undefined;
-  const usdtReserve = reserves ? (isToken0Carb ? reserves[1] : reserves[0]) : undefined;
+  const reservePair = reserves as [bigint, bigint, number] | undefined;
+  const carbReserve = reservePair ? (isToken0Carb ? reservePair[0] : reservePair[1]) : undefined;
+  const usdtReserve = reservePair ? (isToken0Carb ? reservePair[1] : reservePair[0]) : undefined;
 
   let spotPrice: bigint | undefined;
   if (carbReserve && usdtReserve) {
     spotPrice = (usdtReserve * 10n ** 18n) / carbReserve;
   }
-
-  let athPrice: bigint | undefined;
-  try {
-    const earn = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "earnEngine" });
-    athPrice = await publicClient.readContract({ address: earn, abi: earnEngineAbi, functionName: "globalATHPrice" });
-  } catch {}
-
-  let contestDayHigh: bigint | undefined;
-  let contestTriggered: boolean | undefined;
-  try {
-    const day = BigInt(Math.floor(Date.now() / 1000 / 86400));
-    const [triggered, dayHigh] = await publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getContestDay", args: [day] });
-    contestDayHigh = dayHigh;
-    contestTriggered = triggered;
-  } catch {}
 
   let buybackPoolUSDT = 0n;
   let farmingPrincipalUSDT = 0n;
@@ -326,23 +594,6 @@ export async function fetchPlatformData(account?: Address): Promise<{
       farmingLpValueUSDT = (lpBal * usdtReserve * 2n) / lpSupply;
       farmingLpShareBps = Number((lpBal * 10_000n) / lpSupply);
     }
-  } catch {}
-
-  let twapPrice: bigint | undefined;
-  let twapWindowSec: number | undefined;
-  try {
-    const [twapRes, window] = await Promise.all([
-      publicClient.readContract({ address: oracleAddr, abi: oracleAbi, functionName: "getLatestTwap" }),
-      publicClient.readContract({ address: oracleAddr, abi: oracleAbi, functionName: "twapWindow" }).catch(() => undefined),
-    ]);
-    if (twapRes[0] > 0n) twapPrice = twapRes[0];
-    if (window !== undefined) twapWindowSec = Number(window);
-  } catch {}
-
-  let blockTimestamp = Math.floor(Date.now() / 1000);
-  try {
-    const block = await publicClient.getBlock();
-    blockTimestamp = Number(block.timestamp);
   } catch {}
 
   const market: PlatformMarket = {
@@ -368,237 +619,34 @@ export async function fetchPlatformData(account?: Address): Promise<{
     farmingLpShareBps,
   };
 
-  if (!account) {
-    return { addresses, market };
-  }
-
-  // Read User Data
-  try {
-    const isTopId = topIdAddr !== "0x0000000000000000000000000000000000000000" && account.toLowerCase() === topIdAddr.toLowerCase();
-    const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, pLeaderBonus, rankIncome, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode] =
-      await Promise.all([
-        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUser", args: [account] }),
-        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserWorkingCapHeadroom", args: [account] }).catch(() => 0n),
-        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getLegBusiness", args: [account] }).catch(() => [0n, 0n] as const),
-        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingLeaderContestRewards", args: [account] }).catch(() => 0n),
-        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingContestRewards", args: [account] }).catch(() => 0n),
-        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonus", args: [account] }).catch(() => [0n, 0n] as const),
-        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingLeaderBonus", args: [account] }).catch(() => [0n, 0n] as const),
-        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "rankIncomePending", args: [account] }).catch(() => 0n),
-        publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "balanceOf", args: [account] }).catch(() => 0n),
-        publicClient.readContract({ address: carbAddr, abi: erc20Abi, functionName: "balanceOf", args: [account] }).catch(() => 0n),
-        publicClient.readContract({ address: usdtAddr, abi: erc20Abi, functionName: "allowance", args: [account, pAddr] }).catch(() => 0n),
-        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "userBoosterCompletedCycles", args: [account] }).catch(() => 0n),
-        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "userBoosterLastAccruedCycleBps", args: [account] }).catch(() => 0n),
-        isTopId ? publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "topIdCurrentPrincipal" }).catch(() => 0n) : 0n,
-        isTopId ? publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "topIdLastCompoundedTime" }).catch(() => 0n) : 0n,
-        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getFirstTopUpLegBusiness", args: [account] }).catch(() => [0n, 0n] as const),
-        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "leaderCodeOf", args: [account] }).catch(() => 0n),
-      ]);
-
-    const isRegistered = u.registrationTime > 0n;
-
-    // Fetch user positions
-    const posIds = u.positionIds ?? [];
-    const positions: EnhancedPosition[] = await Promise.all(
-      posIds.map(async (posId) => {
-        try {
-          const [pos, live, cycles, lastBps] = await Promise.all([
-            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPosition", args: [posId] }),
-            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPositionLiveAccruedRoi", args: [posId] }),
-            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "positionCompletedCycles", args: [posId] }).catch(() => 0n),
-            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "positionLastAccruedCycleBps", args: [posId] }).catch(() => 0n),
-          ]);
-          return {
-            id: pos.id,
-            user: pos.user,
-            initialPrincipal: pos.initialPrincipal,
-            createdAt: Number(pos.createdAt),
-            lastUpdateTime: Number(pos.lastUpdateTime),
-            lockType: Number(pos.lockType) as LockType,
-            lockedAt: Number(pos.lockedAt),
-            roiAccrued: pos.roiAccrued,
-            roiWithdrawn: pos.roiWithdrawn,
-            flexRoiAccrued: pos.flexRoiAccrued,
-            lockRoiAccrued: pos.lockRoiAccrued,
-            liveAccruedRoi: live[0],
-            completedCycles: Number(cycles),
-            lastAccruedCycleBps: Number(lastBps),
-            maxCap: live[1],
-            isCapped: live[2],
-            active: pos.active,
-            cappedOut: pos.cappedOut,
-          };
-        } catch {
-          return {
-            id: posId,
-            user: account,
-            initialPrincipal: 0n,
-            createdAt: 0,
-            lastUpdateTime: 0,
-            lockType: LockType.FLEXIBLE,
-            lockedAt: 0,
-            roiAccrued: 0n,
-            roiWithdrawn: 0n,
-            flexRoiAccrued: 0n,
-            lockRoiAccrued: 0n,
-            liveAccruedRoi: 0n,
-            completedCycles: 0,
-            lastAccruedCycleBps: 0,
-            maxCap: 0n,
-            isCapped: false,
-            active: false,
-            cappedOut: false,
-          };
-        }
-      })
-    );
-
-    let directs: Address[] = [];
-    try {
-      const d = await publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getDirectDownlines", args: [account] });
-      directs = [...d];
-    } catch {}
-
-    // Reward pool cycles won by this user and not yet claimed (looks at the latest cycles of each pool)
-    const rewardPoolWins: PlatformUser["rewardPoolWins"] = [];
-    if (poolEngine) {
-      const cycleFns = { 1: "neonCycleId", 2: "hydraCycleId", 3: "genosisCycleId" } as const;
-      for (const poolType of [1, 2, 3] as const) {
-        try {
-          const latest = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: cycleFns[poolType] });
-          const first = latest > 30n ? latest - 29n : 1n;
-          for (let cycleId = first; cycleId <= latest; cycleId++) {
-            const winners = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: "getPoolWinners", args: [poolType, cycleId] });
-            if (!winners.some((w) => w.toLowerCase() === account.toLowerCase())) continue;
-            const claimed = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: "poolClaimed", args: [poolType, cycleId, account] });
-            if (claimed) continue;
-            let amount = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: "poolWinnerReward", args: [poolType, cycleId, account] });
-            if (amount === 0n) {
-              amount = await publicClient.readContract({ address: poolEngine, abi: payoutPoolsAbi, functionName: "poolRewardPerWinner", args: [poolType, cycleId] });
-            }
-            rewardPoolWins.push({ poolType, cycleId, amount });
-          }
-        } catch {}
-      }
-    }
-
-    // Referral (level) income has no stored balance: preview what a harvest would credit
-    let levelIncomeHarvestable = 0n;
-    try {
-      const { result } = await publicClient.simulateContract({
-        account,
-        address: pAddr,
-        abi: harvestPreviewAbi,
-        functionName: "harvestLevelIncome",
-      });
-      levelIncomeHarvestable = result[1];
-    } catch {}
-
-    // Rank salary: one weekly stream per rank reached
-    const rankSalary: PlatformUser["rankSalary"] = { totalClaimable: 0n, streams: [] };
-    const currentRank = Number(u.currentRank);
-    if (currentRank > 0) {
-      try {
-        const teamEngine = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "teamEngine" });
-        const [claimable, claimableWeeks] = await publicClient.readContract({
-          address: teamEngine,
-          abi: teamEngineAbi,
-          functionName: "getClaimableWeeklySalaryBonus",
-          args: [account],
-        });
-        rankSalary.totalClaimable = claimable;
-        for (let rank = 1; rank <= Math.min(currentRank, 15); rank++) {
-          const [weeklyPayout, startTime, durationWeeks, weeksClaimed, , remainingWeeks] = await publicClient.readContract({
-            address: teamEngine,
-            abi: teamEngineAbi,
-            functionName: "getUserRankStream",
-            args: [account, BigInt(rank)],
-          });
-          rankSalary.streams.push({
-            rank,
-            weeklyPayout,
-            startTime: Number(startTime),
-            durationWeeks: Number(durationWeeks),
-            weeksClaimed: Number(weeksClaimed),
-            claimableWeeks: Number(claimableWeeks[rank - 1]),
-            remainingWeeks: Number(remainingWeeks),
-          });
-        }
-      } catch {}
-    }
-
-    const user: PlatformUser = {
-      isRegistered,
-      isTopId,
-      topIdPrincipal,
-      topIdLastCompoundedTime: Number(topIdLastCompounded),
-      sponsor: u.sponsor,
-      registrationTime: Number(u.registrationTime),
-      firstDepositTime: Number(u.firstDepositTime),
-      totalPersonalDeposit: u.totalPersonalDeposit,
-      totalActiveDeposit: u.totalActiveDeposit,
-      totalDirectBusiness: u.totalDirectBusiness,
-      totalTeamBusiness: u.totalTeamBusiness,
-      activeDirectCount: Number(u.activeDirectCount),
-      boosterTier: Number(u.boosterTier),
-      boosterFirstPackageAmount: u.boosterFirstPackageAmount,
-      boosterAccrued: u.boosterAccrued,
-      boosterCapReached: u.boosterCapReached,
-      boosterCompletedCycles: Number(boosterCycles),
-      boosterLastAccruedCycleBps: Number(boosterLastBps),
-      currentRank: Number(u.currentRank),
-      usedLeader: u.usedLeader,
-      roiCycleStartTime: Number(u.roiCycleStartTime),
-      workingIncomePending: u.workingIncomePending,
-      workingIncomeWithdrawn: u.workingIncomeWithdrawn,
-      roiIncomePending: u.roiIncomePending,
-      roiIncomeWithdrawn: u.roiIncomeWithdrawn,
-      boosterIncomePending: u.boosterIncomePending,
-      boosterIncomeWithdrawn: u.boosterIncomeWithdrawn,
-      leaderIncomePending: u.leaderIncomePending,
-      leaderIncomeWithdrawn: u.leaderIncomeWithdrawn,
-      workingCapConsumed: u.workingCapConsumed,
-      workingCapHeadroom: headroom,
-      pendingLeaderContestRewards: pLeaderContest,
-      pendingContestRewards: pContest,
-      pendingDirectBonusAvailable: pDirectBonus[0],
-      pendingDirectBonusLocked: pDirectBonus[1],
-      pendingLeaderBonusAvailable: pLeaderBonus[0],
-      pendingLeaderBonusLocked: pLeaderBonus[1],
-      rankIncomePending: rankIncome,
-      levelIncomeHarvestable,
-      rewardPoolWins,
-      rankSalary,
-      powerLegBusiness: legBiz[0],
-      weakerLegBusiness: legBiz[1],
-      cleanPowerLegBusiness: cleanLegBiz[0],
-      cleanWeakerLegBusiness: cleanLegBiz[1],
-      leaderCode,
-      positions,
-      directDownlines: directs,
-      usdtBalance: usdtBal,
-      carbBalance: carbBal,
-      usdtAllowance: usdtAllow,
-    };
-
-    return { addresses, market, user };
-  } catch {
-    return { addresses, market };
-  }
+  const user = await userPromise;
+  return user ? { addresses, market, user } : { addresses, market };
 }
 
+type PlatformData = {
+  addresses?: PlatformAddresses;
+  market: PlatformMarket;
+  user?: PlatformUser;
+};
+
+// Last result per wallet, so moving from the login page to the dashboard shows data instantly
+// while a fresh fetch runs in the background (ponytail: in-memory only, lost on full page reload)
+const dataCache = new Map<string, PlatformData>();
+const cacheKey = (account?: Address) => account?.toLowerCase() ?? "public";
+
+const EMPTY_DATA: PlatformData = { market: getEmptyMarket() };
+
 export function usePlatform(account?: Address) {
-  const [data, setData] = useState<{
-    addresses?: PlatformAddresses;
-    market: PlatformMarket;
-    user?: PlatformUser;
-  }>({
-    market: getEmptyMarket(),
-  });
-  const [loading, setLoading] = useState(true);
+  const key = cacheKey(account);
+  const [fetched, setFetched] = useState<{ key: string; data: PlatformData }>();
+  const [doneKey, setDoneKey] = useState<string>();
   const [error, setError] = useState<string>();
   const [refreshCount, setRefreshCount] = useState(0);
+
+  // Fresh result for this wallet, else the cached one, else empty
+  const cached = dataCache.get(key);
+  const data = fetched?.key === key ? fetched.data : cached ?? EMPTY_DATA;
+  const loading = doneKey !== key && !cached;
 
   useEffect(() => {
     let unmounted = false;
@@ -606,13 +654,14 @@ export function usePlatform(account?: Address) {
       try {
         const res = await fetchPlatformData(account);
         if (!unmounted) {
-          setData(res);
+          if (!account || res.user) dataCache.set(key, res);
+          setFetched({ key, data: res });
           setError(undefined);
         }
       } catch (err: unknown) {
         if (!unmounted) setError(err instanceof Error ? err.message : String(err));
       } finally {
-        if (!unmounted) setLoading(false);
+        if (!unmounted) setDoneKey(key);
       }
     }
     load();
@@ -621,7 +670,7 @@ export function usePlatform(account?: Address) {
       unmounted = true;
       clearInterval(timer);
     };
-  }, [account, refreshCount]);
+  }, [account, key, refreshCount]);
 
   return {
     ...data,
@@ -629,6 +678,24 @@ export function usePlatform(account?: Address) {
     error,
     refresh: () => setRefreshCount((c) => c + 1),
   };
+}
+
+/** Registered state of a wallet from one cheap call; both values stay undefined while checking. */
+export function useIsRegistered(account?: Address) {
+  const [state, setState] = useState<{ account?: Address; registered?: boolean; failed?: boolean }>({});
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!account) return;
+    let off = false;
+    fetchIsRegistered(account)
+      .then((registered) => !off && setState({ account, registered }))
+      .catch(() => !off && setState({ account, failed: true }));
+    return () => {
+      off = true;
+    };
+  }, [account, attempt]);
+  const current = state.account === account ? state : {};
+  return { registered: current.registered, failed: current.failed, recheck: () => setAttempt((n) => n + 1) };
 }
 
 export function usePlatformNow(baseTimestamp?: number) {

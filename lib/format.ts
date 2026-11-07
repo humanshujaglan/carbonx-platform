@@ -1,4 +1,5 @@
 import { BaseError, ContractFunctionRevertedError, UserRejectedRequestError, formatUnits } from "viem";
+import { customErrorMessage, customErrorNameMessage } from "./contract-errors";
 
 const usdFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 const numFmt = (digits: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: digits });
@@ -59,7 +60,11 @@ export function errorMessage(err: unknown): string {
   if (err instanceof BaseError) {
     if (err.walk((e) => e instanceof UserRejectedRequestError)) return "Transaction rejected in wallet.";
     const revert = err.walk((e) => e instanceof ContractFunctionRevertedError);
-    if (revert instanceof ContractFunctionRevertedError) return revert.reason ?? revert.shortMessage;
+    if (revert instanceof ContractFunctionRevertedError) {
+      // Custom errors: decoded name when the ABI has it, otherwise the raw 4-byte selector
+      const known = revert.data?.errorName ? customErrorNameMessage(revert.data.errorName) : customErrorMessage(revert.signature);
+      return revert.reason ?? known ?? "Transaction would fail. Please check your inputs and try again.";
+    }
     return err.shortMessage;
   }
   if (err && typeof err === "object" && "code" in err && (err as { code: number }).code === 4001) {

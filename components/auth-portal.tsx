@@ -38,27 +38,23 @@ export function AuthPortal({
   addresses,
   user,
   market,
-  loadingUser = false,
-  loginStatus = "idle",
+  registration = "none",
   initialView,
-  onEnterDashboard,
   onLogin,
-  onRequestUser,
+  onRetry,
   onRefresh,
 }: {
   addresses?: PlatformAddresses;
   user?: PlatformUser;
   market?: PlatformMarket;
-  loadingUser?: boolean;
   /** Which screen to open first (used by the separate /login and /register pages). */
   initialView?: "starter" | "register_form" | "login_wallets";
-  /** Progress of a Login click: user details are fetched only after it. */
-  loginStatus?: "idle" | "loading" | "unregistered" | "error";
-  onEnterDashboard: () => void;
-  /** Login click: connect if needed, fetch the user and enter the dashboard. */
+  /** Whether the connected wallet is a member: decides between the Login and Register button. */
+  registration?: "none" | "checking" | "registered" | "unregistered" | "error";
+  /** Login click for a registered wallet: enter the dashboard. */
   onLogin: () => void;
-  /** Register click: the register form needs the user's balance and allowance. */
-  onRequestUser: () => void;
+  /** Re-run a failed registration check. */
+  onRetry: () => void;
   onRefresh: () => void;
 }) {
   const {
@@ -239,11 +235,6 @@ export function AuthPortal({
       });
     }
   }
-
-  const handleRegisterClick = () => {
-    onRequestUser();
-    setViewStep("register_form");
-  };
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col items-center overflow-x-hidden overflow-y-auto bg-[#040705] p-0 select-none w-full">
@@ -553,39 +544,42 @@ export function AuthPortal({
                   )}
                 </div>
 
-                {/* LOGIN: connects the wallet if needed, then fetches the user */}
+                {/* One action button: Connect, Login (member) or Register (new wallet) */}
                 <button
                   type="button"
-                  onClick={onLogin}
-                  disabled={loginStatus === "loading"}
+                  disabled={registration === "checking"}
+                  onClick={() => {
+                    if (registration === "registered") onLogin();
+                    else if (registration === "unregistered") setViewStep("register_form");
+                    else if (registration === "error") onRetry();
+                    else connect().catch(() => {});
+                  }}
                   className="btn btn-primary w-full rounded-2xl py-4 text-base font-semibold flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {loginStatus === "loading" ? (
-                    <span>Checking account...</span>
-                  ) : !account ? (
-                    <span>Connect Wallet &amp; Login</span>
-                  ) : (
+                  {registration === "checking" ? (
+                    <>
+                      <Spinner />
+                      <span>Checking account...</span>
+                    </>
+                  ) : registration === "registered" ? (
                     <>
                       <span>Login</span>
                       <ArrowRight size={18} color="#051207" />
                     </>
+                  ) : registration === "unregistered" ? (
+                    <span>Register</span>
+                  ) : registration === "error" ? (
+                    <span>Try again</span>
+                  ) : (
+                    <span>Connect Wallet</span>
                   )}
                 </button>
 
-                {/* REGISTER: separate button */}
-                <button
-                  type="button"
-                  onClick={handleRegisterClick}
-                  className="w-full rounded-2xl border border-neon/40 bg-transparent py-4 text-base font-semibold text-neon transition hover:bg-neon/10 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>Register</span>
-                </button>
-
                 <div className="text-center text-xs font-normal text-muted pt-0.5">
-                  {loginStatus === "unregistered" ? (
-                    <span className="text-danger">This wallet is not registered yet. Tap Register to join.</span>
-                  ) : loginStatus === "error" ? (
-                    <span className="text-danger">Could not load your account. Please try again.</span>
+                  {registration === "unregistered" ? (
+                    <span>This wallet is not registered yet. Tap Register to join.</span>
+                  ) : registration === "error" ? (
+                    <span className="text-danger">Could not check your account. Please try again.</span>
                   ) : !account ? (
                     <span>Connect Your Web3 Wallet To Start</span>
                   ) : (
@@ -620,7 +614,7 @@ export function AuthPortal({
               aria-label="Back"
               className="absolute left-0 flex size-10 cursor-pointer items-center justify-center rounded-full border border-white/[0.08] bg-panel text-white transition hover:border-white/20"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={18} color="currentColor" />
             </button>
             <Image src={headerLogo} alt="CarbonX" priority className="h-8 w-auto object-contain sm:h-9" />
           </div>
@@ -767,7 +761,7 @@ export function AuthPortal({
                     placeholder="0x... (blank for Top ID)"
                     value={sponsorInput}
                     onChange={(e) => setSponsorInput(e.target.value.trim())}
-                    className="w-full rounded-xl border border-white/10 bg-[#14171d] px-3.5 py-3 text-xs text-white outline-none placeholder:text-muted/60 focus:border-[#22c55e]"
+                    className="w-full rounded-xl border border-white/10 bg-[#14171d] px-3.5 py-3 text-[10px] sm:text-xs text-white outline-none placeholder:text-muted/60 focus:border-[#22c55e]"
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">
@@ -824,7 +818,7 @@ export function AuthPortal({
               onClick={() => setViewStep("starter")}
               className="flex items-center gap-2 rounded-xl bg-[#121914] px-3 py-2 text-xs font-medium text-muted hover:text-white border border-white/[0.08] hover:border-white/20 transition cursor-pointer"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={16} color="currentColor" />
               <span>Back</span>
             </button>
             <div className="flex items-center justify-center">
