@@ -80,7 +80,7 @@ export function PackagesList({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {positions.map((pos) => {
+        {positions.map((pos, idx) => {
           const lock = LOCK_DETAILS[pos.lockType] ?? LOCK_DETAILS[LockType.FLEXIBLE];
           const live = packageLiveRoi(pos, owner, lhrTier, now);
           const capPct = live.capUsd ? Math.min(1, live.accruedUsd / live.capUsd) : 0;
@@ -99,7 +99,7 @@ export function PackagesList({
                 className="col-span-2 flex cursor-pointer flex-col gap-3 rounded-2xl border border-white/[0.08] bg-panel-2 p-3.5 text-left transition hover:border-white/20 active:scale-[0.98]"
               >
                 <div className="flex items-center justify-between gap-2 text-xs text-muted">
-                  <span>#{pos.id.toString()} · 50/50</span>
+                  <span>#{idx + 1} · 50/50</span>
                   <span className="text-base text-white">{usd(pos.initialPrincipal)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -128,7 +128,7 @@ export function PackagesList({
               className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-white/[0.08] bg-panel-2 p-3.5 text-left transition hover:border-white/20 active:scale-[0.98]"
             >
               <div className="flex items-center justify-between gap-2 text-xs text-muted">
-                <span>#{pos.id.toString()}</span>
+                <span>#{idx + 1}</span>
                 <span className="truncate">{lock.name}</span>
               </div>
               <div className="text-base text-white">{usd(pos.initialPrincipal)}</div>
@@ -142,7 +142,7 @@ export function PackagesList({
         })}
       </div>
 
-      <BottomSheet open={!!open} onClose={() => setOpenId(null)} title={open ? `Package #${open.id.toString()}` : ""}>
+      <BottomSheet open={!!open} onClose={() => setOpenId(null)} title={open ? `Package #${positions.indexOf(open) + 1}` : ""}>
         {open && openLive && openLock && (
           <>
             <SheetBlock>

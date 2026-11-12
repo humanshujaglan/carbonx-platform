@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatUnits } from "viem";
+import { formatUnits, type Address } from "viem";
 import { platformAbi } from "@/lib/abi";
-import { LockType } from "@/lib/config";
+import { LockType, viewAddress } from "@/lib/config";
 import { shortAddr, usd } from "@/lib/format";
 import {
   CAP_MULTIPLIER,
@@ -17,13 +17,16 @@ import {
   lockedDailyUsd,
   lockedGain,
 } from "@/lib/roi";
-import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
+import { publicClient, type PlatformAddresses, type PlatformMarket, type PlatformUser } from "@/lib/platform";
 import type { NavTab } from "./header";
 import { CardHeader, Notice, Row, Spinner, useTx } from "./ui";
 import { InfoSheet, SheetBlock } from "./info-sheet";
 import { useWallet } from "./wallet";
 import { IncomeSubTabs, type IncomeSubTabId } from "./income-sub-tabs";
 import { Hierarchy } from "iconsax-react";
+
+const TOP_ID_MATCH_DEPTH = 50;
+const TOP_ID_BATCH = 50;
 
 /**
  * Streams live ROI, Booster and Level income using the same schedules the contracts apply:
@@ -246,6 +249,7 @@ export function IncomesDashboard({
   // Real-time live streaming values grounded in on-chain parameters
   const lhrTier = market?.lhrTier ?? 0;
   const { liveLevel, levelPerSecUsd } = useLiveIncomeStreams(user, lhrTier);
+  const isTopId = !!user?.isTopId;
 
   const poolWins = user?.rewardPoolWins ?? [];
   const poolWinTotal = poolWins.reduce((sum, w) => sum + w.amount, 0n);
@@ -268,6 +272,50 @@ export function IncomesDashboard({
         return hash as Awaited<ReturnType<typeof write>>;
       },
       () => <span>Reward pool claimed!</span>
+    );
+  }
+
+  // Top ID deep match: levels 2-50 pay 3% (L2-30) / 2% (L31-50) of each downline's ROI. They settle when that
+  // downline's ROI accrues; this settles the rest in batches of 50 (the contract's limit), walking the tree
+  // breadth-first from the Top ID and moving a cursor forward on every run.
+  const [matchCursor, setMatchCursor] = useState(0);
+  async function settleDeepMatch() {
+    if (!addresses || !account) return;
+    await tx.run(
+      "Settling Deep Match...",
+      async () => {
+        const batch: Address[] = [];
+        let level: Address[] = [account];
+        let seen = 0;
+        for (let depth = 1; depth <= TOP_ID_MATCH_DEPTH && level.length > 0 && batch.length < TOP_ID_BATCH; depth++) {
+          level = (
+            await Promise.all(
+              level.map((a) =>
+                publicClient
+                  .readContract({ address: viewAddress, abi: platformAbi, functionName: "getDirectDownlines", args: [a] })
+                  .catch(() => [] as Address[])
+              )
+            )
+          ).flat() as Address[];
+          // Level 1 is the normal 10% sponsor reward; the match starts at level 2.
+          if (depth < 2) continue;
+          for (const a of level) {
+            if (seen++ >= matchCursor && batch.length < TOP_ID_BATCH) batch.push(a);
+          }
+        }
+        if (batch.length === 0) {
+          setMatchCursor(0);
+          throw new Error("No level 2-50 downlines left to settle. Starting over next time.");
+        }
+        setMatchCursor((c) => c + batch.length);
+        return write({
+          address: addresses.platform,
+          abi: platformAbi,
+          functionName: "harvestTopIdDownlinesBatch",
+          args: [batch],
+        });
+      },
+      () => <span>Deep match settled for the next downlines.</span>
     );
   }
 
@@ -309,6 +357,19 @@ export function IncomesDashboard({
                       Level income from your team. It is credited to your working balance whenever your downlines&apos; ROI
                       is accrued, and pauses while the liquidity tier is Rescue.
                     </p>
+                    {isTopId && (
+                      <SheetBlock title="Top ID deep match">
+                        <dl>
+                          <Row label="Level 1" value="10% (normal sponsor reward)" />
+                          <Row label="Levels 2-30" value="3% of each downline's ROI" accent />
+                          <Row label="Levels 31-50" value="2% of each downline's ROI" accent />
+                        </dl>
+                        <p>
+                          Paid to your working balance whenever a downline&apos;s ROI is settled, whatever your cap.
+                          Use Settle Deep Match to settle downlines in batches of 50.
+                        </p>
+                      </SheetBlock>
+                    )}
                     <SheetBlock title="Your team">
                       <dl>
                         <Row label="Active direct sponsors" value={`${user?.activeDirectCount ?? 0}`} />
@@ -349,6 +410,23 @@ export function IncomesDashboard({
                     </>
                   )}
                 </button>
+                {isTopId && (
+                  <button
+                    type="button"
+                    disabled={!user || !!tx.busy}
+                    onClick={settleDeepMatch}
+                    className="btn w-full mt-2 py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
+                  >
+                    {tx.busy === "Settling Deep Match..." ? (
+                      <Spinner />
+                    ) : (
+                      <>
+                        <Hierarchy size={16} />
+                        <span>Settle Deep Match (L2-50)</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
           </section>

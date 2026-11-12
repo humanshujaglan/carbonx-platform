@@ -42,6 +42,8 @@ export type DetailedUserNode = {
 export type TeamView = "tree" | "list";
 
 const MAX_LEVEL = 20;
+// The Top ID's deep match reaches level 50.
+const TOP_ID_MAX_LEVEL = 50;
 const MAX_ROWS = 200;
 
 export function StructureView({
@@ -71,6 +73,7 @@ export function StructureView({
   const [navPath, setNavPath] = useState<DetailedUserNode[]>([]);
 
   // Level inspected in list view
+  const maxLevel = user?.isTopId ? TOP_ID_MAX_LEVEL : MAX_LEVEL;
   const [level, setLevel] = useState<number>(1);
   const [levelInput, setLevelInput] = useState<string>("1");
   const [levelNodes, setLevelNodes] = useState<DetailedUserNode[]>([]);
@@ -234,7 +237,7 @@ export function StructureView({
   function applyLevel(raw: string) {
     setLevelInput(raw);
     const n = Math.floor(Number(raw));
-    if (Number.isFinite(n) && n >= 1) setLevel(Math.min(n, MAX_LEVEL));
+    if (Number.isFinite(n) && n >= 1) setLevel(Math.min(n, maxLevel));
   }
   const uplineUser = navPath.length > 1 ? navPath[navPath.length - 2] : null;
 
@@ -365,7 +368,7 @@ export function StructureView({
                 <input
                   type="number"
                   min={1}
-                  max={MAX_LEVEL}
+                  max={maxLevel}
                   value={levelInput}
                   onChange={(e) => applyLevel(e.target.value)}
                   onBlur={() => setLevelInput(String(level))}

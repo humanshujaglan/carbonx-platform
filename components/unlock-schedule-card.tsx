@@ -30,14 +30,17 @@ export function UnlockScheduleCard({
 
   const lockSeconds = LOCKED_CAP_DAY * DAY_SECONDS;
 
+  // Package numbers count this user's own packages (1, 2, 3...), not the global position id.
   const items = (user?.positions ?? [])
-    .filter((p) => p.active && !p.isCapped && p.lockType !== LockType.FLEXIBLE && p.lockedAt > 0)
-    .map((p) => {
+    .map((p, i) => ({ p, no: i + 1 }))
+    .filter(({ p }) => p.active && !p.isCapped && p.lockType !== LockType.FLEXIBLE && p.lockedAt > 0)
+    .map(({ p, no }) => {
       const principal = Number(formatUnits(p.initialPrincipal, 18));
       const lockedPrincipal = p.lockType === LockType.LOCKED_50 ? principal / 2 : principal;
       const unlockAt = p.lockedAt + lockSeconds;
       return {
         id: p.id.toString(),
+        no,
         unlockAt,
         payout: lockedPrincipal * CAP_MULTIPLIER,
       };
@@ -74,7 +77,7 @@ export function UnlockScheduleCard({
         >
           {items.map((item) => (
             <option key={item.id} value={item.id}>
-              Package #{item.id}
+              Package #{item.no}
             </option>
           ))}
         </select>

@@ -3,7 +3,14 @@
 import { formatUnits } from "viem";
 import { ArrowRight } from "iconsax-react";
 import type { PlatformUser } from "@/lib/platform";
-import { POWER_LEG_SHARE, WEAKER_LEGS_SHARE, rankTeamRequirementUsd, targetRank } from "@/lib/rank";
+import {
+  POWER_LEG_SHARE,
+  WEAKER_LEGS_SHARE,
+  rankDirectBusinessUsd,
+  rankSelfStakeUsd,
+  rankTeamRequirementUsd,
+  targetRank,
+} from "@/lib/rank";
 import type { NavTab } from "./header";
 
 const usdFull = (v: number) =>
@@ -29,11 +36,23 @@ export function RankBusinessCard({
   const weakerCap = required * WEAKER_LEGS_SHARE;
   const powerCap = required * POWER_LEG_SHARE;
 
+  const isTopId = !!user?.isTopId;
   const weaker = user ? Number(formatUnits(user.weakerLegBusiness, 18)) : 0;
   const power = user ? Number(formatUnits(user.powerLegBusiness, 18)) : 0;
-  // Mirrors the contract: the power leg only counts up to 40% of the requirement.
-  const powerCounted = Math.min(power, powerCap);
+  // Mirrors the contract: the power leg only counts up to 40% of the requirement. The Top ID has no
+  // 60:40 rule, so all of its team business counts.
+  const powerCounted = isTopId ? power : Math.min(power, powerCap);
   const counted = weaker + powerCounted;
+
+  // Other requirements, which the Top ID is exempt from.
+  const selfStake = user ? Number(formatUnits(user.activeDeposit, 18)) : 0;
+  const directBiz = user ? Number(formatUnits(user.activeDirectBusiness, 18)) : 0;
+  const extras = isTopId
+    ? []
+    : [
+        { name: "Own active stake", value: selfStake, cap: rankSelfStakeUsd(rank) },
+        { name: "Active direct business", value: directBiz, cap: rankDirectBusinessUsd(rank) },
+      ];
 
   const segments = [
     { name: "Weaker legs", share: "60%", value: weaker, cap: weakerCap, ratio: WEAKER_LEGS_SHARE, color: "linear-gradient(to bottom, #3bf857, #0a7a24)" },
@@ -61,6 +80,24 @@ export function RankBusinessCard({
         </span>
       </div>
 
+      {isTopId ? (
+        <>
+          {/* Top ID: team business only, no 60:40 split */}
+          <div className="relative h-12 overflow-hidden rounded-xl bg-white/[0.06]">
+            <div
+              className="absolute inset-y-0 left-0 rounded-xl transition-all duration-500"
+              style={{
+                width: `${pct(counted, required)}%`,
+                background: "linear-gradient(to bottom, #3bf857, #0a7a24)",
+              }}
+            />
+          </div>
+          <p className="text-xs text-muted">
+            Top ID ranks activate on total team business alone: no 60:40 split, own stake or direct business needed.
+          </p>
+        </>
+      ) : (
+        <>
       {/* 60:40 bar: weaker legs take 60% of the width, the power leg 40% */}
       <div className="flex h-12 gap-2">
         {segments.map((seg) => (
@@ -95,6 +132,26 @@ export function RankBusinessCard({
           </div>
         ))}
       </dl>
+
+      {extras.length > 0 && (
+        <dl className="flex flex-col">
+          {extras.map((row) => (
+            <div
+              key={row.name}
+              className="flex items-center gap-3 border-t border-white/[0.08] py-3 text-sm first:border-t-0"
+            >
+              <dt className="min-w-0 flex-1 truncate text-white">{row.name}</dt>
+              <dd className="shrink-0 font-semibold text-white">
+                {usdCompact(row.value)}
+                <span className="font-normal text-muted"> / {usdCompact(row.cap)}</span>
+              </dd>
+              <dd className="w-10 shrink-0 text-right text-muted">{pct(row.value, row.cap)}%</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+        </>
+      )}
     </section>
   );
 }
