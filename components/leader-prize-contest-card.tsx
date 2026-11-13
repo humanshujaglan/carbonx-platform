@@ -14,12 +14,24 @@ import {
 import { price } from "@/lib/format";
 import { fetchPriceHistory, type PricePoint } from "@/lib/price-history";
 import type { PlatformAddresses, PlatformMarket } from "@/lib/platform";
+import { FaqAccordion, type FaqItem } from "./faq-accordion";
 import { InfoSheet, SheetBlock } from "./info-sheet";
 import { Row } from "./ui";
 
 const SAMPLE_MS = 15_000;
 const MAX_SAMPLES = 600;
 const DROP_TARGET = 0.95;
+
+const FAQ: FaqItem[] = [
+  {
+    q: "When is this income generated?",
+    a: "Every day (UTC). Each new member's first package bought with a leader code adds to that day's pool. When the day ends, the pool is set at 2% of that business after the treasury fee (the rate can be set between 1% and 5%). Rewards can be claimed once the day has closed.",
+  },
+  {
+    q: "Who gets this income?",
+    a: "The top 50 leaders of the day, ranked by the first-package business their leader code brought in that day. The pool is split between them in proportion to that business. The Top ID does not take part. Rewards are credited to your working balance.",
+  },
+];
 
 type Sample = [number, number]; // [unix seconds, price]
 
@@ -225,6 +237,8 @@ export function LeaderPrizeContestCard({ market, addresses }: { market?: Platfor
           <dd className="shrink-0 font-semibold text-white">{reached ? "5%+" : `${downPct.toFixed(1)}%`}</dd>
         </div>
       </dl>
+
+      <FaqAccordion items={FAQ} />
     </section>
   );
 }

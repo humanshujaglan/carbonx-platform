@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowDown2 } from "iconsax-react";
 import { platformAbi } from "@/lib/abi";
 import { usd } from "@/lib/format";
 import type { PlatformAddresses, PlatformUser } from "@/lib/platform";
 import { Notice, Row, Spinner, useTx } from "./ui";
 import { DigitNumber } from "./digit-number";
+import { FaqAccordion, type FaqItem } from "./faq-accordion";
 import { InfoSheet, SheetBlock } from "./info-sheet";
 import { useWallet } from "./wallet";
 
@@ -17,7 +16,7 @@ import { useWallet } from "./wallet";
 const LEADER_CODE_WEAKER_CLEAN_TARGET = 3_000n * 10n ** 18n;
 const CHECK_LABEL = "Checking Leader Code Qualification...";
 
-const FAQ = [
+const FAQ: FaqItem[] = [
   {
     q: "Are re-top-ups from the weaker leg considered?",
     a: "No. Only the first package of each downline counts towards the leader code. Any later top-up or re-investment from the same member is left out.",
@@ -27,35 +26,6 @@ const FAQ = [
     a: "No. If a downline registered using a leader code, none of their business counts. Only members who joined without a leader code are counted.",
   },
 ];
-
-function FaqAccordion() {
-  const [openIdx, setOpenIdx] = useState<number | null>(null);
-  return (
-    <div className="flex flex-col">
-      {FAQ.map((item, i) => {
-        const open = openIdx === i;
-        return (
-          <div key={item.q} className="border-t border-white/[0.08] first:border-t-0">
-            <button
-              type="button"
-              aria-expanded={open}
-              onClick={() => setOpenIdx(open ? null : i)}
-              className="flex w-full cursor-pointer items-center justify-between gap-3 py-3 text-left text-sm font-medium text-white"
-            >
-              <span>{item.q}</span>
-              <ArrowDown2
-                size={16}
-                color="currentColor"
-                className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
-              />
-            </button>
-            {open && <p className="pb-3 text-xs text-muted">{item.a}</p>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 export function LeaderCodeCard({
   user,
@@ -120,9 +90,6 @@ export function LeaderCodeCard({
                 <Row label="Your progress" value={`${usd(cleanWeaker)} / ${usd(LEADER_CODE_WEAKER_CLEAN_TARGET)}`} />
               </dl>
             </SheetBlock>
-            <SheetBlock title="Questions">
-              <FaqAccordion />
-            </SheetBlock>
           </InfoSheet>
         </div>
       </div>
@@ -179,6 +146,8 @@ export function LeaderCodeCard({
           </>
         )}
       </div>
+
+      <FaqAccordion items={FAQ} />
     </section>
   );
 }
