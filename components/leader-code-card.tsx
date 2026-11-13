@@ -13,15 +13,16 @@ import { useWallet } from "./wallet";
 
 /**
  * Leader code unlocks once clean weaker-leg business reaches 3,000 USDT (TeamEngine `_checkLeaderCodeUnlock`).
- * Clean = first-package deposits from downlines who registered without a leader code; weaker = team clean − power leg clean.
+ * Clean = all deposits (first package and re-top-ups) from downlines who registered without a leader code;
+ * weaker = team clean − power leg clean.
  */
 const LEADER_CODE_WEAKER_CLEAN_TARGET = 3_000n * 10n ** 18n;
 const CHECK_LABEL = "Checking Leader Code Qualification...";
 
 const FAQ: FaqItem[] = [
   {
-    q: "Are re-top-ups from the weaker leg considered?",
-    a: "No. Only the first package of each downline counts towards the leader code. Any later top-up or re-investment from the same member is left out.",
+    q: "Are re-top-ups considered in weaker leg clean business?",
+    a: "Yes. Both the first package and every later re-top-up from a downline count towards your weaker leg clean business, as long as that downline registered without a leader code.",
   },
   {
     q: "Is business coming from a user already registered with a leader code considered?",
@@ -95,7 +96,7 @@ export function LeaderCodeCard({
           <InfoSheet title="Leader code activation">
             <p>
               You unlock your leader code once you have $3,000 of weaker leg business that did not come through a
-              leader code. Only the first package of each downline counts, and your power leg is left out.
+              leader code. First packages and re-top-ups both count, and your power leg is left out.
             </p>
             <SheetBlock title="Requirement">
               <dl>
