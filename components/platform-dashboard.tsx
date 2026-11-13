@@ -21,6 +21,7 @@ import { IncomesDashboard } from "./incomes-dashboard";
 import { IncomeHero } from "./income-hero";
 import { PartnerPoolPage, useIsPartner } from "./partner-pool-page";
 import { WithdrawDashboard } from "./withdraw-dashboard";
+import { SellPage } from "./sell-page";
 import { InvestCard } from "./invest-card";
 import { MarketRibbon } from "./market-ribbon";
 import { PackagesList } from "./packages-list";
@@ -282,6 +283,9 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
       {activeTab === "withdraw" && (
         <WithdrawDashboard user={user} addresses={addresses} market={market} onDone={refresh} />
       )}
+
+      {/* Tab: Sell CARB for USDT on PancakeSwap V2 */}
+      {activeTab === "sell" && <SellPage user={user ?? undefined} addresses={addresses} onDone={refresh} />}
 
       {/* Tab: Detailed Incomes (Alias to IncomesDashboard) */}
       {activeTab === "incomes" && (

@@ -20,6 +20,7 @@ export type NavTab =
   | "invest"
   | "incomes"
   | "withdraw"
+  | "sell"
   | "team"
   | "partner";
 

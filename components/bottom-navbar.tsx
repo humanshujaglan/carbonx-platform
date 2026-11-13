@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
+  ArrowSwapHorizontal,
   CardReceive,
   Crown1,
   Home2,
@@ -15,6 +16,7 @@ const TABS = [
   { id: "dashboard" as const, name: "Home", icon: Home2 },
   { id: "invest" as const, name: "Invest", icon: TrendUp },
   { id: "withdraw" as const, name: "Withdraw", icon: CardReceive },
+  { id: "sell" as const, name: "Sell", icon: ArrowSwapHorizontal },
   { id: "team" as const, name: "Team", icon: People },
   { id: "partner" as const, name: "Partner", icon: Crown1 },
 ];
