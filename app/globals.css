@@ -27,6 +27,8 @@
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   /* No monospace fonts anywhere: `font-mono` resolves to the same sans stack */
   --font-mono: var(--font-sans);
+  /* Condensed display face for big standalone figures (the leader code) */
+  --font-display: var(--font-oswald), var(--font-sans);
 
   /*
    * Type scale — use only these sizes and weights:

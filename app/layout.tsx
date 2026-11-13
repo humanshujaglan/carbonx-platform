@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Oswald, Plus_Jakarta_Sans } from "next/font/google";
 import { WalletProvider } from "@/components/wallet";
 import { Backdrop } from "@/components/backdrop";
 import "@rainbow-me/rainbowkit/styles.css";
@@ -10,6 +10,13 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   // Only the three weights in the type scale (see globals.css)
   weight: ["400", "500", "600"],
+});
+
+// Tall condensed display face, used only for the leader code figure
+const oswald = Oswald({
+  variable: "--font-oswald",
+  subsets: ["latin"],
+  weight: ["700"],
 });
 
 export const metadata: Metadata = {
@@ -26,7 +33,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
+    <html lang="en" className={`${jakarta.variable} ${oswald.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans font-normal bg-ink text-text">
         <Backdrop />
         <WalletProvider>

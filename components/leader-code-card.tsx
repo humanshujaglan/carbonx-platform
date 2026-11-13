@@ -6,7 +6,6 @@ import { platformAbi } from "@/lib/abi";
 import { usd } from "@/lib/format";
 import { formatLeaderCode, type PlatformAddresses, type PlatformUser } from "@/lib/platform";
 import { Notice, Row, Spinner, useTx } from "./ui";
-import { DigitNumber } from "./digit-number";
 import { FaqAccordion, type FaqItem } from "./faq-accordion";
 import { InfoSheet, SheetBlock } from "./info-sheet";
 import { useWallet } from "./wallet";
@@ -150,7 +149,9 @@ export function LeaderCodeCard({
         <div className="text-xs text-muted">Your leader code</div>
         {unlocked ? (
           <>
-            <DigitNumber value={displayCode} height={88} />
+            <span className="font-display text-[72px] font-bold leading-none tracking-tight text-white">
+              {displayCode.toString()}
+            </span>
             <button
               type="button"
               onClick={handleCopyCode}

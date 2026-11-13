@@ -128,10 +128,10 @@ export function useLiveIncomeStreams(user?: PlatformUser, lhrTier = 0) {
   const liveBooster = toUsd(user?.boosterIncomePending ?? 0n) + boosterUnaccrued;
   const settledBooster = toUsd(user?.boosterIncomePending ?? 0n) + boosterSettled;
 
-  // 3. Level income has no predictable stream: the contract credits it to the working balance
-  // when downlines' ROI is accrued (and pauses it at the Rescue LHR tier), so show what is credited.
+  // 3. Level income has no predictable stream: show what harvestLevelIncome would credit right now
+  // (same figure as Referral Income on the withdraw page), not the whole working balance.
   const levelPerSecUsd = 0;
-  const liveLevel = toUsd(user?.workingIncomePending ?? 0n);
+  const liveLevel = toUsd(user?.levelIncomeHarvestable ?? 0n);
 
   const position = flexElapsed !== undefined ? cyclePosition(flexElapsed) : undefined;
   // Booster runs on the same 30-day / 6-slot schedule, measured from roiCycleStartTime
@@ -397,7 +397,7 @@ export function IncomesDashboard({
               <div className="pt-3">
                 <button
                   type="button"
-                  disabled={!user || !!tx.busy}
+                  disabled={!user || user.levelIncomeHarvestable === 0n || !!tx.busy}
                   onClick={() => callPlatform("Claiming Level Income...", "harvestLevelIncome")}
                   className="btn btn-primary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
                 >
