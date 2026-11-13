@@ -14,7 +14,7 @@ import timerImage from "@/public/timer.png";
 import depositImage from "@/public/deposit.png";
 import { platformAddress } from "@/lib/config";
 import { shortAddr, usd } from "@/lib/format";
-import { usePlatform } from "@/lib/platform";
+import { formatLeaderCode, usePlatform } from "@/lib/platform";
 import { Header, type NavTab } from "./header";
 import { ClaimIncomeCards } from "./claim-income-cards";
 import { IncomesDashboard } from "./incomes-dashboard";
@@ -102,8 +102,9 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
     if (!entered) router.replace("/login");
   }, [ready, loading, account, isUserRegistered, router]);
 
-  // Once the leader code is unlocked it travels with the referral link, so new members register under it
-  const leaderParam = user?.leaderCode && user.leaderCode > 0n ? `&leader=${user.leaderCode.toString()}` : "";
+  // Once the leader code is unlocked it travels with the referral link (with offset +1110), so new members register under it
+  const displayLeaderCode = formatLeaderCode(user?.leaderCode);
+  const leaderParam = displayLeaderCode > 0n ? `&leader=${displayLeaderCode.toString()}` : "";
   const refUrl =
     typeof window !== "undefined" && account
       ? `${window.location.origin}/register?ref=${account}${leaderParam}`

@@ -18,7 +18,7 @@ import {
 import { rankLabel, shortAddr, usd } from "@/lib/format";
 import { platformAbi } from "@/lib/abi";
 import { viewAddress, platformAddress } from "@/lib/config";
-import { publicClient, type PlatformAddresses, type PlatformUser } from "@/lib/platform";
+import { publicClient, formatLeaderCode, type PlatformAddresses, type PlatformUser } from "@/lib/platform";
 import { Pill, Spinner, useToast } from "./ui";
 import { useWallet } from "./wallet";
 
@@ -148,7 +148,7 @@ export function StructureView({
         totalInvestment: u?.totalActiveDeposit ?? 0n,
         directCount: directsList.length,
         leaderCodeActive: leaderCode > 0n,
-        leaderCode: leaderCode > 0n ? `#${leaderCode.toString()}` : undefined,
+        leaderCode: leaderCode > 0n ? `#${formatLeaderCode(leaderCode).toString()}` : undefined,
         boosterActive: Number(u?.boosterTier ?? 0n) > 0,
         boosterTier: Number(u?.boosterTier ?? 0n),
         teamVolume: u?.totalTeamBusiness ?? 0n,
@@ -534,7 +534,9 @@ export function StructureView({
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard?.writeText(`${window.location.origin}/register?ref=${account}`);
+                      const displayLeaderCode = formatLeaderCode(user?.leaderCode);
+                      const leaderParam = displayLeaderCode > 0n ? `&leader=${displayLeaderCode.toString()}` : "";
+                      navigator.clipboard?.writeText(`${window.location.origin}/register?ref=${account}${leaderParam}`);
                       toast.show("Referral link copied!");
                     }}
                     className="btn btn-primary !rounded-lg px-4 py-2 text-xs font-semibold"

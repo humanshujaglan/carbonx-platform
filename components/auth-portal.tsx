@@ -27,7 +27,7 @@ import {
 } from "@/lib/config";
 import { shortAddr, usd } from "@/lib/format";
 import { packageRates } from "@/lib/roi";
-import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
+import { parseLeaderCodeInput, type PlatformAddresses, type PlatformMarket, type PlatformUser } from "@/lib/platform";
 import { SocialLinks } from "./social-links";
 import { Notice, Pill, Spinner, useTx } from "./ui";
 import { useWallet } from "./wallet";
@@ -155,7 +155,7 @@ export function AuthPortal({
 
   async function handleRegister() {
     if (!addresses || !account || !resolvedSponsor || isBelowMin || isAboveMax) return;
-    const leaderCodeNum = BigInt(leaderCodeInput.trim() || "0");
+    const leaderCodeNum = parseLeaderCodeInput(leaderCodeInput);
 
     await tx.run(
       "Registering on platform...",
@@ -176,7 +176,7 @@ export function AuthPortal({
 
   async function handleRegisterOneTap() {
     if (!addresses || !account || !resolvedSponsor || isBelowMin || isAboveMax) return;
-    const leaderCodeNum = BigInt(leaderCodeInput.trim() || "0");
+    const leaderCodeNum = parseLeaderCodeInput(leaderCodeInput);
 
     // One tap: approve first when needed, then register
     await tx.run(
@@ -798,7 +798,7 @@ export function AuthPortal({
                   <input
                     type="number"
                     min="0"
-                    placeholder="0"
+                    placeholder="e.g. 1111 (optional)"
                     value={leaderCodeInput === "0" ? "" : leaderCodeInput}
                     onChange={(e) => setLeaderCodeInput(e.target.value || "0")}
                     className="w-full rounded-xl border border-white/10 bg-[#14171d] px-3.5 py-3 text-xs text-white outline-none placeholder:text-muted/60 focus:border-[#22c55e]"

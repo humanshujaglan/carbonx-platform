@@ -714,3 +714,38 @@ export function usePlatformNow(baseTimestamp?: number) {
   }, []);
   return now;
 }
+
+/**
+ * Leader code display offset.
+ * Leader codes are displayed with +1110 on the activation page, downline tree, and referral links,
+ * and subtracted by 1110 from the user input on the registration page before submitting to the smart contract.
+ */
+export const LEADER_CODE_OFFSET = 1110n;
+
+/**
+ * Formats an on-chain leader code for display (e.g. on activation page or referral links).
+ * Adds 1110 to any unlocked leader code (> 0).
+ */
+export function formatLeaderCode(code: bigint | number | string | undefined | null): bigint {
+  if (!code) return 0n;
+  const c = BigInt(code);
+  return c > 0n ? c + LEADER_CODE_OFFSET : 0n;
+}
+
+/**
+ * Parses a user input or referral query parameter back to the on-chain leader code.
+ * Subtracts 1110 from input when > 1110; returns 0n otherwise.
+ */
+export function parseLeaderCodeInput(input: string | number | bigint | undefined | null): bigint {
+  if (!input) return 0n;
+  const str = input.toString().trim();
+  if (!str || !/^\d+$/.test(str)) return 0n;
+  try {
+    const num = BigInt(str);
+    if (num <= LEADER_CODE_OFFSET) return 0n;
+    return num - LEADER_CODE_OFFSET;
+  } catch {
+    return 0n;
+  }
+}
+

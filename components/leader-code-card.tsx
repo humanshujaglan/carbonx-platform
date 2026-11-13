@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
+import { Copy, TickCircle } from "iconsax-react";
 import { platformAbi } from "@/lib/abi";
 import { usd } from "@/lib/format";
-import type { PlatformAddresses, PlatformUser } from "@/lib/platform";
+import { formatLeaderCode, type PlatformAddresses, type PlatformUser } from "@/lib/platform";
 import { Notice, Row, Spinner, useTx } from "./ui";
 import { DigitNumber } from "./digit-number";
 import { FaqAccordion, type FaqItem } from "./faq-accordion";
@@ -43,6 +45,17 @@ export function LeaderCodeCard({
   const legCount = user?.directDownlines?.length ?? 0;
   const leaderCode = user?.leaderCode ?? 0n;
   const unlocked = leaderCode > 0n;
+  const displayCode = formatLeaderCode(leaderCode);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const handleCopyCode = () => {
+    if (unlocked && typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(displayCode.toString()).then(() => {
+        setCopiedCode(true);
+        setTimeout(() => setCopiedCode(false), 2000);
+      });
+    }
+  };
 
   const progress = unlocked
     ? 1
@@ -136,7 +149,25 @@ export function LeaderCodeCard({
         <div className="text-xs text-muted">Your leader code</div>
         {unlocked ? (
           <>
-            <DigitNumber value={leaderCode} height={88} />
+            <DigitNumber value={displayCode} height={88} />
+            <button
+              type="button"
+              onClick={handleCopyCode}
+              className="mt-1 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-2xs text-muted transition hover:border-white/20 hover:text-white cursor-pointer"
+              aria-label="Copy leader code"
+            >
+              {copiedCode ? (
+                <>
+                  <TickCircle size={14} color="#3ddc84" variant="Linear" />
+                  <span className="text-neon-soft">Copied #{displayCode.toString()}</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={14} color="currentColor" variant="Linear" />
+                  <span>Copy #{displayCode.toString()}</span>
+                </>
+              )}
+            </button>
           </>
         ) : (
           <>

@@ -9,7 +9,7 @@ import { erc20Abi, platformAbi } from "@/lib/abi";
 import { packageRates } from "@/lib/roi";
 import { LOCK_DETAILS, LockType, MIN_DEPOSIT_USDT, MAX_DEPOSIT_USDT } from "@/lib/config";
 import { usd } from "@/lib/format";
-import type { PlatformAddresses, PlatformUser } from "@/lib/platform";
+import { parseLeaderCodeInput, type PlatformAddresses, type PlatformUser } from "@/lib/platform";
 import { CardHeader, Notice, Pill, Spinner, useTx } from "./ui";
 import { useWallet } from "./wallet";
 
@@ -91,7 +91,7 @@ export function RegisterCard({
 
   async function handleRegister() {
     if (!addresses || !account || !resolvedSponsor || isBelowMin || isAboveMax) return;
-    const leaderCodeNum = BigInt(leaderCodeInput.trim() || "0");
+    const leaderCodeNum = parseLeaderCodeInput(leaderCodeInput);
 
     await tx.run(
       "Registering on platform...",
@@ -152,9 +152,9 @@ export function RegisterCard({
           id="leader-input"
           type="number"
           min="0"
-          placeholder="0"
-          value={leaderCodeInput}
-          onChange={(e) => setLeaderCodeInput(e.target.value)}
+          placeholder="e.g. 1111 (optional)"
+          value={leaderCodeInput === "0" ? "" : leaderCodeInput}
+          onChange={(e) => setLeaderCodeInput(e.target.value || "0")}
           className="well w-full px-4 py-3 text-xs text-text outline-none transition focus:border-neon/50"
         />
       </div>
