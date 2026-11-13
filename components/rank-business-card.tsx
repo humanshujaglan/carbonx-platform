@@ -44,12 +44,10 @@ export function RankBusinessCard({
 
   // Other requirements, which the Top ID is exempt from.
   const selfStake = user ? Number(formatUnits(user.activeDeposit, 18)) : 0;
-  const directBiz = user ? Number(formatUnits(user.activeDirectBusiness, 18)) : 0;
   const extras = isTopId
     ? []
     : [
         { name: "Own active stake", value: selfStake, cap: usd(req?.selfStake) },
-        { name: "Active direct business", value: directBiz, cap: usd(req?.directBusiness) },
       ];
 
   const segments = [
