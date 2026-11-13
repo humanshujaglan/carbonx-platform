@@ -30,6 +30,7 @@ import {
   refreshInterval,
   rpcUrl,
 } from "./config";
+import { targetRank } from "./rank";
 
 export const publicClient = createPublicClient({
   chain,
@@ -134,6 +135,16 @@ export type PlatformUser = {
       claimableWeeks: number;
       remainingWeeks: number;
     }[];
+  };
+  /**
+   * Conditions for the rank the user is working towards (`targetRank`), read from the team engine's
+   * `rankSalaryConfigs` and `rankDirectBusinessRequired`. `undefined` when the read fails.
+   */
+  rankRequirement?: {
+    rank: number;
+    teamBusiness: bigint;
+    selfStake: bigint;
+    directBusiness: bigint;
   };
   powerLegBusiness: bigint;
   weakerLegBusiness: bigint;
@@ -278,7 +289,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
       const currentRank = Number(u.currentRank);
 
       // Positions, downlines, pool wins, level income and rank salary only need `u`, so they run together
-      const [positions, directs, rewardPoolWins, levelIncomeHarvestable, rankSalary] = await Promise.all([
+      const [positions, directs, rewardPoolWins, levelIncomeHarvestable, rankSalary, rankRequirement] = await Promise.all([
         Promise.all(
           (u.positionIds ?? []).map(async (posId): Promise<EnhancedPosition> => {
             try {
@@ -343,6 +354,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
           .then(({ result }) => result[1])
           .catch(() => 0n),
         loadRankSalary(acct, currentRank),
+        loadRankRequirement(targetRank(currentRank)),
       ]);
 
       return {
@@ -387,6 +399,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
         levelIncomeHarvestable,
         rewardPoolWins,
         rankSalary,
+        rankRequirement,
         powerLegBusiness: legBiz[0],
         weakerLegBusiness: legBiz[1],
         activeDeposit,
@@ -441,6 +454,20 @@ export async function fetchPlatformData(account?: Address): Promise<{
       })
     );
     return perPool.flat();
+  }
+
+  // Rank activation conditions for one rank, live from the team engine
+  async function loadRankRequirement(rank: number): Promise<PlatformUser["rankRequirement"]> {
+    try {
+      const teamEngine = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "teamEngine" });
+      const [[teamBusiness, selfStake], directBusiness] = await Promise.all([
+        publicClient.readContract({ address: teamEngine, abi: teamEngineAbi, functionName: "rankSalaryConfigs", args: [BigInt(rank)] }),
+        publicClient.readContract({ address: teamEngine, abi: teamEngineAbi, functionName: "rankDirectBusinessRequired", args: [BigInt(rank)] }),
+      ]);
+      return { rank, teamBusiness, selfStake, directBusiness };
+    } catch {
+      return undefined;
+    }
   }
 
   // Rank salary: one weekly stream per rank reached

@@ -3,14 +3,7 @@
 import { formatUnits } from "viem";
 import { ArrowRight } from "iconsax-react";
 import type { PlatformUser } from "@/lib/platform";
-import {
-  POWER_LEG_SHARE,
-  WEAKER_LEGS_SHARE,
-  rankDirectBusinessUsd,
-  rankSelfStakeUsd,
-  rankTeamRequirementUsd,
-  targetRank,
-} from "@/lib/rank";
+import { POWER_LEG_SHARE, WEAKER_LEGS_SHARE, targetRank } from "@/lib/rank";
 import type { NavTab } from "./header";
 
 const usdFull = (v: number) =>
@@ -22,6 +15,8 @@ function usdCompact(v: number) {
   return `$${Math.round(v)}`;
 }
 
+const usd = (v?: bigint) => (v === undefined ? 0 : Number(formatUnits(v, 18)));
+
 const pct = (value: number, of: number) => (of > 0 ? Math.min(100, Math.floor((value / of) * 100)) : 0);
 
 export function RankBusinessCard({
@@ -32,7 +27,10 @@ export function RankBusinessCard({
   onNavigateTab?: (tab: NavTab) => void;
 }) {
   const rank = targetRank(user?.currentRank ?? 0);
-  const required = rankTeamRequirementUsd(rank);
+  // Conditions come live from the team engine; until they load (or if the read fails) the caps show "—".
+  const req = user?.rankRequirement;
+  const hasReq = !!req;
+  const required = usd(req?.teamBusiness);
   const weakerCap = required * WEAKER_LEGS_SHARE;
   const powerCap = required * POWER_LEG_SHARE;
 
@@ -50,8 +48,8 @@ export function RankBusinessCard({
   const extras = isTopId
     ? []
     : [
-        { name: "Own active stake", value: selfStake, cap: rankSelfStakeUsd(rank) },
-        { name: "Active direct business", value: directBiz, cap: rankDirectBusinessUsd(rank) },
+        { name: "Own active stake", value: selfStake, cap: usd(req?.selfStake) },
+        { name: "Active direct business", value: directBiz, cap: usd(req?.directBusiness) },
       ];
 
   const segments = [
@@ -76,7 +74,7 @@ export function RankBusinessCard({
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-3xl font-semibold text-white">{user ? usdFull(counted) : "—"}</span>
         <span className="text-xs text-muted">
-          of {usdFull(required)} for Rank {rank}
+          of {hasReq ? usdFull(required) : "—"} for Rank {rank}
         </span>
       </div>
 
@@ -126,7 +124,7 @@ export function RankBusinessCard({
             </dt>
             <dd className="shrink-0 font-semibold text-white">
               {usdCompact(seg.value)}
-              <span className="font-normal text-muted"> / {usdCompact(seg.cap)}</span>
+              <span className="font-normal text-muted"> / {hasReq ? usdCompact(seg.cap) : "—"}</span>
             </dd>
             <dd className="w-10 shrink-0 text-right text-muted">{pct(seg.value, seg.cap)}%</dd>
           </div>
@@ -143,7 +141,7 @@ export function RankBusinessCard({
               <dt className="min-w-0 flex-1 truncate text-white">{row.name}</dt>
               <dd className="shrink-0 font-semibold text-white">
                 {usdCompact(row.value)}
-                <span className="font-normal text-muted"> / {usdCompact(row.cap)}</span>
+                <span className="font-normal text-muted"> / {hasReq ? usdCompact(row.cap) : "—"}</span>
               </dd>
               <dd className="w-10 shrink-0 text-right text-muted">{pct(row.value, row.cap)}%</dd>
             </div>

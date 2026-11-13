@@ -112,6 +112,9 @@ export const teamEngineAbi = parseAbi([
   "function monthlyNewBusiness(uint256 monthId, address user) view returns (uint256)",
   "function getClaimableWeeklySalaryBonus(address user) view returns (uint256 totalClaimableUSDT, uint256[15] claimableWeeksPerRank, uint256[15] remainingWeeksPerRank)",
   "function getUserRankStream(address user, uint256 rank) view returns (uint128 weeklyPayout, uint256 startTime, uint256 durationWeeks, uint256 weeksClaimed, uint256 totalClaimedAmount, uint256 remainingWeeks)",
+  // Rank activation conditions, set by the contract owner and read live (never hardcode them)
+  "function rankSalaryConfigs(uint256 rank) view returns (uint128 teamBusinessRequired, uint128 selfStakeRequired, uint16 durationWeeks, uint16 rewardPercentageBps)",
+  "function rankDirectBusinessRequired(uint256 rank) view returns (uint256)",
 ]);
 
 /** Top ID partner pool ledger on the payout engine (`platform.payoutEngine()`). */

@@ -406,7 +406,7 @@ export function IncomesDashboard({
                   ) : (
                     <>
                       <Hierarchy size={16} />
-                      <span>Claim Level Income</span>
+                      <span>Claim</span>
                     </>
                   )}
                 </button>
