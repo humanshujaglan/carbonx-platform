@@ -28,6 +28,10 @@ export function TeamPage({
     ["Direct business", user ? usd(user.totalDirectBusiness) : "$0.00"],
     ["Team business", user ? usd(user.totalTeamBusiness) : "$0.00"],
   ];
+  const legs: [string, string][] = [
+    ["Power leg business", user ? usd(user.powerLegBusiness) : "$0.00"],
+    ["Weaker leg business", user ? usd(user.weakerLegBusiness) : "$0.00"],
+  ];
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
@@ -61,6 +65,14 @@ export function TeamPage({
         <h3 className="text-sm font-medium text-text">My team</h3>
         <dl className="grid grid-cols-3 gap-3 sm:divide-x sm:divide-white/[0.08]">
           {figures.map(([label, value]) => (
+            <div key={label} className="sm:pl-4 sm:first:pl-0">
+              <dt className="text-xs text-muted">{label}</dt>
+              <dd className="mt-1 text-base text-white">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <dl className="grid grid-cols-2 gap-3 border-t border-white/[0.08] pt-5 sm:divide-x sm:divide-white/[0.08]">
+          {legs.map(([label, value]) => (
             <div key={label} className="sm:pl-4 sm:first:pl-0">
               <dt className="text-xs text-muted">{label}</dt>
               <dd className="mt-1 text-base text-white">{value}</dd>

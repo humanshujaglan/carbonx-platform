@@ -4,9 +4,11 @@ export const platformAbi = parseAbi([
   // Core user functions
   "function register(address _sponsor, uint256 _leaderCode, uint256 amountUSDT, uint8 lockType)",
   "function invest(uint256 amountUSDT, uint8 lockType)",
+  "function convertToFiftyFifty(uint256 positionId)",
   "function withdrawROI()",
   "function teamEngine() view returns (address)",
   "function rankIncomePending(address user) view returns (uint256)",
+  "function rankIncomeWithdrawn(address user) view returns (uint256)",
   "function earnEngine() view returns (address)",
   "function getContestDay(uint256 dayId) view returns (bool isSLTriggered, uint256 dayHighPrice, uint256 dailyDepositVolume, uint256 top10Count, address[10] top10Uplines, uint256[10] top10Volumes)",
   "function claimRewardPool(uint8 poolType, uint256 cycleId)",

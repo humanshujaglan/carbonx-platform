@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { platformAbi } from "@/lib/abi";
 import { LOCK_DETAILS, LockType } from "@/lib/config";
 import { dateTime, usd } from "@/lib/format";
-import type { EnhancedPosition, PlatformUser } from "@/lib/platform";
+import type { EnhancedPosition, PlatformAddresses, PlatformUser } from "@/lib/platform";
 import { hybridHalves, packageLiveRoi } from "@/lib/roi";
 import { BottomSheet, SheetBlock } from "./info-sheet";
-import { Row } from "./ui";
+import { Notice, Row, Spinner, useTx } from "./ui";
+import { useWallet } from "./wallet";
 
 const GREEN = "linear-gradient(90deg, #17a83a, #3bf857)";
 const AMBER = "linear-gradient(90deg, #e8890c, #ffd166)";
 const RED = "linear-gradient(90deg, #b42347, #ff7a93)";
+// Mirrors PlatformEarnEngine.convertToFiftyFifty: a flexible package can turn 50/50 within 30 days of buying it
+const CONVERT_WINDOW_SEC = 30 * 86400;
+const CONVERT_LABEL = "Converting to 50/50...";
 
 /**
  * Bold progress bar with the earned value inside it. The value is light on the dark track and dark on the
@@ -42,11 +47,17 @@ export function PackagesList({
   positions,
   user,
   lhrTier = 0,
+  addresses,
+  onDone = () => {},
 }: {
   positions: EnhancedPosition[];
   user?: PlatformUser;
   lhrTier?: number;
+  addresses?: PlatformAddresses;
+  onDone?: () => void;
 }) {
+  const { account, write } = useWallet();
+  const tx = useTx(onDone);
   // Re-value packages every second so earned ROI ticks live
   const [now, setNow] = useState(() => Date.now() / 1000);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -71,6 +82,27 @@ export function PackagesList({
   const openLive = open ? packageLiveRoi(open, owner, lhrTier, now) : null;
   const openHalves = open && open.lockType === LockType.LOCKED_50 ? hybridHalves(open, owner, lhrTier, now) : null;
   const openLock = open ? LOCK_DETAILS[open.lockType] ?? LOCK_DETAILS[LockType.FLEXIBLE] : null;
+  // Seconds left to convert; null when the contract would reject it (the Top ID always earns linearly)
+  const convertLeft =
+    open && open.lockType === LockType.FLEXIBLE && open.active && !open.isCapped && open.createdAt > 0 && !user?.isTopId
+      ? open.createdAt + CONVERT_WINDOW_SEC - now
+      : null;
+  const canConvert = convertLeft !== null && convertLeft > 0;
+
+  async function handleConvert() {
+    if (!addresses || !account || !open) return;
+    await tx.run(
+      CONVERT_LABEL,
+      () =>
+        write({
+          address: addresses.platform,
+          abi: platformAbi,
+          functionName: "convertToFiftyFifty",
+          args: [open.id],
+        }),
+      () => <span>Package converted to 50/50!</span>
+    );
+  }
 
   return (
     <section className="card flex flex-col gap-4 p-5 sm:p-6" aria-label="My packages">
@@ -142,7 +174,12 @@ export function PackagesList({
         })}
       </div>
 
-      <BottomSheet open={!!open} onClose={() => setOpenId(null)} title={open ? `Package #${positions.indexOf(open) + 1}` : ""}>
+      <BottomSheet
+        open={!!open}
+        onClose={() => {
+          setOpenId(null);
+          tx.clear();
+        }} title={open ? `Package #${positions.indexOf(open) + 1}` : ""}>
         {open && openLive && openLock && (
           <>
             <SheetBlock>
@@ -163,6 +200,29 @@ export function PackagesList({
               </dl>
             </SheetBlock>
             <p>{openLive.schedule}</p>
+            {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
+            {canConvert && (
+              <SheetBlock title="Convert to 50/50">
+                <p>
+                  Half of this package keeps earning flexible, the other half locks for {LOCK_DETAILS[LockType.LOCKED_50].lockDays}{" "}
+                  days at 0.33% daily compounding. This can&apos;t be undone.
+                </p>
+                <dl>
+                  <Row
+                    label="Window closes in"
+                    value={`${Math.floor(convertLeft / 86400)}d ${Math.floor((convertLeft % 86400) / 3600)}h`}
+                  />
+                </dl>
+                <button
+                  type="button"
+                  disabled={Boolean(tx.busy) || !account || !addresses}
+                  onClick={handleConvert}
+                  className="btn btn-primary mt-3 w-full py-3 text-sm font-semibold"
+                >
+                  {tx.busy === CONVERT_LABEL ? <Spinner /> : "Convert to 50/50"}
+                </button>
+              </SheetBlock>
+            )}
           </>
         )}
       </BottomSheet>

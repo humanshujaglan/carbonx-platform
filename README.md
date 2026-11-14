@@ -13,7 +13,7 @@ A Next.js application built with the exact same design language, color theme, ty
 - **Invest & Package Management**:
   - Stake additional USDT to grow deposit base and unlock higher cap headroom
   - Live ticking ROI accrual meters for active packages
-  - Instant conversion from 100% Locked packages into 50/50 Hybrid
+  - Convert a Flexible package into 50/50 Hybrid within 30 days of buying it
 
 - **Complete 6 Income Streams Tracking & Withdrawal**:
   1. **Daily Package ROI**: Live accrued ROI, batch accrual (`accrueRange`), and token withdrawal (`withdrawROI`).

@@ -119,6 +119,8 @@ export type PlatformUser = {
   pendingLeaderBonusLocked: bigint;
   /** Rank salary already claimed and waiting to be withdrawn. */
   rankIncomePending: bigint;
+  /** Gross rank income paid out so far. */
+  rankIncomeWithdrawn: bigint;
   /** What `harvestLevelIncome` would credit to the working balance right now (previewed with eth_call). */
   levelIncomeHarvestable: bigint;
   /** Reward pool cycles this user won and has not claimed yet (poolType 1 Neon, 2 Hydra, 3 Genosis). */
@@ -262,7 +264,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
   async function loadUser(acct: Address): Promise<PlatformUser | undefined> {
     try {
       const isTopId = topIdAddr !== ZERO && acct.toLowerCase() === topIdAddr.toLowerCase();
-      const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, pLeaderBonus, rankIncome, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode, activeDeposit, activeDirectBusiness] =
+      const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, pLeaderBonus, rankIncome, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode, activeDeposit, activeDirectBusiness, rankWithdrawn] =
         await Promise.all([
           publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUser", args: [acct] }),
           publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserWorkingCapHeadroom", args: [acct] }).catch(() => 0n),
@@ -283,6 +285,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
           publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "leaderCodeOf", args: [acct] }).catch(() => 0n),
           publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserActiveDeposit", args: [acct] }).catch(() => 0n),
           publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getUserActiveDirectBusiness", args: [acct] }).catch(() => 0n),
+          publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "rankIncomeWithdrawn", args: [acct] }).catch(() => 0n),
         ]);
 
       const isRegistered = u.registrationTime > 0n;
@@ -396,6 +399,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
         pendingLeaderBonusAvailable: pLeaderBonus[0],
         pendingLeaderBonusLocked: pLeaderBonus[1],
         rankIncomePending: rankIncome,
+        rankIncomeWithdrawn: rankWithdrawn,
         levelIncomeHarvestable,
         rewardPoolWins,
         rankSalary,

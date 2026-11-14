@@ -150,6 +150,8 @@ export function useLiveIncomeStreams(user?: PlatformUser, lhrTier = 0) {
   const totalRatePerSec = roiPerSecUsd + lockedPerSecUsd + boosterPerSecUsd + levelPerSecUsd;
 
   return {
+    /** Unix seconds of this render, ticking with the streams. */
+    t,
     liveRoi,
     settledRoi,
     settledBooster,
@@ -602,14 +604,16 @@ export function IncomesDashboard({
                   <div className="text-xs text-muted">You can withdraw</div>
                   <div className="mt-0.5 text-base font-normal text-white">{usd(poolWinTotal)}</div>
                 </div>
-                <button
-                  type="button"
-                  disabled={!user || poolWinTotal === 0n || !!tx.busy}
-                  onClick={claimRewardPools}
-                  className="btn btn-primary !rounded-lg whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming Reward Pool..." ? <Spinner /> : "Claim"}
-                </button>
+                {!isHome && (
+                  <button
+                    type="button"
+                    disabled={!user || poolWinTotal === 0n || !!tx.busy}
+                    onClick={claimRewardPools}
+                    className="btn btn-primary !rounded-lg whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
+                  >
+                    {tx.busy === "Claiming Reward Pool..." ? <Spinner /> : "Claim"}
+                  </button>
+                )}
               </div>
 
               {/* How full each pool is against its payout threshold */}

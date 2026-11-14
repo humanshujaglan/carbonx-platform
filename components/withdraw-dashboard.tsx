@@ -21,6 +21,8 @@ type Item = {
   name: string;
   /** Shown on the pill and as the big figure; undefined when the amount can't be read ahead of time. */
   amount?: number;
+  /** What the claim call would pay right now, when it differs from the live amount shown. */
+  claimable?: number;
   /** One line under the amount: where the money goes. */
   note: string;
   min?: number;
@@ -50,8 +52,8 @@ export function WithdrawDashboard({
   const { account, write } = useWallet();
   const tx = useTx(onDone);
 
-  // ROI and booster settle inside their withdraw calls, so show what the contract would pay right now
-  const { settledRoi, settledBooster } = useLiveIncomeStreams(user, market?.lhrTier ?? 0);
+  // Show the same live ROI / booster as the home cards; the claim button gates on what the contract would pay now
+  const { liveRoi, liveLockedRoi, liveBooster, settledRoi, settledBooster } = useLiveIncomeStreams(user, market?.lhrTier ?? 0);
 
   const [mode, setMode] = useState<Mode>("claim");
   const [amountStr, setAmountStr] = useState("");
@@ -72,8 +74,8 @@ export function WithdrawDashboard({
 
   // Incomes paid straight out in CARB when you claim them
   const payoutItems: Item[] = [
-    { id: "roi", icon: TrendUp, name: "Daily ROI", amount: settledRoi, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming ROI Income...", call: { fn: "withdrawROI" } },
-    { id: "booster", icon: Flash, name: "Booster Income", amount: settledBooster, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Booster Income...", call: { fn: "withdrawBooster" } },
+    { id: "roi", icon: TrendUp, name: "Daily ROI", amount: liveRoi + liveLockedRoi, claimable: settledRoi, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming ROI Income...", call: { fn: "withdrawROI" } },
+    { id: "booster", icon: Flash, name: "Booster Income", amount: liveBooster, claimable: settledBooster, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Booster Income...", call: { fn: "withdrawBooster" } },
     { id: "leader", icon: Profile2User, name: "Leader Income", amount: user ? toUsd(user.leaderIncomePending + user.pendingLeaderBonusAvailable) : 0, note: "Paid in CARB, 5% fee", label: "Claiming Leader Income...", call: { fn: "withdrawLeaderIncome" } },
     { id: "rankpay", icon: CardReceive, name: "Rank Income", amount: user ? toUsd(user.rankIncomePending + user.rankSalary.totalClaimable) : 0, note: "Weekly salary, unlocked then paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Rank Income...", call: { fn: "withdrawRankIncome" } },
   ];
@@ -103,8 +105,9 @@ export function WithdrawDashboard({
 
   function cardHint(i: Item) {
     if (!user) return null;
-    if (i.amount !== undefined && i.amount === 0) return "Nothing to claim yet";
-    if (i.min !== undefined && (i.amount ?? 0) < i.min) return `Minimum is $${i.min}`;
+    const claimable = i.claimable ?? i.amount;
+    if (claimable !== undefined && claimable === 0) return "Nothing to claim yet";
+    if (i.min !== undefined && (claimable ?? 0) < i.min) return `Minimum is $${i.min}`;
     return null;
   }
 

@@ -1,50 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { platformAbi } from "@/lib/abi";
+import { formatUnits } from "viem";
 import { LockType } from "@/lib/config";
 import { rankLabel, shortAddr, usd } from "@/lib/format";
 import {
   DAY_SECONDS,
   FLEX_SLOT_BPS,
-  MIN_WITHDRAWAL_USD,
   SLOT_DAYS,
   TOP_ID_DAILY_RATE,
   TOP_ID_KEEP_SHARE,
   boosterShare,
+  packageLiveRoi,
   packageRates,
 } from "@/lib/roi";
-import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
-import { CardHeader, Notice, Row, Spinner, useTx } from "./ui";
-import { BottomSheet, InfoSheet, SheetBlock } from "./info-sheet";
+import type { PlatformMarket, PlatformUser } from "@/lib/platform";
+import { CardHeader, Row } from "./ui";
+import { InfoSheet, SheetBlock } from "./info-sheet";
 import { LiveStreamTicker, useLiveIncomeStreams } from "./incomes-dashboard";
-import { useWallet } from "./wallet";
 
-/** Package ROI, Booster, Leader and Rank Salary: the incomes that have their own claim button. */
-export function ClaimIncomeCards({
-  user,
-  addresses,
-  market,
-  onDone,
-}: {
-  user?: PlatformUser;
-  addresses?: PlatformAddresses;
-  market?: PlatformMarket;
-  onDone: () => void;
-}) {
-  const { account, write } = useWallet();
-  const tx = useTx(onDone);
-
-  const [rankSheetOpen, setRankSheetOpen] = useState(false);
+/**
+ * Package ROI, Booster, Leader and Rank Income: total earned to date, withdrawn or not.
+ * Display only; claiming happens on the Withdraw page.
+ */
+export function ClaimIncomeCards({ user, market }: { user?: PlatformUser; market?: PlatformMarket }) {
   // Fixed when the card mounts; enough to tell which weekly payouts are still ahead
   const [nowSec] = useState(() => Math.floor(Date.now() / 1000));
 
   const isTopId = !!user?.isTopId;
   const lhrTier = market?.lhrTier ?? 0;
   const {
+    t,
     liveRoi,
-    settledRoi,
-    settledBooster,
     liveLockedRoi,
     liveBooster,
     roiPerSecUsd,
@@ -56,25 +43,29 @@ export function ClaimIncomeCards({
   const boosterMonthlyPct = packageRates(LockType.FLEXIBLE, isTopId ? 0 : lhrTier).monthlyPct * boosterShare(boosterTier);
   const hasLockedPositions = !!user?.positions.some((p) => p.active && !p.isCapped && p.lockType !== LockType.FLEXIBLE);
 
-  async function callPlatform(label: string, fnName: string, args: readonly unknown[] = []) {
-    if (!addresses || !account) return;
-    await tx.run(
-      label,
-      async () => {
-        return write({
-          address: addresses.platform,
-          abi: platformAbi,
-          functionName: fnName,
-          args,
-        });
-      },
-      () => <span>Action completed successfully!</span>
-    );
-  }
+  // Lifetime totals: the contract's *Withdrawn counters are gross, so withdrawn + pending + not yet settled.
+  const toUsd = (v: bigint) => Number(formatUnits(v, 18));
+  const money = (v: number) =>
+    `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Packages keep their own cumulative roiAccrued (withdrawn or not); the Top ID is paid on its whole principal
+  const roiEarned = !user
+    ? 0
+    : isTopId
+    ? toUsd(user.roiIncomeWithdrawn) + liveRoi
+    : user.positions.reduce(
+        (sum, p) => sum + packageLiveRoi(p, { roiCycleStartTime: user.roiCycleStartTime, isTopId }, lhrTier, t).accruedUsd,
+        0
+      );
+  const boosterEarned = user ? toUsd(user.boosterIncomeWithdrawn) + liveBooster : 0;
+  const leaderEarned = user
+    ? toUsd(user.leaderIncomeWithdrawn + user.leaderIncomePending + user.pendingLeaderBonusAvailable + user.pendingLeaderBonusLocked)
+    : 0;
+  const rankEarned = user
+    ? toUsd(user.rankIncomeWithdrawn + user.rankIncomePending + user.rankSalary.totalClaimable)
+    : 0;
 
   return (
     <div className="flex flex-col gap-4">
-      {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
       <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-5">
         {/* 1. Daily Package ROI Yield (LIVE STREAMING) */}
           <section className="card torch flex flex-col justify-between gap-4 p-3.5 sm:gap-5 sm:p-6 border border-white/[0.08] relative overflow-hidden">
@@ -133,22 +124,12 @@ export function ClaimIncomeCards({
               />
 
               {/* LIVE STREAMING TICKER */}
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <LiveStreamTicker
-                  value={liveRoi + liveLockedRoi}
-                  ratePerSec={roiPerSecUsd + lockedPerSecUsd}
-                  label="Daily ROI"
-                  hideRate
-                />
-                <button
-                  type="button"
-                  disabled={!user || settledRoi < MIN_WITHDRAWAL_USD || !!tx.busy}
-                  onClick={() => callPlatform("Claiming ROI Income...", "withdrawROI")}
-                  className="btn btn-primary !rounded-lg justify-self-end whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming ROI Income..." ? <Spinner /> : "Claim"}
-                </button>
-              </div>
+              <LiveStreamTicker
+                value={roiEarned}
+                ratePerSec={roiPerSecUsd + lockedPerSecUsd}
+                label="Daily ROI"
+                hideRate
+              />
             </div>
           </section>
 
@@ -188,22 +169,7 @@ export function ClaimIncomeCards({
               />
 
               {/* LIVE STREAMING TICKER */}
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <LiveStreamTicker
-                  value={liveBooster}
-                  ratePerSec={boosterPerSecUsd}
-                  label="Booster"
-                  hideRate
-                />
-                <button
-                  type="button"
-                  disabled={!user || settledBooster < MIN_WITHDRAWAL_USD || !!tx.busy}
-                  onClick={() => callPlatform("Claiming Booster Income...", "withdrawBooster")}
-                  className="btn btn-primary !rounded-lg justify-self-end whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming Booster Income..." ? <Spinner /> : "Claim"}
-                </button>
-              </div>
+              <LiveStreamTicker value={boosterEarned} ratePerSec={boosterPerSecUsd} label="Booster" hideRate />
             </div>
           </section>
 
@@ -236,21 +202,7 @@ export function ClaimIncomeCards({
                   </InfoSheet>
                 }
               />
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <div className="text-base font-normal text-white">
-                  {user
-                    ? usd(user.leaderIncomePending + user.pendingLeaderBonusAvailable + user.pendingLeaderBonusLocked)
-                    : "$0.00"}
-                </div>
-                <button
-                  type="button"
-                  disabled={!user || user.leaderIncomePending + user.pendingLeaderBonusAvailable === 0n || !!tx.busy}
-                  onClick={() => callPlatform("Claiming Leader Income...", "withdrawLeaderIncome")}
-                  className="btn btn-primary !rounded-lg justify-self-end whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming Leader Income..." ? <Spinner /> : "Claim"}
-                </button>
-              </div>
+              <div className="text-base font-normal text-white">{money(leaderEarned)}</div>
             </div>
           </section>
 
@@ -267,26 +219,13 @@ export function ClaimIncomeCards({
                     </p>
                     <SheetBlock title="Your legs">
                       <dl>
+                        <Row label="Current rank" value={rankLabel(user?.currentRank)} accent />
                         <Row label="Power leg" value={user ? usd(user.powerLegBusiness) : "$0"} />
                         <Row label="Weaker legs" value={user ? usd(user.weakerLegBusiness) : "$0"} />
                       </dl>
                     </SheetBlock>
-                  </InfoSheet>
-                }
-              />
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                <div className="text-base font-normal text-white">{rankLabel(user?.currentRank)}</div>
-                <button
-                  type="button"
-                  disabled={!user || user.currentRank === 0 || !!tx.busy}
-                  onClick={() => setRankSheetOpen(true)}
-                  className="btn btn-primary !rounded-lg justify-self-end whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming Rank Salary Income..." ? <Spinner /> : "Claim"}
-                </button>
-                <BottomSheet open={rankSheetOpen} onClose={() => setRankSheetOpen(false)} title="Rank Income">
-                  <p>Your rank salary is paid weekly. Each rank has its own stream, and a week unlocks every 7 days.</p>
-                  {[...(user?.rankSalary.streams ?? [])].reverse().map((st) => {
+                    <p>Your rank salary is paid weekly. Each rank has its own stream, and a week unlocks every 7 days.</p>
+                    {[...(user?.rankSalary.streams ?? [])].reverse().map((st) => {
                     const WEEK = 7 * DAY_SECONDS;
                     const finished = st.weeksClaimed + st.claimableWeeks >= st.durationWeeks && st.claimableWeeks === 0;
                     const nextUnlock =
@@ -330,19 +269,10 @@ export function ClaimIncomeCards({
                       </SheetBlock>
                     );
                   })}
-                  <button
-                    type="button"
-                    disabled={!user || user.rankSalary.totalClaimable === 0n || !!tx.busy}
-                    onClick={() => {
-                      setRankSheetOpen(false);
-                      callPlatform("Claiming Rank Salary Income...", "claimWeeklySalaryBonus");
-                    }}
-                    className="btn btn-primary w-full py-2.5 text-xs font-semibold"
-                  >
-                    {user ? `Claim ${usd(user.rankSalary.totalClaimable)}` : "Claim"}
-                  </button>
-                </BottomSheet>
-              </div>
+                  </InfoSheet>
+                }
+              />
+              <div className="text-base font-normal text-white">{money(rankEarned)}</div>
             </div>
           </section>
 

@@ -47,7 +47,7 @@ export function RankBusinessCard({
   const extras = isTopId
     ? []
     : [
-        { name: "Own active stake", value: selfStake, cap: usd(req?.selfStake) },
+        { name: "Own active stake", value: selfStake, cap: usd(req?.selfStake), color: "linear-gradient(to bottom, #4dabf7, #1c5fd4)" },
       ];
 
   const segments = [
@@ -129,6 +129,15 @@ export function RankBusinessCard({
         ))}
       </dl>
 
+      {extras.map((row) => (
+        <div key={row.name} className="relative h-3 overflow-hidden rounded-full bg-white/[0.06]">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+            style={{ width: `${pct(row.value, row.cap)}%`, background: row.color }}
+          />
+        </div>
+      ))}
+
       {extras.length > 0 && (
         <dl className="flex flex-col">
           {extras.map((row) => (
@@ -136,6 +145,7 @@ export function RankBusinessCard({
               key={row.name}
               className="flex items-center gap-3 border-t border-white/[0.08] py-3 text-sm first:border-t-0"
             >
+              <span className="size-3 shrink-0 rounded-full" style={{ background: row.color }} />
               <dt className="min-w-0 flex-1 truncate text-white">{row.name}</dt>
               <dd className="shrink-0 font-semibold text-white">
                 {usdCompact(row.value)}

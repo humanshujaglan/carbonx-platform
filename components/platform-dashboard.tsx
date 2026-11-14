@@ -32,6 +32,7 @@ import { LeaderPrizeContestCard } from "./leader-prize-contest-card";
 import { LockMixCard } from "./lock-mix-card";
 import { QuickActions } from "./quick-actions";
 import { UnlockScheduleCard } from "./unlock-schedule-card";
+import { CappingCard } from "./capping-card";
 import { RankBusinessCard } from "./rank-business-card";
 import { RoiCycleChart } from "./roi-cycle-chart";
 import { TeamPage } from "./team-page";
@@ -175,7 +176,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
           <QuickActions onNavigateTab={openInternalScreen} />
 
-          <ClaimIncomeCards user={user} addresses={addresses} market={market} onDone={refresh} />
+          <ClaimIncomeCards user={user} market={market} />
 
           {/* Referral link */}
           <section className="card p-5 sm:p-6 flex flex-col gap-5" aria-label="Referral link">
@@ -252,6 +253,8 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
           <RankBusinessCard user={user ?? undefined} onNavigateTab={setActiveTab} />
 
+          <CappingCard user={user ?? undefined} lhrTier={market.lhrTier} />
+
           {/* Home Page: All Income Streams with Live Streaming ROI, Booster & Level Yield */}
           <IncomesDashboard
             user={user}
@@ -275,7 +278,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
       {activeTab === "invest" && (
         <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
           <InvestCard addresses={addresses} user={user} lhrTier={market.lhrTier} onDone={refresh} />
-          <PackagesList positions={user?.positions ?? []} user={user} lhrTier={market.lhrTier} />
+          <PackagesList positions={user?.positions ?? []} user={user} lhrTier={market.lhrTier} addresses={addresses} onDone={refresh} />
         </div>
       )}
 
