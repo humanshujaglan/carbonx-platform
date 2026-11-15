@@ -195,7 +195,7 @@ export function LeaderPrizeContestCard({ market, addresses }: { market?: Platfor
   }, [samples, dayHigh, target, current]);
 
   return (
-    <section id="leader-prize-contest" className="card p-5 sm:p-6 flex flex-col gap-5 scroll-mt-4" aria-label="Leader prize contest">
+    <section className="card p-5 sm:p-6 flex flex-col gap-5" aria-label="Leader prize contest">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-medium text-text">Leader prize contest</h3>
         <InfoSheet title="Leader prize contest">

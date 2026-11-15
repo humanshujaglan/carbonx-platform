@@ -66,7 +66,8 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
       localStorage.setItem(contestSeenKey, "1");
     } catch {}
   }, [contestSeenKey]);
-  const contestOpen = !!market?.contestTriggered && !contestSeen;
+  // const contestOpen = !!market?.contestTriggered && !contestSeen;
+  const contestOpen = !contestSeen;
 
   // The partner page is for active Top ID partners only
   useEffect(() => {

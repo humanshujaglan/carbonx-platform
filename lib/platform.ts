@@ -230,7 +230,30 @@ function getEmptyMarket(): PlatformMarket {
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 /** Leader prize contest split by rank 1-10 (`shares` in PlatformEarnContests). */
-const PRICE_CONTEST_SHARES_BPS = [3000n, 2000n, 1500n, 1000n, 500n, 500n, 500n, 500n, 300n, 200n];
+export const PRICE_CONTEST_SHARES_BPS = [3000n, 2000n, 1500n, 1000n, 500n, 500n, 500n, 500n, 300n, 200n];
+
+export type ContestToday = {
+  triggered: boolean;
+  /** 2% of today's first-package business after the treasury cut; keeps growing until the day closes (00:00 UTC). */
+  pool: bigint;
+  /** Current top 10 leaders by first-package business brought in with their leader code today, rank 1 first. */
+  leaders: { address: Address; volume: bigint }[];
+};
+
+/** Today's Leader Prize Contest, rebuilt like `_finalizeContestDay`: pool and current top 10. */
+export async function fetchContestToday(): Promise<ContestToday> {
+  const day = BigInt(Math.floor(Date.now() / 1000 / 86400));
+  const [[triggered, , volume, count, uplines, volumes], earn] = await Promise.all([
+    publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getContestDay", args: [day] }),
+    publicClient.readContract({ address: platformAddress, abi: platformAbi, functionName: "earnEngine" }),
+  ]);
+  const cut = await publicClient.readContract({ address: earn, abi: earnEngineAbi, functionName: "dailyLeaderDepositTreasuryCut", args: [day] });
+  return {
+    triggered,
+    pool: volume > cut ? ((volume - cut) * 200n) / 10000n : 0n,
+    leaders: uplines.slice(0, Number(count)).map((address, i) => ({ address, volume: volumes[i] })),
+  };
+}
 
 /** Cheap membership check (one eth_call), used to decide between Login and Register before any heavy fetch. */
 export async function fetchIsRegistered(account: Address): Promise<boolean> {

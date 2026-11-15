@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, CloseCircle, Cup, Flash, Profile2User, Wallet3 } from "iconsax-react";
+import { shortAddr, usd } from "@/lib/format";
+import { fetchContestToday, PRICE_CONTEST_SHARES_BPS, type ContestToday } from "@/lib/platform";
+import { BottomSheet, SheetBlock } from "./info-sheet";
+import { useWallet } from "./wallet";
 
 // Illustrative price line (not live data): climbs to the day high, then falls 5% through the target
 const POINTS: [number, number][] = [
@@ -58,6 +62,8 @@ const RAIN = Array.from({ length: 36 }, (_, i) => ({
 export function ContestStartedModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const reduced = useReducedMotion();
   const [crossed, setCrossed] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const closeDetails = useCallback(() => setDetailsOpen(false), []);
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -80,12 +86,15 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
 
   const viewContest = () => {
     onClose();
-    document.getElementById("leader-prize-contest")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setDetailsOpen(true);
   };
 
   if (!mounted) return null;
 
-  return createPortal(
+  return (
+    <>
+      <ContestDetailsSheet open={detailsOpen} onClose={closeDetails} />
+      {createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
@@ -208,8 +217,14 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
             </h3>
             <p className="mt-1 text-sm font-semibold text-neon">has started!</p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
-              CARB fell 5% below today&apos;s high. Bring in first-package business with your leader code today to win.
+              CARB fell 5% below today&apos;s high. Today the prize goes to the leaders who bring in the most business
+              with their leader code.
             </p>
+            <div className="mt-4 w-full rounded-2xl border border-neon/20 bg-neon/[0.06] px-4 py-3 text-left text-xs leading-relaxed text-muted">
+              <span className="font-semibold text-neon-soft">How to enter: </span>
+              bring new members into your downline with their first package using your leader code today. The top 10
+              leaders by that business share today&apos;s prize pool.
+            </div>
 
             <div className="mt-6 grid w-full grid-cols-3 gap-2.5">
               {TILES.map(({ icon: Icon, title, sub }) => (
@@ -257,5 +272,104 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
       )}
     </AnimatePresence>,
     document.body
+      )}
+    </>
+  );
+}
+
+/** Today's pool, how it is split across the 10 ranks, who holds each rank right now, and where you stand. */
+function ContestDetailsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { account } = useWallet();
+  const [data, setData] = useState<ContestToday>();
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetchContestToday()
+      .then((d) => !cancelled && (setData(d), setFailed(false)))
+      .catch(() => !cancelled && setFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const isMe = (a: string) => !!account && a.toLowerCase() === account.toLowerCase();
+  const myRank = data?.leaders.findIndex((l) => isMe(l.address)) ?? -1;
+  const prize = (rank: number) => ((data?.pool ?? 0n) * PRICE_CONTEST_SHARES_BPS[rank]) / 10000n;
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Leader Prize Contest">
+      {!data ? (
+        <div className="flex h-40 items-center justify-center text-neon" role="status" aria-label="Loading contest">
+          {failed ? (
+            <span className="text-xs text-muted">Couldn&apos;t load today&apos;s contest. Try again shortly.</span>
+          ) : (
+            <span className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="well !rounded-xl p-4 text-center">
+            <div className="text-2xs text-muted">Today&apos;s prize pool</div>
+            <div className="mt-1 text-2xl font-semibold text-neon">{usd(data.pool)}</div>
+            <div className="mt-1 text-2xs text-faint">
+              10 winners · 2% of today&apos;s first-package business · grows until 00:00 UTC
+            </div>
+          </div>
+
+          <div className={`rounded-xl border px-4 py-3 ${myRank >= 0 ? "border-neon/30 bg-neon/[0.06]" : "border-white/[0.08] bg-white/[0.02]"}`}>
+            {myRank >= 0 ? (
+              <p>
+                <span className="font-semibold text-white">You&apos;re #{myRank + 1} right now</span> with{" "}
+                {usd(data.leaders[myRank].volume)} of business. Estimated prize{" "}
+                <span className="font-semibold text-neon">{usd(prize(myRank))}</span>.
+              </p>
+            ) : (
+              <p>
+                <span className="font-semibold text-white">You&apos;re not in the top 10 yet.</span> Bring first-package
+                business into your downline with your leader code today to get a chance to win.
+              </p>
+            )}
+          </div>
+
+          <SheetBlock title="Who wins what">
+            <div className="mt-2 flex flex-col">
+              {PRICE_CONTEST_SHARES_BPS.map((bps, i) => {
+                const leader = data.leaders[i];
+                const me = !!leader && isMe(leader.address);
+                return (
+                  <div
+                    key={i}
+                    className={`grid grid-cols-[2rem_1fr_auto] items-center gap-2 border-b border-white/[0.04] py-2 last:border-0 ${me ? "text-neon" : ""}`}
+                  >
+                    <span className={`flex size-7 items-center justify-center rounded-full text-2xs font-bold ${i < 3 ? "bg-neon/15 text-neon" : "bg-white/[0.06] text-muted"}`}>
+                      #{i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className={`truncate text-xs font-medium ${me ? "text-neon" : leader ? "text-white" : "text-faint"}`}>
+                        {leader ? (me ? "You" : shortAddr(leader.address)) : "Open spot"}
+                      </div>
+                      <div className="text-2xs text-faint">
+                        {Number(bps) / 100}% of pool{leader ? ` · ${usd(leader.volume)} business` : ""}
+                      </div>
+                    </div>
+                    <span className="text-right text-xs font-semibold text-white">{usd(prize(i))}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </SheetBlock>
+
+          <SheetBlock title="How to enter">
+            <p>
+              Today&apos;s winners are ranked by the first-package business brought in with their leader code. Bring new
+              members into your downline with your leader code before 00:00 UTC to get a chance to win. Prizes are
+              estimates until the day closes, then credited to your working balance once you claim.
+            </p>
+          </SheetBlock>
+        </>
+      )}
+    </BottomSheet>
   );
 }
