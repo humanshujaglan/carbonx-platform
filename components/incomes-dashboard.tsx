@@ -251,7 +251,7 @@ export function IncomesDashboard({
 
   // Real-time live streaming values grounded in on-chain parameters
   const lhrTier = market?.lhrTier ?? 0;
-  const { liveLevel, levelPerSecUsd } = useLiveIncomeStreams(user, lhrTier);
+  const { levelPerSecUsd } = useLiveIncomeStreams(user, lhrTier);
   const isTopId = !!user?.isTopId;
 
   const poolWinTotal = (user?.rewardPoolWins ?? []).reduce((sum, w) => sum + w.amount, 0n);
@@ -349,8 +349,9 @@ export function IncomesDashboard({
 
               {/* LIVE STREAMING TICKER */}
               <div>
+                {/* Lifetime: already credited to the working balance plus what a harvest would add now */}
                 <LiveStreamTicker
-                  value={liveLevel}
+                  value={Number(formatUnits(user?.levelIncomeEarned ?? 0n, 18))}
                   ratePerSec={levelPerSecUsd}
                   label="Level Matching"
                   hideRate
@@ -391,9 +392,10 @@ export function IncomesDashboard({
                 right={
                   <InfoSheet title="Direct + Lock Income">
                     <p>
-                      Referral bonuses earned directly from the members you sponsored. Each bonus is locked for 24 hours
-                      after it is earned. Once that time passes it moves into your working balance, which you
-                      withdraw on the Withdraw page. Total earned counts every bonus, including those already moved.
+                      Bonuses on the first package of each member you sponsor directly. Direct income is 2% of that
+                      package. Lock-in income is another 2% of the part of it that is locked (all of a 100% Locked
+                      package, half of a 50/50 one). Each bonus waits 24 hours, then moves into your working balance,
+                      which you withdraw on the Withdraw page. Both figures are totals to date.
                     </p>
                     <SheetBlock title="Your directs">
                       <dl>
@@ -404,23 +406,18 @@ export function IncomesDashboard({
                   </InfoSheet>
                 }
               />
-              <div className="grid grid-cols-3 gap-3">
+              {/* Lifetime totals, including bonuses already moved to the working balance */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-xs text-muted">Total earned</div>
+                  <div className="text-xs text-muted">Direct income</div>
                   <div className="mt-0.5 text-base font-normal text-white">
                     {user ? usd(user.directIncomeEarned) : "$0.00"}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted">Available</div>
+                  <div className="text-xs text-muted">Lock-in income</div>
                   <div className="mt-0.5 text-base font-normal text-white">
-                    {user ? usd(user.pendingDirectBonusAvailable) : "$0.00"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted">Locked</div>
-                  <div className="mt-0.5 text-base font-normal text-white">
-                    {user ? usd(user.pendingDirectBonusLocked) : "$0.00"}
+                    {user ? usd(user.lockIncomeEarned) : "$0.00"}
                   </div>
                 </div>
               </div>

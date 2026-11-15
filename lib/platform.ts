@@ -31,6 +31,7 @@ import {
   rpcUrl,
 } from "./config";
 import { targetRank } from "./rank";
+import { splitDirectSlips } from "./direct-income";
 
 export const publicClient = createPublicClient({
   chain,
@@ -113,8 +114,9 @@ export type PlatformUser = {
   pendingContestRewards: bigint;
   pendingDirectBonusAvailable: bigint;
   pendingDirectBonusLocked: bigint;
-  /** Every direct bonus ever credited, including slips already released into the working balance. */
+  /** Lifetime direct (2%) and lock-in (2% of the locked part) income, including slips already released. */
   directIncomeEarned: bigint;
+  lockIncomeEarned: bigint;
   /** Leader bonus slips already unlocked (realized on the next leader income withdrawal). */
   pendingLeaderBonusAvailable: bigint;
   /** Leader bonus slips still inside their lock period. */
@@ -125,6 +127,8 @@ export type PlatformUser = {
   rankIncomeWithdrawn: bigint;
   /** What `harvestLevelIncome` would credit to the working balance right now (previewed with eth_call). */
   levelIncomeHarvestable: bigint;
+  /** Lifetime level income: what is already settled into the working balance plus what a harvest would add now. */
+  levelIncomeEarned: bigint;
   /** Reward pool cycles this user won and has not claimed yet (poolType 1 Neon, 2 Hydra, 3 Genosis). */
   rewardPoolWins: { poolType: 1 | 2 | 3; cycleId: bigint; amount: bigint }[];
   /** Every reward pool win in the cycles looked at, claimed or not. */
@@ -296,7 +300,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
       const currentRank = Number(u.currentRank);
 
       // Positions, downlines, pool wins, level income and rank salary only need `u`, so they run together
-      const [positions, directs, poolWins, levelIncomeHarvestable, rankSalary, rankRequirement, directIncomeEarned] = await Promise.all([
+      const [positions, directs, poolWins, levelIncomeHarvestable, rankSalary, rankRequirement, directSplit, levelIncomeSettled] = await Promise.all([
         Promise.all(
           (u.positionIds ?? []).map(async (posId): Promise<EnhancedPosition> => {
             try {
@@ -362,19 +366,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
           .catch(() => 0n),
         loadRankSalary(acct, currentRank),
         loadRankRequirement(targetRank(currentRank)),
-        // Released slips leave getPendingDirectBonus, so sum every slip for the lifetime total
-        // ponytail: one read per slip (batched by multicall); fine while a member has a few hundred slips
-        publicClient
-          .readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonusCount", args: [acct] })
-          .then((n) =>
-            Promise.all(
-              Array.from({ length: Number(n) }, (_, i) =>
-                publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonusItem", args: [acct, BigInt(i)] })
-              )
-            )
-          )
-          .then((items) => items.reduce((s, [amount]) => s + amount, 0n))
-          .catch(() => 0n),
+        loadDirectIncome(acct),
+        loadLevelIncomeSettled(acct),
       ]);
 
       return {
@@ -413,12 +406,14 @@ export async function fetchPlatformData(account?: Address): Promise<{
         pendingContestRewards: pContest,
         pendingDirectBonusAvailable: pDirectBonus[0],
         pendingDirectBonusLocked: pDirectBonus[1],
-        directIncomeEarned,
+        directIncomeEarned: directSplit.direct,
+        lockIncomeEarned: directSplit.lock,
         pendingLeaderBonusAvailable: pLeaderBonus[0],
         pendingLeaderBonusLocked: pLeaderBonus[1],
         rankIncomePending: rankIncome,
         rankIncomeWithdrawn: rankWithdrawn,
         levelIncomeHarvestable,
+        levelIncomeEarned: levelIncomeSettled + levelIncomeHarvestable,
         rewardPoolWins: poolWins.filter((w) => !w.claimed),
         rewardPoolEarned: poolWins.reduce((s, w) => s + w.amount, 0n),
         rankSalary,
@@ -438,6 +433,63 @@ export async function fetchPlatformData(account?: Address): Promise<{
       };
     } catch {
       return undefined;
+    }
+  }
+
+  // Level income already paid: 10% of each direct's ROI basis up to the sponsor's checkpoint, minus forfeits
+  // (PlatformTeamSettlement._settleDirectDownlineWithTier). It is credited to the working balance automatically
+  // whenever the direct's ROI accrues, so the harvest preview alone is usually $0.
+  // ponytail: assumes the full 10% was credited; a sponsor at the working cap gets less, so this can read high then
+  async function loadLevelIncomeSettled(acct: Address): Promise<bigint> {
+    try {
+      const [teamEngine, directs] = await Promise.all([
+        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "teamEngine" }),
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getDirectDownlines", args: [acct] }),
+      ]);
+      const perDirect = await Promise.all(
+        directs.map(async (d) => {
+          const [settled, forfeited] = await Promise.all([
+            publicClient.readContract({ address: teamEngine, abi: teamEngineAbi, functionName: "sponsorSettledYieldCheckpoint", args: [acct, d] }),
+            publicClient.readContract({ address: teamEngine, abi: teamEngineAbi, functionName: "sponsorSettledForfeitCheckpoint", args: [acct, d] }),
+          ]);
+          return settled > forfeited ? ((settled - forfeited) * 1000n) / 10000n : 0n;
+        })
+      );
+      return perDirect.reduce((s, v) => s + v, 0n);
+    } catch {
+      return 0n;
+    }
+  }
+
+  // Lifetime direct and lock-in income. Released slips leave getPendingDirectBonus, so read every slip and
+  // split them by the directs' first packages (see splitDirectSlips).
+  // ponytail: one read per slip and two per direct (batched by multicall); fine for a few hundred of each
+  async function loadDirectIncome(acct: Address): Promise<{ direct: bigint; lock: bigint }> {
+    try {
+      const [count, directs] = await Promise.all([
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonusCount", args: [acct] }),
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getDirectDownlines", args: [acct] }),
+      ]);
+      const [slips, packages] = await Promise.all([
+        Promise.all(
+          Array.from({ length: Number(count) }, (_, i) =>
+            publicClient
+              .readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonusItem", args: [acct, BigInt(i)] })
+              .then(([amount, unlockTime]) => ({ amount, unlockTime: Number(unlockTime) }))
+          )
+        ),
+        Promise.all(
+          directs.map(async (d) => {
+            const { positionIds } = await publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getUser", args: [d] });
+            if (positionIds.length === 0) return undefined;
+            const pos = await publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPosition", args: [positionIds[0]] });
+            return { createdAt: Number(pos.createdAt), locked: pos.lockType !== LockType.FLEXIBLE };
+          })
+        ),
+      ]);
+      return splitDirectSlips(slips, packages.filter((p) => !!p));
+    } catch {
+      return { direct: 0n, lock: 0n };
     }
   }
 

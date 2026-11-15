@@ -119,6 +119,9 @@ export const teamEngineAbi = parseAbi([
   // Rank activation conditions, set by the contract owner and read live (never hardcode them)
   "function rankSalaryConfigs(uint256 rank) view returns (uint128 teamBusinessRequired, uint128 selfStakeRequired, uint16 durationWeeks, uint16 rewardPercentageBps)",
   "function rankDirectBusinessRequired(uint256 rank) view returns (uint256)",
+  // Level income settled per direct: downline ROI basis already paid on, and the forfeited part of it
+  "function sponsorSettledYieldCheckpoint(address sponsor, address downline) view returns (uint256)",
+  "function sponsorSettledForfeitCheckpoint(address sponsor, address downline) view returns (uint256)",
 ]);
 
 /** Top ID partner pool ledger on the payout engine (`platform.payoutEngine()`). */
