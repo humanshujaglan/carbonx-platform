@@ -8,6 +8,7 @@ import {
   cyclePosition,
 } from "@/lib/roi";
 import { LockType } from "@/lib/config";
+import { dateTime } from "@/lib/format";
 import type { PlatformUser } from "@/lib/platform";
 
 const MAX_BAR_PX = 120;
@@ -41,6 +42,8 @@ export function RoiCycleChart({ lhrTier, user }: { lhrTier: number; user?: Platf
   const elapsed = cycleStartTime ? Math.max(0, now - cycleStartTime) : 0;
   const { day: earnedDays, slot: currentSlot } = cyclePosition(elapsed % CYCLE_SECONDS);
   const filledDays = cycleStartTime ? earnedDays : 0;
+  // Cycles repeat every 30 days from cycleStartTime; the current one ends at the next boundary
+  const cycleEnd = cycleStartTime ? cycleStartTime + (Math.floor(elapsed / CYCLE_SECONDS) + 1) * CYCLE_SECONDS : 0;
 
   const dailyPct = rates[currentSlot] / 100;
 
@@ -56,6 +59,11 @@ export function RoiCycleChart({ lhrTier, user }: { lhrTier: number; user?: Platf
         <h3 className="text-sm font-medium text-text">ROI This Month</h3>
         <span className="text-xs font-medium text-white">{dailyPct.toFixed(2)}%/day</span>
       </div>
+      {cycleEnd > 0 && (
+        <p className="-mt-2 text-xs text-muted">
+          Current cycle ends on <span className="text-white">{dateTime(cycleEnd)}</span>
+        </p>
+      )}
 
       <div className="mx-auto w-full max-w-[520px] pt-2">
         <div className="grid grid-cols-6 items-end gap-[3px]">

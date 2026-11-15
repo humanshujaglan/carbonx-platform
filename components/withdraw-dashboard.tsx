@@ -51,7 +51,7 @@ export function WithdrawDashboard({
   const tx = useTx(onDone);
 
   // Show the same live ROI / booster as the home cards; the claim button gates on what the contract would pay now
-  const { liveRoi, liveLockedRoi, liveBooster, settledRoi, settledBooster } = useLiveIncomeStreams(user, market?.lhrTier ?? 0);
+  const { liveRoi, liveLockedRoi, liveBooster, settledRoi, settledBooster, liveRank, settledRank } = useLiveIncomeStreams(user, market?.lhrTier ?? 0);
 
   const [mode, setMode] = useState<Mode>("claim");
   const [amountStr, setAmountStr] = useState("");
@@ -75,7 +75,7 @@ export function WithdrawDashboard({
     { id: "roi", icon: TrendUp, name: "Daily ROI", amount: liveRoi + liveLockedRoi, claimable: settledRoi, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming ROI Income...", call: { fn: "withdrawROI" } },
     { id: "booster", icon: Flash, name: "Booster Income", amount: liveBooster, claimable: settledBooster, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Booster Income...", call: { fn: "withdrawBooster" } },
     { id: "leader", icon: Profile2User, name: "Leader Income", amount: user ? toUsd(user.leaderIncomePending + user.pendingLeaderBonusAvailable) : 0, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Leader Income...", call: { fn: "withdrawLeaderIncome" } },
-    { id: "rankpay", icon: CardReceive, name: "Rank Income", amount: user ? toUsd(user.rankIncomePending + user.rankSalary.totalClaimable) : 0, note: "Weekly salary, unlocked then paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Rank Income...", call: { fn: "withdrawRankIncome" } },
+    { id: "rankpay", icon: CardReceive, name: "Rank Income", amount: liveRank, claimable: settledRank, note: "Weekly salary, unlocked then paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Rank Income...", call: { fn: "withdrawRankIncome" } },
   ];
 
   // Only the working balance is withdrawn; every other income is a card on the Claim tab

@@ -5,7 +5,10 @@ import { ArrowRight } from "iconsax-react";
 import type { PlatformUser } from "@/lib/platform";
 import { POWER_LEG_SHARE, WEAKER_LEGS_SHARE, targetRank } from "@/lib/rank";
 import type { NavTab } from "./header";
-import { money } from "@/lib/format";
+
+// Whole dollars, truncated like lib/format's money() so a value never shows more than is really there
+const wholeUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0, roundingMode: "trunc" });
+const money = (v: number) => wholeUsd.format(v);
 
 const usd = (v?: bigint) => (v === undefined ? 0 : Number(formatUnits(v, 18)));
 

@@ -190,9 +190,7 @@ export function PackagesList({
                   {tx.busy === convertLabel(pos.id) ? (
                     <Spinner />
                   ) : (
-                    <span>
-                      Convert to 50/50 <span className="font-normal opacity-70">· {Math.ceil(left / 86400)}d left</span>
-                    </span>
+                    <span>Convert to 50/50</span>
                   )}
                 </button>
               )}

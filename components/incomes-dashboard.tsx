@@ -133,6 +133,20 @@ export function useLiveIncomeStreams(user?: PlatformUser, lhrTier = 0) {
   const levelPerSecUsd = 0;
   const liveLevel = toUsd(user?.levelIncomeHarvestable ?? 0n);
 
+  // 4. Rank salary: each stream pays weeklyPayout every 7 days from startTime, for durationWeeks.
+  // The contract unlocks whole weeks (rankSalary.totalClaimable); the ticker spreads each week evenly.
+  const WEEK = 7 * DAY_SECONDS;
+  let rankUnclaimed = 0;
+  let rankPerSecUsd = 0;
+  for (const st of user?.rankSalary.streams ?? []) {
+    const weekly = toUsd(st.weeklyPayout);
+    const weeks = st.startTime > 0 ? Math.min(st.durationWeeks, Math.max(0, t - st.startTime) / WEEK) : 0;
+    rankUnclaimed += weekly * Math.max(st.claimableWeeks, weeks - st.weeksClaimed);
+    if (st.startTime > 0 && weeks < st.durationWeeks) rankPerSecUsd += weekly / WEEK;
+  }
+  const liveRank = toUsd(user?.rankIncomePending ?? 0n) + rankUnclaimed;
+  const settledRank = toUsd((user?.rankIncomePending ?? 0n) + (user?.rankSalary.totalClaimable ?? 0n));
+
   const position = flexElapsed !== undefined ? cyclePosition(flexElapsed) : undefined;
   // Booster runs on the same 30-day / 6-slot schedule, measured from roiCycleStartTime
   const boosterElapsed = user?.roiCycleStartTime ? Math.max(0, t - user.roiCycleStartTime) : undefined;
@@ -158,6 +172,9 @@ export function useLiveIncomeStreams(user?: PlatformUser, lhrTier = 0) {
     liveLockedRoi,
     liveBooster,
     liveLevel,
+    liveRank,
+    settledRank,
+    rankPerSecUsd,
     roiPerSecUsd,
     lockedPerSecUsd,
     boosterPerSecUsd,

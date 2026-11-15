@@ -37,6 +37,8 @@ export function ClaimIncomeCards({ user, market }: { user?: PlatformUser; market
     roiPerSecUsd,
     lockedPerSecUsd,
     boosterPerSecUsd,
+    liveRank,
+    rankPerSecUsd,
     roiSchedule,
   } = useLiveIncomeStreams(user, lhrTier);
   const boosterTier = user?.boosterTier ?? 0;
@@ -58,9 +60,7 @@ export function ClaimIncomeCards({ user, market }: { user?: PlatformUser; market
   const leaderEarned = user
     ? toUsd(user.leaderIncomeWithdrawn + user.leaderIncomePending + user.pendingLeaderBonusAvailable + user.pendingLeaderBonusLocked)
     : 0;
-  const rankEarned = user
-    ? toUsd(user.rankIncomeWithdrawn + user.rankIncomePending + user.rankSalary.totalClaimable)
-    : 0;
+  const rankEarned = user ? toUsd(user.rankIncomeWithdrawn) + liveRank : 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -270,7 +270,7 @@ export function ClaimIncomeCards({ user, market }: { user?: PlatformUser; market
                   </InfoSheet>
                 }
               />
-              <div className="text-base font-normal text-white">{money(rankEarned)}</div>
+              <LiveStreamTicker value={rankEarned} ratePerSec={rankPerSecUsd} label="Rank" hideRate />
             </div>
           </section>
 
