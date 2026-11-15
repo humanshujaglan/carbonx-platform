@@ -51,8 +51,8 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
   const isPartner = useIsPartner(account, addresses);
   // Leader Prize Contest popup: once per UTC day (per browser) when today's contest has triggered on-chain
   const [contestSeen, closeContest] = useContestSeenToday();
-  // const contestOpen = !!market?.contestTriggered && !contestSeen;
-  const contestOpen = !contestSeen;
+  const contestOpen = !!market?.contestTriggered && !contestSeen;
+  // const contestOpen = !contestSeen;
 
   // The partner page is for active Top ID partners only
   useEffect(() => {
