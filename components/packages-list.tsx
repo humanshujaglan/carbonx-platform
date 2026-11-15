@@ -15,7 +15,7 @@ const AMBER = "linear-gradient(90deg, #e8890c, #ffd166)";
 const RED = "linear-gradient(90deg, #b42347, #ff7a93)";
 // Mirrors PlatformEarnEngine.convertToFiftyFifty: a flexible package can turn 50/50 within 30 days of buying it
 const CONVERT_WINDOW_SEC = 30 * 86400;
-const CONVERT_LABEL = "Converting to 50/50...";
+const convertLabel = (id: bigint) => `Converting #${id} to 50/50...`;
 
 /**
  * Bold progress bar with the earned value inside it. The value is light on the dark track and dark on the
@@ -82,23 +82,26 @@ export function PackagesList({
   const openLive = open ? packageLiveRoi(open, owner, lhrTier, now) : null;
   const openHalves = open && open.lockType === LockType.LOCKED_50 ? hybridHalves(open, owner, lhrTier, now) : null;
   const openLock = open ? LOCK_DETAILS[open.lockType] ?? LOCK_DETAILS[LockType.FLEXIBLE] : null;
-  // Seconds left to convert; null when the contract would reject it (the Top ID always earns linearly)
-  const convertLeft =
-    open && open.lockType === LockType.FLEXIBLE && open.active && !open.isCapped && open.createdAt > 0 && !user?.isTopId
-      ? open.createdAt + CONVERT_WINDOW_SEC - now
-      : null;
-  const canConvert = convertLeft !== null && convertLeft > 0;
+  // Seconds left to convert; 0 when the contract would reject it (the Top ID always earns linearly)
+  const convertLeft = (pos: EnhancedPosition) =>
+    pos.lockType === LockType.FLEXIBLE && pos.active && !pos.isCapped && pos.createdAt > 0 && !user?.isTopId
+      ? Math.max(0, pos.createdAt + CONVERT_WINDOW_SEC - now)
+      : 0;
 
-  async function handleConvert() {
-    if (!addresses || !account || !open) return;
+  async function handleConvert(pos: EnhancedPosition, idx: number) {
+    if (!addresses || !account) return;
+    const ok = window.confirm(
+      `Convert package #${idx + 1} to 50/50? Half keeps earning flexible, the other half locks for ${LOCK_DETAILS[LockType.LOCKED_50].lockDays} days at 0.33% daily compounding. This can't be undone.`
+    );
+    if (!ok) return;
     await tx.run(
-      CONVERT_LABEL,
+      convertLabel(pos.id),
       () =>
         write({
           address: addresses.platform,
           abi: platformAbi,
           functionName: "convertToFiftyFifty",
-          args: [open.id],
+          args: [pos.id],
         }),
       () => <span>Package converted to 50/50!</span>
     );
@@ -110,6 +113,8 @@ export function PackagesList({
         <h3 className="text-sm font-medium text-text">My packages</h3>
         <span className="text-xs text-muted">{positions.filter((p) => p.active && !p.isCapped).length} active</span>
       </div>
+
+      {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
 
       <div className="grid grid-cols-2 gap-3">
         {positions.map((pos, idx) => {
@@ -152,24 +157,46 @@ export function PackagesList({
             );
           }
           const accent = pos.lockType === LockType.FLEXIBLE ? GREEN : AMBER;
+          const left = convertLeft(pos);
           return (
-            <button
+            // A div, not a button: the convert button can't sit inside the open-details button
+            <div
               key={pos.id.toString()}
-              type="button"
-              onClick={() => setOpenId(pos.id.toString())}
-              className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-white/[0.08] bg-panel-2 p-3.5 text-left transition hover:border-white/20 active:scale-[0.98]"
+              className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-panel-2 p-3.5 transition hover:border-white/20"
             >
-              <div className="flex items-center justify-between gap-2 text-xs text-muted">
-                <span>#{idx + 1}</span>
-                <span className="truncate">{lock.name}</span>
-              </div>
-              <div className="text-base text-white">{usd(pos.initialPrincipal)}</div>
-              <EarnBar
-                pct={capPct}
-                text={pos.isCapped ? "Capped out" : money(live.accruedUsd)}
-                fill={pos.isCapped ? RED : accent}
-              />
-            </button>
+              <button
+                type="button"
+                onClick={() => setOpenId(pos.id.toString())}
+                className="flex cursor-pointer flex-col gap-3 text-left active:scale-[0.98]"
+              >
+                <div className="flex w-full items-center justify-between gap-2 text-xs text-muted">
+                  <span>#{idx + 1}</span>
+                  <span className="truncate">{lock.name}</span>
+                </div>
+                <div className="text-base text-white">{usd(pos.initialPrincipal)}</div>
+                <EarnBar
+                  pct={capPct}
+                  text={pos.isCapped ? "Capped out" : money(live.accruedUsd)}
+                  fill={pos.isCapped ? RED : accent}
+                />
+              </button>
+              {left > 0 && (
+                <button
+                  type="button"
+                  disabled={Boolean(tx.busy) || !account || !addresses}
+                  onClick={() => handleConvert(pos, idx)}
+                  className="btn btn-primary w-full !rounded-lg py-2 text-xs font-semibold"
+                >
+                  {tx.busy === convertLabel(pos.id) ? (
+                    <Spinner />
+                  ) : (
+                    <span>
+                      Convert to 50/50 <span className="font-normal opacity-70">· {Math.ceil(left / 86400)}d left</span>
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
@@ -200,29 +227,6 @@ export function PackagesList({
               </dl>
             </SheetBlock>
             <p>{openLive.schedule}</p>
-            {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
-            {canConvert && (
-              <SheetBlock title="Convert to 50/50">
-                <p>
-                  Half of this package keeps earning flexible, the other half locks for {LOCK_DETAILS[LockType.LOCKED_50].lockDays}{" "}
-                  days at 0.33% daily compounding. This can&apos;t be undone.
-                </p>
-                <dl>
-                  <Row
-                    label="Window closes in"
-                    value={`${Math.floor(convertLeft / 86400)}d ${Math.floor((convertLeft % 86400) / 3600)}h`}
-                  />
-                </dl>
-                <button
-                  type="button"
-                  disabled={Boolean(tx.busy) || !account || !addresses}
-                  onClick={handleConvert}
-                  className="btn btn-primary mt-3 w-full py-3 text-sm font-semibold"
-                >
-                  {tx.busy === CONVERT_LABEL ? <Spinner /> : "Convert to 50/50"}
-                </button>
-              </SheetBlock>
-            )}
           </>
         )}
       </BottomSheet>
