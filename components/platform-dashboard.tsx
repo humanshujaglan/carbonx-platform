@@ -49,9 +49,24 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
   const { addresses, market, user, error, refresh, loading } = usePlatform(account);
   const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
   const isPartner = useIsPartner(account, addresses);
-  // ponytail: shown on every visit for now; gate on market.contestTriggered (once per UTC day) when it goes live
-  const [contestOpen, setContestOpen] = useState(true);
-  const closeContest = useCallback(() => setContestOpen(false), []);
+  // Leader Prize Contest popup: once per UTC day (per browser) when today's contest has triggered on-chain.
+  // ponytail: the day is fixed at mount, so a tab kept open past midnight shows the next day's popup after a reload
+  const [contestDay] = useState(() => Math.floor(Date.now() / 1000 / 86400));
+  const contestSeenKey = `cx_contest_seen_${contestDay}`;
+  const [contestSeen, setContestSeen] = useState(() => {
+    try {
+      return localStorage.getItem(contestSeenKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const closeContest = useCallback(() => {
+    setContestSeen(true);
+    try {
+      localStorage.setItem(contestSeenKey, "1");
+    } catch {}
+  }, [contestSeenKey]);
+  const contestOpen = !!market?.contestTriggered && !contestSeen;
 
   // The partner page is for active Top ID partners only
   useEffect(() => {
