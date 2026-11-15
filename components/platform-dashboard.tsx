@@ -152,7 +152,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
   return (
     <div className="flex flex-col gap-6">
-      <ContestStartedModal open={contestOpen} onClose={closeContest} market={market} addresses={addresses} />
+      <ContestStartedModal open={contestOpen} onClose={closeContest} />
       {internalScreen ? (
         <div className="px-3 pt-3 sm:px-6">
           <button

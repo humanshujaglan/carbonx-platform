@@ -1,65 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CloseCircle } from "iconsax-react";
-import { price } from "@/lib/format";
-import type { PlatformAddresses, PlatformMarket } from "@/lib/platform";
-import { fetchPriceHistory, type PricePoint } from "@/lib/price-history";
 
-const W = 300;
-const H = 140;
-const PAD_Y = 18;
+// Illustrative price line (not live data): climbs to the day high, then falls 5% through the target
+const POINTS: [number, number][] = [
+  [0, 100], [20, 92], [40, 96], [60, 80], [80, 84], [100, 66], [120, 70], [140, 52], [160, 56], [175, 40],
+  [190, 52], [205, 48], [220, 70], [235, 66], [250, 92], [265, 88], [280, 112], [300, 124],
+];
+const PATH = POINTS.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join(" ");
+const HIGH_Y = 40;
+const TARGET_Y = 110;
+const PEAK_X = 175;
+const END = POINTS[POINTS.length - 1];
 const DRAW_S = 2.4;
-const MAX_PATH_POINTS = 120;
-const DROP_TARGET = 0.95;
-
-type Chart = { path: string; peakX: number; highY: number; targetY: number; end: [number, number]; high: number; target: number; now: number };
-
-/** Today's (UTC) prices plus the current spot, scaled into the SVG box. */
-function buildChart(history: PricePoint[], spot: number, chainHigh: number): Chart | undefined {
-  const nowS = Math.floor(Date.now() / 1000);
-  const todayStart = Math.floor(nowS / 86400) * 86400;
-  let pts: PricePoint[] = history.filter(([t]) => t >= todayStart);
-  if (spot > 0) pts.push([nowS, spot]);
-  // Same day high as the contest card: on-chain high, today's swaps and the spot price
-  const high = Math.max(chainHigh, ...pts.map(([, p]) => p));
-  // Open the day at the price carried over from the last swap before midnight
-  const carried = history.findLast(([t]) => t < todayStart);
-  if (carried) pts.unshift([todayStart, carried[1]]);
-  // Logs RPC gave nothing for today: draw straight from the on-chain day high to the spot price
-  if (pts.length < 2) pts = high > 0 && spot > 0 ? [[todayStart, high], [nowS, spot]] : [];
-  if (pts.length < 2) return undefined;
-  if (pts.length > MAX_PATH_POINTS) {
-    const step = (pts.length - 1) / (MAX_PATH_POINTS - 1);
-    pts = Array.from({ length: MAX_PATH_POINTS }, (_, i) => pts[Math.round(i * step)]);
-  }
-
-  const target = high * DROP_TARGET;
-  const lo = Math.min(target, ...pts.map(([, p]) => p));
-  const top = Math.max(high, ...pts.map(([, p]) => p)); // the carried opening price can sit above the day high
-  const t0 = pts[0][0];
-  const span = Math.max(1, pts[pts.length - 1][0] - t0);
-  const range = top - lo || top * 0.05;
-  const x = (t: number) => ((t - t0) / span) * W;
-  const y = (p: number) => PAD_Y + ((top - p) / range) * (H - 2 * PAD_Y);
-
-  const peak = pts.reduce((m, pt) => (pt[1] > m[1] ? pt : m), pts[0]);
-  const last = pts[pts.length - 1];
-  return {
-    path: pts.map(([t, p], i) => `${i ? "L" : "M"}${x(t).toFixed(1)} ${y(p).toFixed(1)}`).join(" "),
-    peakX: x(peak[0]),
-    highY: y(high),
-    targetY: y(target),
-    end: [x(last[0]), y(last[1])],
-    high,
-    target,
-    now: last[1],
-  };
-}
-
-const fmt = (v: number) => price(BigInt(Math.round(v * 1e18)));
 
 const COLORS = ["#1fe03a", "#3bf857", "#6df585", "#ffffff", "#facc15", "#f472b6", "#38bdf8"];
 // Deterministic pseudo-random so render stays pure
@@ -82,43 +38,9 @@ const PARTICLES = Array.from({ length: 48 }, (_, i) => {
 });
 
 /** Celebration shown when the CARB price falls 5% below the day high and the Leader Prize Contest starts. */
-export function ContestStartedModal({
-  open,
-  onClose,
-  market,
-  addresses,
-}: {
-  open: boolean;
-  onClose: () => void;
-  market?: PlatformMarket;
-  addresses?: PlatformAddresses;
-}) {
+export function ContestStartedModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const reduced = useReducedMotion();
   const [crossed, setCrossed] = useState(false);
-  const [chart, setChart] = useState<Chart>();
-
-  // Read the market through a ref so the 5s refreshes don't restart the drawing
-  const marketRef = useRef(market);
-  useEffect(() => {
-    marketRef.current = market;
-  }, [market]);
-
-  const pair = addresses?.pair;
-  const carbIsToken0 = addresses ? addresses.carb.toLowerCase() < addresses.usdt.toLowerCase() : true;
-  const hasSpot = !!market?.spotPrice;
-  useEffect(() => {
-    if (!open || !pair || !hasSpot || chart) return;
-    let cancelled = false;
-    fetchPriceHistory(pair, carbIsToken0).then((history) => {
-      const m = marketRef.current;
-      const spot = m?.spotPrice ? Number(m.spotPrice) / 1e18 : 0;
-      const chainHigh = m?.contestDayHigh ? Number(m.contestDayHigh) / 1e18 : 0;
-      if (!cancelled) setChart(buildChart(history, spot, chainHigh));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, pair, carbIsToken0, hasSpot, chart]);
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -172,52 +94,46 @@ export function ContestStartedModal({
 
             <div className="mb-3 text-2xs font-semibold uppercase tracking-wider text-neon">CARB price alert</div>
 
-            {chart ? (
-              <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" role="img" aria-label={`CARB price today: high ${fmt(chart.high)}, now ${fmt(chart.now)}`}>
-                <defs>
-                  <linearGradient id="contest-line" x1="0" x2={W} y1="0" y2="0" gradientUnits="userSpaceOnUse">
-                    <stop offset={chart.peakX / W} stopColor="var(--color-neon)" />
-                    <stop offset={chart.peakX / W} stopColor="var(--color-danger)" />
-                  </linearGradient>
-                </defs>
-                <line x1="0" x2={W} y1={chart.highY} y2={chart.highY} stroke="var(--color-line)" strokeDasharray="2 4" />
-                <text x="0" y={chart.highY - 6} fill="var(--color-faint)" fontSize="9">Day high {fmt(chart.high)}</text>
-                <line x1="0" x2={W} y1={chart.targetY} y2={chart.targetY} stroke="var(--color-danger)" strokeOpacity="0.6" strokeDasharray="5 4" />
-                <text x="0" y={chart.targetY - 6} fill="var(--color-danger)" fontSize="9">−5% target {fmt(chart.target)}</text>
-                <motion.path
-                  d={chart.path}
-                  fill="none"
-                  stroke="url(#contest-line)"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  initial={{ pathLength: reduced ? 1 : 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: reduced ? 0 : DRAW_S, ease: "easeInOut", delay: 0.3 }}
-                  onAnimationComplete={() => setCrossed(true)}
-                />
-                {done && (
-                  <>
-                    <motion.circle
-                      cx={chart.end[0]}
-                      cy={chart.end[1]}
-                      r="4"
-                      fill="var(--color-danger)"
-                      initial={{ scale: 0 }}
-                      animate={{ scale: [1, 1.6, 1] }}
-                      transition={{ duration: 1.2, repeat: Infinity }}
-                    />
-                    <text x={W} y={Math.min(H + 12, chart.end[1] + 16)} textAnchor="end" fill="var(--color-danger)" fontSize="10" fontWeight="600">
-                      Now {fmt(chart.now)} (−{((1 - chart.now / chart.high) * 100).toFixed(1)}%)
-                    </text>
-                  </>
-                )}
-              </svg>
-            ) : (
-              <div className="flex h-[140px] items-center justify-center text-neon" role="status" aria-label="Loading price">
-                <span className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              </div>
-            )}
+            <svg viewBox="0 0 300 140" className="w-full overflow-visible" aria-hidden="true">
+              <defs>
+                <linearGradient id="contest-line" x1="0" x2="300" y1="0" y2="0" gradientUnits="userSpaceOnUse">
+                  <stop offset={PEAK_X / 300} stopColor="var(--color-neon)" />
+                  <stop offset={PEAK_X / 300} stopColor="var(--color-danger)" />
+                </linearGradient>
+              </defs>
+              <line x1="0" x2="300" y1={HIGH_Y} y2={HIGH_Y} stroke="var(--color-line)" strokeDasharray="2 4" />
+              <text x="0" y={HIGH_Y - 6} fill="var(--color-faint)" fontSize="9">Day high</text>
+              <line x1="0" x2="300" y1={TARGET_Y} y2={TARGET_Y} stroke="var(--color-danger)" strokeOpacity="0.6" strokeDasharray="5 4" />
+              <text x="0" y={TARGET_Y - 6} fill="var(--color-danger)" fontSize="9">−5% target</text>
+              <motion.path
+                d={PATH}
+                fill="none"
+                stroke="url(#contest-line)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: reduced ? 1 : 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: reduced ? 0 : DRAW_S, ease: "easeInOut", delay: 0.3 }}
+                onAnimationComplete={() => setCrossed(true)}
+              />
+              {done && (
+                <>
+                  <motion.circle
+                    cx={END[0]}
+                    cy={END[1]}
+                    r="4"
+                    fill="var(--color-danger)"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: [1, 1.6, 1] }}
+                    transition={{ duration: 1.2, repeat: Infinity }}
+                  />
+                  <text x="300" y={END[1] + 16} textAnchor="end" fill="var(--color-danger)" fontSize="10" fontWeight="600">
+                    −5%
+                  </text>
+                </>
+              )}
+            </svg>
 
             <AnimatePresence>
               {done && (
