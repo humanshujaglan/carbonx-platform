@@ -101,6 +101,9 @@ export function LeaderCodeCard({
 
       {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
 
+      {/* Progress only matters until the code is unlocked */}
+      {!unlocked && (
+        <>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-3xl font-semibold text-white">{user ? usd(cleanWeaker) : "—"}</span>
       </div>
@@ -128,6 +131,8 @@ export function LeaderCodeCard({
           <dd className="w-10 shrink-0 text-right text-muted">{percent}%</dd>
         </div>
       </dl>
+        </>
+      )}
 
       {!unlocked && legCount < 2 && (
         <Notice tone="warn">
@@ -195,7 +200,7 @@ export function LeaderCodeCard({
         </div>
       )}
 
-      <FaqAccordion items={FAQ} />
+      {!unlocked && <FaqAccordion items={FAQ} />}
     </section>
   );
 }
