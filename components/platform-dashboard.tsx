@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -29,7 +29,7 @@ import { RegisterCard } from "./register-card";
 import { BoosterTiersCard } from "./booster-tiers-card";
 import { LeaderCodeCard } from "./leader-code-card";
 import { LeaderPrizeContestCard } from "./leader-prize-contest-card";
-import { ContestStartedModal } from "./contest-started-modal";
+import { ContestStartedModal, useContestSeenToday } from "./contest-started-modal";
 import { LockMixCard } from "./lock-mix-card";
 import { QuickActions } from "./quick-actions";
 import { UnlockScheduleCard } from "./unlock-schedule-card";
@@ -49,23 +49,8 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
   const { addresses, market, user, error, refresh, loading } = usePlatform(account);
   const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
   const isPartner = useIsPartner(account, addresses);
-  // Leader Prize Contest popup: once per UTC day (per browser) when today's contest has triggered on-chain.
-  // ponytail: the day is fixed at mount, so a tab kept open past midnight shows the next day's popup after a reload
-  const [contestDay] = useState(() => Math.floor(Date.now() / 1000 / 86400));
-  const contestSeenKey = `cx_contest_seen_${contestDay}`;
-  const [contestSeen, setContestSeen] = useState(() => {
-    try {
-      return localStorage.getItem(contestSeenKey) === "1";
-    } catch {
-      return false;
-    }
-  });
-  const closeContest = useCallback(() => {
-    setContestSeen(true);
-    try {
-      localStorage.setItem(contestSeenKey, "1");
-    } catch {}
-  }, [contestSeenKey]);
+  // Leader Prize Contest popup: once per UTC day (per browser) when today's contest has triggered on-chain
+  const [contestSeen, closeContest] = useContestSeenToday();
   // const contestOpen = !!market?.contestTriggered && !contestSeen;
   const contestOpen = !contestSeen;
 

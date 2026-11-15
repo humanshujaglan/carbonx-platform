@@ -58,6 +58,39 @@ const RAIN = Array.from({ length: 36 }, (_, i) => ({
   delay: rand(i, 11) * 5,
 }));
 
+// "Seen today" flag for the popup. Read through useSyncExternalStore so the clock is only read in the browser:
+// the server snapshot says "seen", which keeps Date.now() out of the prerender (Cache Components rejects it).
+const seenKey = () => `cx_contest_seen_${Math.floor(Date.now() / 1000 / 86400)}`;
+const seenListeners = new Set<() => void>();
+let dismissedKey = ""; // fallback when localStorage is unavailable
+function readSeen() {
+  const key = seenKey();
+  if (dismissedKey === key) return true;
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+function markSeen() {
+  dismissedKey = seenKey();
+  try {
+    localStorage.setItem(dismissedKey, "1");
+  } catch {}
+  seenListeners.forEach((l) => l());
+}
+function subscribeSeen(listener: () => void) {
+  seenListeners.add(listener);
+  return () => {
+    seenListeners.delete(listener);
+  };
+}
+
+/** Whether the contest popup was already dismissed today (UTC), and a function that dismisses it. */
+export function useContestSeenToday(): [boolean, () => void] {
+  return [useSyncExternalStore(subscribeSeen, readSeen, () => true), markSeen];
+}
+
 /** Celebration shown when the CARB price falls 5% below the day high and the Leader Prize Contest starts. */
 export function ContestStartedModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const reduced = useReducedMotion();
