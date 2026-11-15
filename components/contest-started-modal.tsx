@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, CloseCircle, Cup, Flash, Profile2User, Wallet3 } from "iconsax-react";
+import { ArrowRight, CloseCircle, Cup, Flash, Profile2User, TicketStar, Wallet3 } from "iconsax-react";
 import { shortAddr, usd } from "@/lib/format";
 import { fetchContestToday, PRICE_CONTEST_SHARES_BPS, type ContestToday } from "@/lib/platform";
 import { BottomSheet, SheetBlock } from "./info-sheet";
@@ -217,13 +217,35 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
             </h3>
             <p className="mt-1 text-sm font-semibold text-neon">has started!</p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
-              CARB fell 5% below today&apos;s high. Today the prize goes to the leaders who bring in the most business
-              with their leader code.
+              CARB fell 5% below today&apos;s high. Today&apos;s prize is earned through{" "}
+              <span className="font-semibold text-white">your Leader Code business</span>.
             </p>
-            <div className="mt-4 w-full rounded-2xl border border-neon/20 bg-neon/[0.06] px-4 py-3 text-left text-xs leading-relaxed text-muted">
-              <span className="font-semibold text-neon-soft">How to enter: </span>
-              bring new members into your downline with their first package using your leader code today. The top 10
-              leaders by that business share today&apos;s prize pool.
+
+            {/* The one thing that earns this income: business brought in with your leader code today */}
+            <div className="mt-5 w-full rounded-2xl border border-neon/30 bg-[linear-gradient(135deg,rgba(31,224,58,0.12),rgba(31,224,58,0.03))] p-4 text-left">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neon/15">
+                  <TicketStar size={20} color="var(--color-neon)" variant="Bold" />
+                </span>
+                <div>
+                  <div className="text-sm font-semibold text-white">Your Leader Code = your income</div>
+                  <div className="text-2xs text-neon-soft">Only business brought in with your leader code today counts</div>
+                </div>
+              </div>
+              <ol className="mt-3 flex flex-col gap-2 text-xs leading-relaxed text-muted">
+                {[
+                  "Share your leader code with new members today.",
+                  "They join your downline and buy their first package using your code.",
+                  "The top 10 leaders by that business win today's prize pool, credited to their working balance.",
+                ].map((step, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-neon/15 text-2xs font-bold text-neon">
+                      {i + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
 
             <div className="mt-6 grid w-full grid-cols-3 gap-2.5">
