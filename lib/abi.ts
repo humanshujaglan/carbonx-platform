@@ -69,6 +69,8 @@ export const platformAbi = parseAbi([
   "function deploymentStartTime() view returns (uint256)",
   "function getTotalActuarialLiabilities() view returns (uint256)",
   "function getPendingLeaderContestRewards(address user) view returns (uint256)",
+  "function getLeaderContestDay(uint256 dayId) view returns (uint256 poolAmount, uint256 netBusinessVolume, uint256 totalTop50Volume, uint32 top50Count, address[50] top50Leaders, uint256[50] top50Volumes, bool isDayFinalized)",
+  "function isLeaderContestClaimed(uint256 dayId, address user) view returns (bool)",
   "function getPendingContestRewards(address user) view returns (uint256)",
   "function positionLastAccruedCycleBps(uint256 posId) view returns (uint256)",
   "function positionCompletedCycles(uint256 posId) view returns (uint256)",

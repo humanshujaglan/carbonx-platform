@@ -111,6 +111,8 @@ export type PlatformUser = {
   workingCapConsumed: bigint;
   workingCapHeadroom: bigint;
   pendingLeaderContestRewards: bigint;
+  /** Lifetime daily (leader) contest income: days already claimed plus what is still pending. */
+  leaderContestEarned: bigint;
   pendingContestRewards: bigint;
   pendingDirectBonusAvailable: bigint;
   pendingDirectBonusLocked: bigint;
@@ -300,7 +302,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
       const currentRank = Number(u.currentRank);
 
       // Positions, downlines, pool wins, level income and rank salary only need `u`, so they run together
-      const [positions, directs, poolWins, levelIncomeHarvestable, rankSalary, rankRequirement, directSplit, levelIncomeSettled] = await Promise.all([
+      const [positions, directs, poolWins, levelIncomeHarvestable, rankSalary, rankRequirement, directSplit, levelIncomeSettled, leaderContestClaimed] = await Promise.all([
         Promise.all(
           (u.positionIds ?? []).map(async (posId): Promise<EnhancedPosition> => {
             try {
@@ -368,6 +370,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
         loadRankRequirement(targetRank(currentRank)),
         loadDirectIncome(acct),
         loadLevelIncomeSettled(acct),
+        loadLeaderContestClaimed(acct),
       ]);
 
       return {
@@ -403,6 +406,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
         workingCapConsumed: u.workingCapConsumed,
         workingCapHeadroom: headroom,
         pendingLeaderContestRewards: pLeaderContest,
+        leaderContestEarned: leaderContestClaimed + pLeaderContest,
         pendingContestRewards: pContest,
         pendingDirectBonusAvailable: pDirectBonus[0],
         pendingDirectBonusLocked: pDirectBonus[1],
@@ -456,6 +460,31 @@ export async function fetchPlatformData(account?: Address): Promise<{
         })
       );
       return perDirect.reduce((s, v) => s + v, 0n);
+    } catch {
+      return 0n;
+    }
+  }
+
+  // Daily (leader) contest income already claimed. A claimed day drops out of getPendingLeaderContestRewards,
+  // so walk every day since launch and add this user's share of each claimed day's pool.
+  // ponytail: two reads per day since launch (batched by multicall); fine for a few hundred days
+  async function loadLeaderContestClaimed(acct: Address): Promise<bigint> {
+    try {
+      const start = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "deploymentStartTime" });
+      const firstDay = Number(start / 86400n);
+      const today = Math.floor(Date.now() / 1000 / 86400);
+      const shares = await Promise.all(
+        Array.from({ length: Math.max(0, today - firstDay) }, async (_, i) => {
+          const dayId = BigInt(firstDay + i);
+          const [claimed, [pool, , total, count, leaders, volumes]] = await Promise.all([
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "isLeaderContestClaimed", args: [dayId, acct] }),
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getLeaderContestDay", args: [dayId] }),
+          ]);
+          const rank = leaders.slice(0, count).findIndex((l) => l.toLowerCase() === acct.toLowerCase());
+          return claimed && rank >= 0 && total > 0n ? (pool * volumes[rank]) / total : 0n;
+        })
+      );
+      return shares.reduce((s, v) => s + v, 0n);
     } catch {
       return 0n;
     }
