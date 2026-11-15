@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { CloseCircle } from "iconsax-react";
+import { ArrowRight, CloseCircle, Cup, Flash, Profile2User, Wallet3 } from "iconsax-react";
 
 // Illustrative price line (not live data): climbs to the day high, then falls 5% through the target
 const POINTS: [number, number][] = [
@@ -11,19 +11,29 @@ const POINTS: [number, number][] = [
   [190, 52], [205, 48], [220, 70], [235, 66], [250, 92], [265, 88], [280, 112], [300, 124],
 ];
 const PATH = POINTS.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join(" ");
+const AREA = `${PATH} L300 140 L0 140 Z`;
 const HIGH_Y = 40;
 const TARGET_Y = 110;
 const PEAK_X = 175;
 const END = POINTS[POINTS.length - 1];
 const DRAW_S = 2.4;
 
-const COLORS = ["#1fe03a", "#3bf857", "#6df585", "#ffffff", "#facc15", "#f472b6", "#38bdf8"];
+const TILES = [
+  { icon: Cup, title: "Prize Pool", sub: "2% of today's business" },
+  { icon: Profile2User, title: "Winners", sub: "Top 10 leaders" },
+  { icon: Wallet3, title: "Paid To", sub: "Working balance" },
+];
+
+const COLORS = ["#1fe03a", "#3bf857", "#6df585", "#ffffff", "#facc15", "#eab308", "#2dd4bf"];
 // Deterministic pseudo-random so render stays pure
 const rand = (i: number, s: number) => {
   const x = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453;
   return x - Math.floor(x);
 };
-const PARTICLES = Array.from({ length: 48 }, (_, i) => {
+const shape = (i: number) => (rand(i, 6) > 0.6 ? "size-2 rounded-full" : "h-3 w-1.5 rounded-sm");
+
+// Party poppers: one burst from both bottom corners of the card when the line crosses the target
+const BURST = Array.from({ length: 48 }, (_, i) => {
   const side = i % 2 ? 1 : -1; // odd from the right popper, even from the left
   return {
     side,
@@ -32,10 +42,17 @@ const PARTICLES = Array.from({ length: 48 }, (_, i) => {
     fall: 60 + rand(i, 3) * 120,
     rotate: (rand(i, 4) - 0.5) * 720,
     delay: rand(i, 5) * 0.15,
-    color: COLORS[i % COLORS.length],
-    round: rand(i, 6) > 0.6,
   };
 });
+
+// Confetti that keeps falling over the whole screen while the modal is open
+const RAIN = Array.from({ length: 36 }, (_, i) => ({
+  left: rand(i, 7) * 100,
+  sway: (rand(i, 8) - 0.5) * 80,
+  spin: 360 + rand(i, 9) * 540,
+  duration: 5 + rand(i, 10) * 5,
+  delay: rand(i, 11) * 5,
+}));
 
 /** Celebration shown when the CARB price falls 5% below the day high and the Leader Prize Contest starts. */
 export function ContestStartedModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -47,6 +64,7 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
     () => false
   );
   const done = crossed || !!reduced;
+  const party = crossed && !reduced;
 
   useEffect(() => {
     if (!open) return;
@@ -60,6 +78,11 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
     };
   }, [open, onClose]);
 
+  const viewContest = () => {
+    onClose();
+    document.getElementById("leader-prize-contest")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   if (!mounted) return null;
 
   return createPortal(
@@ -67,108 +90,161 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
       {open && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
           <motion.div
-            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
+
+          {party && (
+            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+              {RAIN.map((p, i) => (
+                <motion.span
+                  key={i}
+                  className={`absolute -top-4 ${shape(i)}`}
+                  style={{ left: `${p.left}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                  initial={{ y: 0, x: 0, rotate: 0, opacity: 0 }}
+                  animate={{ y: "110vh", x: [0, p.sway, 0], rotate: p.spin, opacity: [0, 1, 1, 0.8] }}
+                  transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: "linear" }}
+                />
+              ))}
+            </div>
+          )}
+
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-labelledby="contest-started-title"
-            className="relative w-full max-w-sm rounded-3xl border border-line-neon bg-panel p-5 text-text shadow-2xl sm:p-6"
-            initial={{ opacity: 0, scale: 0.92, y: 16 }}
+            className="relative flex max-h-[92vh] w-full max-w-md flex-col items-center overflow-y-auto rounded-[2rem] border border-white/10 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(31,224,58,0.14),transparent_60%),linear-gradient(180deg,#0f1712,#0a0f0c)] px-5 pb-5 pt-6 text-center text-text shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] sm:px-7"
+            initial={{ opacity: 0, scale: 0.9, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 16 }}
-            transition={{ type: "spring", damping: 26, stiffness: 300 }}
+            exit={{ opacity: 0, scale: 0.9, y: 24 }}
+            transition={{ type: "spring", damping: 24, stiffness: 280 }}
           >
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="absolute right-4 top-4 z-10 text-muted transition hover:text-white cursor-pointer"
+              className="absolute right-5 top-5 z-10 text-muted transition hover:text-white cursor-pointer"
             >
-              <CloseCircle size={22} color="currentColor" variant="Linear" />
+              <CloseCircle size={26} color="currentColor" variant="Linear" />
             </button>
 
-            <div className="mb-3 text-2xs font-semibold uppercase tracking-wider text-neon">CARB price alert</div>
+            <div className="rounded-full border border-neon/40 bg-neon/10 px-4 py-1.5 text-xs font-semibold text-neon-soft">
+              🏆 Price Drop Alert
+            </div>
 
-            <svg viewBox="0 0 300 140" className="w-full overflow-visible" aria-hidden="true">
-              <defs>
-                <linearGradient id="contest-line" x1="0" x2="300" y1="0" y2="0" gradientUnits="userSpaceOnUse">
-                  <stop offset={PEAK_X / 300} stopColor="var(--color-neon)" />
-                  <stop offset={PEAK_X / 300} stopColor="var(--color-danger)" />
-                </linearGradient>
-              </defs>
-              <line x1="0" x2="300" y1={HIGH_Y} y2={HIGH_Y} stroke="var(--color-line)" strokeDasharray="2 4" />
-              <text x="0" y={HIGH_Y - 6} fill="var(--color-faint)" fontSize="9">Day high</text>
-              <line x1="0" x2="300" y1={TARGET_Y} y2={TARGET_Y} stroke="var(--color-danger)" strokeOpacity="0.6" strokeDasharray="5 4" />
-              <text x="0" y={TARGET_Y - 6} fill="var(--color-danger)" fontSize="9">−5% target</text>
-              <motion.path
-                d={PATH}
-                fill="none"
-                stroke="url(#contest-line)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                initial={{ pathLength: reduced ? 1 : 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: reduced ? 0 : DRAW_S, ease: "easeInOut", delay: 0.3 }}
-                onAnimationComplete={() => setCrossed(true)}
-              />
-              {done && (
-                <>
+            {/* Hero: the price line climbs to the day high, then falls through the -5% target */}
+            <div className="relative mt-5 w-full overflow-hidden rounded-3xl border border-dashed border-neon/30 bg-[radial-gradient(70%_80%_at_50%_100%,rgba(240,82,82,0.16),transparent_70%),radial-gradient(60%_70%_at_40%_20%,rgba(31,224,58,0.14),transparent_70%)] px-4 pb-3 pt-7">
+              <svg viewBox="0 0 300 140" className="w-full overflow-visible" aria-hidden="true">
+                <defs>
+                  <linearGradient id="contest-line" x1="0" x2="300" y1="0" y2="0" gradientUnits="userSpaceOnUse">
+                    <stop offset={PEAK_X / 300} stopColor="var(--color-neon)" />
+                    <stop offset={PEAK_X / 300} stopColor="var(--color-danger)" />
+                  </linearGradient>
+                  <linearGradient id="contest-fill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stopColor="var(--color-danger)" stopOpacity="0.25" />
+                    <stop offset="1" stopColor="var(--color-danger)" stopOpacity="0" />
+                  </linearGradient>
+                  <filter id="contest-glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <line x1="0" x2="300" y1={HIGH_Y} y2={HIGH_Y} stroke="rgba(255,255,255,0.25)" strokeDasharray="2 4" />
+                <text x="0" y={HIGH_Y - 6} fill="var(--color-faint)" fontSize="9">Day high</text>
+                <line x1="0" x2="300" y1={TARGET_Y} y2={TARGET_Y} stroke="var(--color-danger)" strokeOpacity="0.7" strokeDasharray="5 4" />
+                <text x="0" y={TARGET_Y - 6} fill="var(--color-danger)" fontSize="9">−5% target</text>
+                <motion.path
+                  d={AREA}
+                  fill="url(#contest-fill)"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: done ? 1 : 0 }}
+                  transition={{ duration: 0.6 }}
+                />
+                <motion.path
+                  d={PATH}
+                  fill="none"
+                  stroke="url(#contest-line)"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  filter="url(#contest-glow)"
+                  initial={{ pathLength: reduced ? 1 : 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: reduced ? 0 : DRAW_S, ease: "easeInOut", delay: 0.4 }}
+                  onAnimationComplete={() => setCrossed(true)}
+                />
+                {done && (
                   <motion.circle
                     cx={END[0]}
                     cy={END[1]}
-                    r="4"
+                    r="5"
                     fill="var(--color-danger)"
                     initial={{ scale: 0 }}
-                    animate={{ scale: [1, 1.6, 1] }}
+                    animate={{ scale: [1, 1.7, 1] }}
                     transition={{ duration: 1.2, repeat: Infinity }}
                   />
-                  <text x="300" y={END[1] + 16} textAnchor="end" fill="var(--color-danger)" fontSize="10" fontWeight="600">
-                    −5%
-                  </text>
-                </>
-              )}
-            </svg>
+                )}
+              </svg>
 
-            <AnimatePresence>
-              {done && (
-                <motion.div
-                  className="mt-4 flex flex-col gap-2 text-center"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <h3 id="contest-started-title" className="text-lg font-semibold text-white">
-                    🎉 Leader Prize Contest has started!
-                  </h3>
-                  <p className="text-xs leading-relaxed text-muted">
-                    CARB fell 5% below today&apos;s high. The top 10 leaders by first-package business brought in with
-                    their leader code today share 2% of that business.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="mt-2 rounded-full bg-neon py-2.5 text-sm font-semibold text-ink transition hover:bg-neon-bright cursor-pointer"
-                  >
-                    Let&apos;s go
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              <motion.div
+                className="absolute right-3 top-3 rounded-full bg-danger px-3 py-1 text-sm font-bold text-white shadow-[0_0_24px_rgba(240,82,82,0.6)]"
+                initial={{ scale: reduced ? 1 : 0, rotate: reduced ? 0 : -12 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", damping: 10, stiffness: 260, delay: 0.2 }}
+              >
+                −5%
+              </motion.div>
+            </div>
 
-            {/* Party poppers: confetti from both bottom corners once the line crosses the target */}
-            {crossed && !reduced && (
+            <h3 id="contest-started-title" className="mt-6 text-3xl font-bold leading-tight sm:text-4xl">
+              <span className="bg-gradient-to-r from-white to-neon-soft bg-clip-text text-transparent">Leader Prize </span>
+              <span className="bg-gradient-to-r from-neon-bright to-neon bg-clip-text text-transparent">Contest</span>
+            </h3>
+            <p className="mt-1 text-sm font-semibold text-neon">has started!</p>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
+              CARB fell 5% below today&apos;s high. Bring in first-package business with your leader code today to win.
+            </p>
+
+            <div className="mt-6 grid w-full grid-cols-3 gap-2.5">
+              {TILES.map(({ icon: Icon, title, sub }) => (
+                <div key={title} className="flex flex-col items-center gap-1.5 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-2 py-3.5">
+                  <Icon size={22} color="var(--color-neon)" variant="Linear" />
+                  <div className="text-xs font-semibold text-white">{title}</div>
+                  <div className="text-2xs leading-snug text-faint">{sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={viewContest}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-neon-bright to-neon py-4 text-base font-bold text-ink shadow-[0_8px_32px_-6px_rgba(31,224,58,0.7)] transition hover:brightness-110 cursor-pointer"
+            >
+              <Flash size={20} color="currentColor" variant="Bold" />
+              View Leader Prize Contest
+              <ArrowRight size={20} color="currentColor" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-4 text-sm font-medium text-muted transition hover:text-white cursor-pointer"
+            >
+              Continue to Dashboard
+            </button>
+
+            {party && (
               <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-                {PARTICLES.map((p, i) => (
+                {BURST.map((p, i) => (
                   <motion.span
                     key={i}
-                    className={`absolute bottom-6 ${p.side < 0 ? "left-4" : "right-4"} ${p.round ? "size-2 rounded-full" : "h-3 w-1.5 rounded-sm"}`}
-                    style={{ backgroundColor: p.color }}
+                    className={`absolute bottom-24 ${p.side < 0 ? "left-4" : "right-4"} ${shape(i)}`}
+                    style={{ backgroundColor: COLORS[i % COLORS.length] }}
                     initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
                     animate={{ x: p.dx, y: [0, -p.rise, -p.rise + p.fall], opacity: [1, 1, 0], rotate: p.rotate }}
                     transition={{ duration: 1.8, delay: p.delay, ease: "easeOut", times: [0, 0.45, 1] }}
