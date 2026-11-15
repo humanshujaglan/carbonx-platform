@@ -158,7 +158,7 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
             role="dialog"
             aria-modal="true"
             aria-labelledby="contest-started-title"
-            className="relative flex max-h-[92vh] w-full max-w-md flex-col items-center overflow-y-auto rounded-[2rem] border border-white/10 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(31,224,58,0.14),transparent_60%),linear-gradient(180deg,#0f1712,#0a0f0c)] px-5 pb-5 pt-6 text-center text-text shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] sm:px-7"
+            className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[2rem] border border-white/10 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(31,224,58,0.14),transparent_60%),linear-gradient(180deg,#0f1712,#0a0f0c)] px-5 pb-4 pt-5 text-center text-text shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] sm:px-7"
             initial={{ opacity: 0, scale: 0.9, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 24 }}
@@ -173,12 +173,12 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
               <CloseCircle size={26} color="currentColor" variant="Linear" />
             </button>
 
-            <div className="rounded-full border border-neon/40 bg-neon/10 px-4 py-1.5 text-xs font-semibold text-neon-soft">
+            <div className="inline-block rounded-full border border-neon/40 bg-neon/10 px-4 py-1.5 text-xs font-semibold text-neon-soft">
               🏆 Price Drop Alert
             </div>
 
             {/* Hero: the price line climbs to the day high, then falls through the -5% target */}
-            <div className="relative mt-5 w-full overflow-hidden rounded-3xl border border-dashed border-neon/30 bg-[radial-gradient(70%_80%_at_50%_100%,rgba(240,82,82,0.16),transparent_70%),radial-gradient(60%_70%_at_40%_20%,rgba(31,224,58,0.14),transparent_70%)] px-4 pb-3 pt-7">
+            <div className="relative mt-4 w-full overflow-hidden rounded-3xl border border-dashed border-neon/30 bg-[radial-gradient(70%_80%_at_50%_100%,rgba(240,82,82,0.16),transparent_70%),radial-gradient(60%_70%_at_40%_20%,rgba(31,224,58,0.14),transparent_70%)] px-4 pb-2 pt-7">
               <svg viewBox="0 0 300 140" className="w-full overflow-visible" aria-hidden="true">
                 <defs>
                   <linearGradient id="contest-line" x1="0" x2="300" y1="0" y2="0" gradientUnits="userSpaceOnUse">
@@ -244,47 +244,25 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
               </motion.div>
             </div>
 
-            <h3 id="contest-started-title" className="mt-6 text-3xl font-bold leading-tight sm:text-4xl">
+            <h3 id="contest-started-title" className="mt-4 text-2xl font-bold leading-tight sm:text-3xl">
               <span className="bg-gradient-to-r from-white to-neon-soft bg-clip-text text-transparent">Leader Prize </span>
               <span className="bg-gradient-to-r from-neon-bright to-neon bg-clip-text text-transparent">Contest</span>
             </h3>
-            <p className="mt-1 text-sm font-semibold text-neon">has started!</p>
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
-              CARB fell 5% below today&apos;s high. Today&apos;s prize is earned through{" "}
-              <span className="font-semibold text-white">your Leader Code business</span>.
-            </p>
+            <p className="mt-1 text-sm font-semibold text-neon">has started! CARB fell 5% below today&apos;s high.</p>
 
             {/* The one thing that earns this income: business brought in with your leader code today */}
-            <div className="mt-5 w-full rounded-2xl border border-neon/30 bg-[linear-gradient(135deg,rgba(31,224,58,0.12),rgba(31,224,58,0.03))] p-4 text-left">
-              <div className="flex items-center gap-2.5">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neon/15">
-                  <TicketStar size={20} color="var(--color-neon)" variant="Bold" />
-                </span>
-                <div>
-                  <div className="text-sm font-semibold text-white">Your Leader Code = your income</div>
-                  <div className="text-2xs text-neon-soft">Only business brought in with your leader code today counts</div>
-                </div>
-              </div>
-              <ol className="mt-3 flex flex-col gap-2 text-xs leading-relaxed text-muted">
-                {[
-                  "Share your leader code with new members today.",
-                  "They join your downline and buy their first package using your code.",
-                  "The top 10 leaders by that business win today's prize pool, credited to their working balance.",
-                ].map((step, i) => (
-                  <li key={i} className="flex gap-2.5">
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-neon/15 text-2xs font-bold text-neon">
-                      {i + 1}
-                    </span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
+            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-neon/30 bg-neon/[0.07] px-3 py-2.5 text-left">
+              <TicketStar size={22} color="var(--color-neon)" variant="Bold" className="shrink-0" />
+              <p className="text-xs leading-snug text-muted">
+                <span className="font-semibold text-white">Your Leader Code business = your income.</span> Top 10 leaders by
+                today&apos;s first-package business with their code win.
+              </p>
             </div>
 
-            <div className="mt-6 grid w-full grid-cols-3 gap-2.5">
+            <div className="mt-3 grid w-full grid-cols-3 gap-2">
               {TILES.map(({ icon: Icon, title, sub }) => (
-                <div key={title} className="flex flex-col items-center gap-1.5 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-2 py-3.5">
-                  <Icon size={22} color="var(--color-neon)" variant="Linear" />
+                <div key={title} className="flex flex-col items-center gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-2 py-2.5">
+                  <Icon size={18} color="var(--color-neon)" variant="Linear" />
                   <div className="text-xs font-semibold text-white">{title}</div>
                   <div className="text-2xs leading-snug text-faint">{sub}</div>
                 </div>
@@ -294,7 +272,7 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
             <button
               type="button"
               onClick={viewContest}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-neon-bright to-neon py-4 text-base font-bold text-ink shadow-[0_8px_32px_-6px_rgba(31,224,58,0.7)] transition hover:brightness-110 cursor-pointer"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-neon-bright to-neon py-3.5 text-base font-bold text-ink shadow-[0_8px_32px_-6px_rgba(31,224,58,0.7)] transition hover:brightness-110 cursor-pointer"
             >
               <Flash size={20} color="currentColor" variant="Bold" />
               View Leader Prize Contest
@@ -303,7 +281,7 @@ export function ContestStartedModal({ open, onClose }: { open: boolean; onClose:
             <button
               type="button"
               onClick={onClose}
-              className="mt-4 text-sm font-medium text-muted transition hover:text-white cursor-pointer"
+              className="mt-3 text-sm font-medium text-muted transition hover:text-white cursor-pointer"
             >
               Continue to Dashboard
             </button>
