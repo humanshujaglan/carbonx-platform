@@ -463,7 +463,7 @@ export function IncomesDashboard({
                 }
               />
               <div className="text-base font-normal text-white">
-                {user ? usd(user.pendingContestRewards) : "$0.00"}
+                {user ? usd(user.contestEarned) : "$0.00"}
               </div>
             </div>
 

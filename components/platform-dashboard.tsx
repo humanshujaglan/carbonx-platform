@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -29,6 +29,7 @@ import { RegisterCard } from "./register-card";
 import { BoosterTiersCard } from "./booster-tiers-card";
 import { LeaderCodeCard } from "./leader-code-card";
 import { LeaderPrizeContestCard } from "./leader-prize-contest-card";
+import { ContestStartedModal } from "./contest-started-modal";
 import { LockMixCard } from "./lock-mix-card";
 import { QuickActions } from "./quick-actions";
 import { UnlockScheduleCard } from "./unlock-schedule-card";
@@ -48,6 +49,9 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
   const { addresses, market, user, error, refresh, loading } = usePlatform(account);
   const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
   const isPartner = useIsPartner(account, addresses);
+  // ponytail: shown on every visit for now; gate on market.contestTriggered (once per UTC day) when it goes live
+  const [contestOpen, setContestOpen] = useState(true);
+  const closeContest = useCallback(() => setContestOpen(false), []);
 
   // The partner page is for active Top ID partners only
   useEffect(() => {
@@ -148,6 +152,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
   return (
     <div className="flex flex-col gap-6">
+      <ContestStartedModal open={contestOpen} onClose={closeContest} market={market} addresses={addresses} />
       {internalScreen ? (
         <div className="px-3 pt-3 sm:px-6">
           <button

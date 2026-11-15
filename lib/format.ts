@@ -52,6 +52,9 @@ export const dateTime = (unix: number) =>
     minute: "2-digit",
   });
 
+export const date = (unix: number) =>
+  new Date(unix * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
 /** Seconds -> "12d 04h 33m 10s" (drops leading zero units). */
 export function countdown(seconds: number): string {
   if (seconds <= 0) return "0s";

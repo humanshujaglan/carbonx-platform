@@ -114,6 +114,8 @@ export type PlatformUser = {
   /** Lifetime daily (leader) contest income: days already claimed plus what is still pending. */
   leaderContestEarned: bigint;
   pendingContestRewards: bigint;
+  /** Lifetime leader prize (price) contest income: days already claimed plus what is still pending. */
+  contestEarned: bigint;
   pendingDirectBonusAvailable: bigint;
   pendingDirectBonusLocked: bigint;
   /** Lifetime direct (2%) and lock-in (2% of the locked part) income, including slips already released. */
@@ -227,6 +229,8 @@ function getEmptyMarket(): PlatformMarket {
 }
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
+/** Leader prize contest split by rank 1-10 (`shares` in PlatformEarnContests). */
+const PRICE_CONTEST_SHARES_BPS = [3000n, 2000n, 1500n, 1000n, 500n, 500n, 500n, 500n, 300n, 200n];
 
 /** Cheap membership check (one eth_call), used to decide between Login and Register before any heavy fetch. */
 export async function fetchIsRegistered(account: Address): Promise<boolean> {
@@ -302,7 +306,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
       const currentRank = Number(u.currentRank);
 
       // Positions, downlines, pool wins, level income and rank salary only need `u`, so they run together
-      const [positions, directs, poolWins, levelIncomeHarvestable, rankSalary, rankRequirement, directSplit, levelIncomeSettled, leaderContestClaimed] = await Promise.all([
+      const [positions, directs, poolWins, levelIncomeHarvestable, rankSalary, rankRequirement, directSplit, levelIncomeSettled, contestsClaimed] = await Promise.all([
         Promise.all(
           (u.positionIds ?? []).map(async (posId): Promise<EnhancedPosition> => {
             try {
@@ -370,7 +374,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
         loadRankRequirement(targetRank(currentRank)),
         loadDirectIncome(acct),
         loadLevelIncomeSettled(acct),
-        loadLeaderContestClaimed(acct),
+        loadContestsClaimed(acct),
       ]);
 
       return {
@@ -406,8 +410,9 @@ export async function fetchPlatformData(account?: Address): Promise<{
         workingCapConsumed: u.workingCapConsumed,
         workingCapHeadroom: headroom,
         pendingLeaderContestRewards: pLeaderContest,
-        leaderContestEarned: leaderContestClaimed + pLeaderContest,
+        leaderContestEarned: contestsClaimed.leader + pLeaderContest,
         pendingContestRewards: pContest,
+        contestEarned: contestsClaimed.price + pContest,
         pendingDirectBonusAvailable: pDirectBonus[0],
         pendingDirectBonusLocked: pDirectBonus[1],
         directIncomeEarned: directSplit.direct,
@@ -465,28 +470,45 @@ export async function fetchPlatformData(account?: Address): Promise<{
     }
   }
 
-  // Daily (leader) contest income already claimed. A claimed day drops out of getPendingLeaderContestRewards,
+  // Contest income already claimed. A claimed day drops out of getPending(Leader)ContestRewards,
   // so walk every day since launch and add this user's share of each claimed day's pool.
-  // ponytail: two reads per day since launch (batched by multicall); fine for a few hundred days
-  async function loadLeaderContestClaimed(acct: Address): Promise<bigint> {
+  // ponytail: up to five reads per day since launch (batched by multicall); fine for a few hundred days
+  async function loadContestsClaimed(acct: Address): Promise<{ leader: bigint; price: bigint }> {
     try {
-      const start = await publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "deploymentStartTime" });
+      const [start, earn] = await Promise.all([
+        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "deploymentStartTime" }),
+        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "earnEngine" }),
+      ]);
       const firstDay = Number(start / 86400n);
       const today = Math.floor(Date.now() / 1000 / 86400);
-      const shares = await Promise.all(
+      const isMe = (a: Address) => a.toLowerCase() === acct.toLowerCase();
+      const perDay = await Promise.all(
         Array.from({ length: Math.max(0, today - firstDay) }, async (_, i) => {
           const dayId = BigInt(firstDay + i);
-          const [claimed, [pool, , total, count, leaders, volumes]] = await Promise.all([
+          const [leaderClaimed, [pool, , total, count, leaders, volumes], priceClaimed, [, , depositVolume, top10Count, uplines]] = await Promise.all([
             publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "isLeaderContestClaimed", args: [dayId, acct] }),
             publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getLeaderContestDay", args: [dayId] }),
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "isContestClaimed", args: [dayId, acct] }),
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getContestDay", args: [dayId] }),
           ]);
-          const rank = leaders.slice(0, count).findIndex((l) => l.toLowerCase() === acct.toLowerCase());
-          return claimed && rank >= 0 && total > 0n ? (pool * volumes[rank]) / total : 0n;
+
+          const leaderRank = leaders.slice(0, count).findIndex(isMe);
+          const leader = leaderClaimed && leaderRank >= 0 && total > 0n ? (pool * volumes[leaderRank]) / total : 0n;
+
+          // getContestDay has no pool amount, so rebuild it like _finalizeContestDay: 2% of the day's volume after treasury cut
+          const priceRank = uplines.slice(0, Number(top10Count)).findIndex(isMe);
+          let price = 0n;
+          if (priceClaimed && priceRank >= 0) {
+            const cut = await publicClient.readContract({ address: earn, abi: earnEngineAbi, functionName: "dailyLeaderDepositTreasuryCut", args: [dayId] });
+            const pricePool = depositVolume > cut ? ((depositVolume - cut) * 200n) / 10000n : 0n;
+            price = (pricePool * PRICE_CONTEST_SHARES_BPS[priceRank]) / 10000n;
+          }
+          return { leader, price };
         })
       );
-      return shares.reduce((s, v) => s + v, 0n);
+      return perDay.reduce((s, d) => ({ leader: s.leader + d.leader, price: s.price + d.price }), { leader: 0n, price: 0n });
     } catch {
-      return 0n;
+      return { leader: 0n, price: 0n };
     }
   }
 

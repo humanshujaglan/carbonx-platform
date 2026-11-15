@@ -71,6 +71,7 @@ export const platformAbi = parseAbi([
   "function getPendingLeaderContestRewards(address user) view returns (uint256)",
   "function getLeaderContestDay(uint256 dayId) view returns (uint256 poolAmount, uint256 netBusinessVolume, uint256 totalTop50Volume, uint32 top50Count, address[50] top50Leaders, uint256[50] top50Volumes, bool isDayFinalized)",
   "function isLeaderContestClaimed(uint256 dayId, address user) view returns (bool)",
+  "function isContestClaimed(uint256 dayId, address user) view returns (bool)",
   "function getPendingContestRewards(address user) view returns (uint256)",
   "function positionLastAccruedCycleBps(uint256 posId) view returns (uint256)",
   "function positionCompletedCycles(uint256 posId) view returns (uint256)",
@@ -111,6 +112,7 @@ export const harvestPreviewAbi = parseAbi([
 /** Highest CARB price seen by the contest logic (`globalATHPrice`). */
 export const earnEngineAbi = parseAbi([
   "function globalATHPrice() view returns (uint256)",
+  "function dailyLeaderDepositTreasuryCut(uint256 dayId) view returns (uint256)",
 ]);
 
 /** Rank salary streams live on the team engine (`platform.teamEngine()`). */

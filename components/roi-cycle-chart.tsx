@@ -8,7 +8,7 @@ import {
   cyclePosition,
 } from "@/lib/roi";
 import { LockType } from "@/lib/config";
-import { dateTime } from "@/lib/format";
+import { date } from "@/lib/format";
 import type { PlatformUser } from "@/lib/platform";
 
 const MAX_BAR_PX = 120;
@@ -61,7 +61,7 @@ export function RoiCycleChart({ lhrTier, user }: { lhrTier: number; user?: Platf
       </div>
       {cycleEnd > 0 && (
         <p className="-mt-2 text-xs text-muted">
-          Current cycle ends on <span className="text-white">{dateTime(cycleEnd)}</span>
+          Cycle ends on <span className="text-white">{date(cycleEnd)}</span>
         </p>
       )}
 
