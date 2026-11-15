@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatUnits } from "viem";
 import { LockType } from "@/lib/config";
-import { rankLabel, shortAddr, usd } from "@/lib/format";
+import { rankLabel, shortAddr, usd, money } from "@/lib/format";
 import {
   DAY_SECONDS,
   FLEX_SLOT_BPS,
@@ -45,8 +45,6 @@ export function ClaimIncomeCards({ user, market }: { user?: PlatformUser; market
 
   // Lifetime totals: the contract's *Withdrawn counters are gross, so withdrawn + pending + not yet settled.
   const toUsd = (v: bigint) => Number(formatUnits(v, 18));
-  const money = (v: number) =>
-    `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   // Packages keep their own cumulative roiAccrued (withdrawn or not); the Top ID is paid on its whole principal
   const roiEarned = !user
     ? 0

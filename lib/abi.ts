@@ -44,6 +44,8 @@ export const platformAbi = parseAbi([
   "function getUserVestingIds(address user) view returns (uint256[])",
   "function getVestingSchedule(uint256 vId) view returns (VestingSchedule)",
   "function getPendingDirectBonus(address user) view returns (uint256 availableToUnlock, uint256 pendingLocked)",
+  "function getPendingDirectBonusCount(address user) view returns (uint256)",
+  "function getPendingDirectBonusItem(address user, uint256 index) view returns (uint256 amount, uint256 unlockTime, bool claimed)",
   "function getPendingLeaderBonus(address user) view returns (uint256 availableToUnlock, uint256 pendingLocked)",
   "function getUserWorkingCapHeadroom(address user) view returns (uint256)",
   "function getUserPersonalDeposit(address user) view returns (uint256)",

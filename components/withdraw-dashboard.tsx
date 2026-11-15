@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatUnits, parseUnits } from "viem";
 import { CardReceive, Cup, Flash, Profile2User, SecuritySafe, Share, Timer, TrendUp, Wallet3 } from "iconsax-react";
 import { platformAbi } from "@/lib/abi";
-import { formatWorkingCapHeadroom, usd } from "@/lib/format";
+import { formatWorkingCapHeadroom, usd, money } from "@/lib/format";
 import type { PlatformAddresses, PlatformMarket, PlatformUser } from "@/lib/platform";
 import { MIN_WITHDRAWAL_USD, VESTING_OPTIONS } from "@/lib/roi";
 import { useLiveIncomeStreams } from "./incomes-dashboard";
@@ -35,8 +35,6 @@ const pill = (active: boolean) =>
   active
     ? "border-[#22c55e] bg-[radial-gradient(120%_100%_at_50%_30%,rgba(34,197,94,0.3),rgba(8,38,16,0.7))] text-white"
     : "border-white/10 bg-[#14171d] text-[#b9c2bc] hover:text-white";
-const money = (v: number) =>
-  `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function WithdrawDashboard({
   user,
@@ -76,7 +74,7 @@ export function WithdrawDashboard({
   const payoutItems: Item[] = [
     { id: "roi", icon: TrendUp, name: "Daily ROI", amount: liveRoi + liveLockedRoi, claimable: settledRoi, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming ROI Income...", call: { fn: "withdrawROI" } },
     { id: "booster", icon: Flash, name: "Booster Income", amount: liveBooster, claimable: settledBooster, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Booster Income...", call: { fn: "withdrawBooster" } },
-    { id: "leader", icon: Profile2User, name: "Leader Income", amount: user ? toUsd(user.leaderIncomePending + user.pendingLeaderBonusAvailable) : 0, note: "Paid in CARB, 5% fee", label: "Claiming Leader Income...", call: { fn: "withdrawLeaderIncome" } },
+    { id: "leader", icon: Profile2User, name: "Leader Income", amount: user ? toUsd(user.leaderIncomePending + user.pendingLeaderBonusAvailable) : 0, note: "Paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Leader Income...", call: { fn: "withdrawLeaderIncome" } },
     { id: "rankpay", icon: CardReceive, name: "Rank Income", amount: user ? toUsd(user.rankIncomePending + user.rankSalary.totalClaimable) : 0, note: "Weekly salary, unlocked then paid in CARB, 5% fee", min: MIN_WITHDRAWAL_USD, label: "Claiming Rank Income...", call: { fn: "withdrawRankIncome" } },
   ];
 
@@ -192,7 +190,6 @@ export function WithdrawDashboard({
             <p>Every withdrawal is paid in CARB at the current price, with a 5% deduction (2.5% burned, 2.5% to the reward pools).</p>
     </InfoSheet>
   );
-
 
   const renderCard = (i: Item) => {
       const Icon = i.icon;

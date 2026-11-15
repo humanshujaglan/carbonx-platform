@@ -8,9 +8,7 @@ import type { PlatformUser } from "@/lib/platform";
 import { CAP_MULTIPLIER, DAY_SECONDS, LOCKED_CAP_DAY } from "@/lib/roi";
 import { CountdownTimer } from "./countdown-timer";
 import type { NavTab } from "./header";
-
-const usdFull = (v: number) =>
-  `$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+import { money } from "@/lib/format";
 
 /** Locked packages: when each one unlocks and how much it pays at the 2.5x cap (day 381). */
 export function UnlockScheduleCard({
@@ -93,7 +91,7 @@ export function UnlockScheduleCard({
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="text-muted">Unlocks on {fmtDate(selected.unlockAt)}</span>
         <span className="text-white">
-          {usdFull(selected.payout)} <span className="text-muted">you will get</span>
+          {money(selected.payout)} <span className="text-muted">you will get</span>
         </span>
       </div>
     </section>

@@ -1,13 +1,23 @@
 import { BaseError, ContractFunctionRevertedError, UserRejectedRequestError, formatUnits } from "viem";
 import { customErrorMessage, customErrorNameMessage } from "./contract-errors";
 
-const usdFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+// Truncates instead of rounding, so an amount never shows more than is really there ($0.799 -> $0.79)
+const usdFmt = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  roundingMode: "trunc",
+});
 const numFmt = (digits: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: digits });
+
+/** USD number -> "$1,234.56" */
+export const money = (v: number) => usdFmt.format(v);
 
 /** 18-decimal USD amount -> "$1,234.56" */
 export const usd = (v: bigint) => {
   if (v >= 10n ** 30n) return "$0.00";
-  return usdFmt.format(Number(formatUnits(v, 18)));
+  return money(Number(formatUnits(v, 18)));
 };
 
 /**

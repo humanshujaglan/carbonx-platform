@@ -25,11 +25,11 @@ const DROP_TARGET = 0.95;
 const FAQ: FaqItem[] = [
   {
     q: "When is this income generated?",
-    a: "Every day (UTC). Each new member's first package bought with a leader code adds to that day's pool. When the day ends, the pool is set at 2% of that business after the treasury fee (the rate can be set between 1% and 5%). Rewards can be claimed once the day has closed.",
+    a: "Only on days (UTC) when the CARB price falls 5% or more below that day's high. If the price never touches the 5% target, there is no prize that day. Once triggered, the pool is set at 2% of that day's first-package business after the treasury fee, and rewards can be claimed once the day has closed.",
   },
   {
     q: "Who gets this income?",
-    a: "The top 50 leaders of the day, ranked by the first-package business their leader code brought in that day. The pool is split between them in proportion to that business. The Top ID does not take part. Rewards are credited to your working balance.",
+    a: "Only the top 10 leaders of the day, ranked by the first-package business their leader code brought in that day. The pool is split 30%, 20%, 15%, 10%, 5%, 5%, 5%, 5%, 3% and 2% from rank 1 to rank 10. Rewards are credited to your working balance.",
   },
 ];
 

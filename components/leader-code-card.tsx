@@ -45,6 +45,8 @@ export function LeaderCodeCard({
   const legCount = user?.directDownlines?.length ?? 0;
   const leaderCode = user?.leaderCode ?? 0n;
   const unlocked = leaderCode > 0n;
+  // Criteria met but the code isn't minted yet: checkLeaderCode() assigns it on-chain
+  const eligible = !unlocked && cleanWeaker >= LEADER_CODE_WEAKER_CLEAN_TARGET;
   const displayCode = formatLeaderCode(leaderCode);
   const [copiedCode, setCopiedCode] = useState(false);
 
@@ -82,16 +84,6 @@ export function LeaderCodeCard({
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-medium text-text">Leader code activation</h3>
         <div className="flex items-center gap-3">
-          {!unlocked && (
-            <button
-              type="button"
-              disabled={!user || !!tx.busy}
-              onClick={handleCheckLeaderCode}
-              className="btn btn-secondary !rounded-lg whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
-            >
-              {tx.busy === CHECK_LABEL ? <Spinner /> : "Check"}
-            </button>
-          )}
           <InfoSheet title="Leader code activation">
             <p>
               You unlock your leader code once you have $3,000 of weaker leg business that did not come through a
@@ -145,40 +137,63 @@ export function LeaderCodeCard({
         </Notice>
       )}
 
-      <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/[0.06] py-4">
-        <div className="text-xs text-muted">Your leader code</div>
-        {unlocked ? (
-          <>
-            <span className="font-display text-[72px] font-bold leading-none tracking-tight text-white">
-              {displayCode.toString()}
-            </span>
-            <button
-              type="button"
-              onClick={handleCopyCode}
-              className="mt-1 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-2xs text-muted transition hover:border-white/20 hover:text-white cursor-pointer"
-              aria-label="Copy leader code"
-            >
-              {copiedCode ? (
-                <>
-                  <TickCircle size={14} color="#3ddc84" variant="Linear" />
-                  <span className="text-neon-soft">Copied #{displayCode.toString()}</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={14} color="currentColor" variant="Linear" />
-                  <span>Copy #{displayCode.toString()}</span>
-                </>
-              )}
-            </button>
-          </>
-        ) : (
-          <>
-            <div aria-hidden className="select-none text-2xl font-semibold text-text blur-sm">
-              #0000
-            </div>
-          </>
-        )}
-      </div>
+      {/* Nothing is shown until the criteria is met; then the lock opens and Check reveals the code */}
+      {unlocked && (
+        <div className="flex flex-col items-center gap-1.5 rounded-xl border border-white/[0.06] py-4">
+          <div className="text-xs text-muted">Your leader code</div>
+          <span className="font-display text-[72px] font-bold leading-none tracking-tight text-white">
+            {displayCode.toString()}
+          </span>
+          <button
+            type="button"
+            onClick={handleCopyCode}
+            className="mt-1 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-2xs text-muted transition hover:border-white/20 hover:text-white cursor-pointer"
+            aria-label="Copy leader code"
+          >
+            {copiedCode ? (
+              <>
+                <TickCircle size={14} color="#3ddc84" variant="Linear" />
+                <span className="text-neon-soft">Copied #{displayCode.toString()}</span>
+              </>
+            ) : (
+              <>
+                <Copy size={14} color="currentColor" variant="Linear" />
+                <span>Copy #{displayCode.toString()}</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {eligible && (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-neon/30 bg-neon/[0.04] py-5">
+          <svg viewBox="0 0 48 60" className="h-16 w-14 overflow-visible" aria-hidden>
+            <path
+              className="animate-unlock origin-[34px_28px]"
+              d="M14 28 V18 a10 10 0 0 1 20 0 V28"
+              fill="none"
+              stroke="#3ddc84"
+              strokeWidth="4.5"
+              strokeLinecap="round"
+            />
+            <rect x="5" y="27" width="38" height="30" rx="7" fill="#3ddc84" />
+            <circle cx="24" cy="39" r="4" fill="#050806" />
+            <rect x="22.25" y="40" width="3.5" height="8" rx="1.75" fill="#050806" />
+          </svg>
+          <div className="text-center">
+            <div className="text-sm font-semibold text-white">Leader code unlocked</div>
+            <div className="mt-0.5 text-xs text-muted">Tap Check to get your code</div>
+          </div>
+          <button
+            type="button"
+            disabled={!user || !!tx.busy}
+            onClick={handleCheckLeaderCode}
+            className="btn btn-primary !rounded-lg whitespace-nowrap px-6 py-2 text-xs font-semibold"
+          >
+            {tx.busy === CHECK_LABEL ? <Spinner /> : "Check"}
+          </button>
+        </div>
+      )}
 
       <FaqAccordion items={FAQ} />
     </section>

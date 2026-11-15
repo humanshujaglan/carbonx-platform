@@ -56,6 +56,14 @@
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-8px); }
   }
+
+  /* Padlock shackle: lifts out of the body, then swings open around its right leg */
+  --animate-unlock: unlock 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+  @keyframes unlock {
+    0% { transform: translateY(0) rotate(0deg); }
+    45% { transform: translateY(-9px) rotate(0deg); }
+    100% { transform: translateY(-9px) rotate(28deg); }
+  }
 }
 
 html {
@@ -248,6 +256,11 @@ body {
   .animate-drift,
   .animate-float {
     animation: none;
+  }
+  /* Skip the motion but still show the lock open */
+  .animate-unlock {
+    animation: none;
+    transform: translateY(-9px) rotate(28deg);
   }
 }
 

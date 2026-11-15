@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import type { PlatformUser } from "@/lib/platform";
 import { CAP_MULTIPLIER, packageLiveRoi } from "@/lib/roi";
-
-const usdFull = (v: number) =>
-  `$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+import { money } from "@/lib/format";
 
 const ROI_COLOR = "#3bf857";
 const WORKING_COLOR = "#4dabf7";
@@ -98,7 +96,7 @@ export function CappingCard({ user, lhrTier = 0 }: { user?: PlatformUser; lhrTie
                   "No cap"
                 ) : (
                   <>
-                    <span className="font-semibold text-white">{usdFull(row.value)}</span> / {usdFull(row.cap)} ·{" "}
+                    <span className="font-semibold text-white">{money(row.value)}</span> / {money(row.cap)} ·{" "}
                     {Math.floor(pct(row.value, row.cap))}%
                   </>
                 )}

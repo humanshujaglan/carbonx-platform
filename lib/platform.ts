@@ -113,6 +113,8 @@ export type PlatformUser = {
   pendingContestRewards: bigint;
   pendingDirectBonusAvailable: bigint;
   pendingDirectBonusLocked: bigint;
+  /** Every direct bonus ever credited, including slips already released into the working balance. */
+  directIncomeEarned: bigint;
   /** Leader bonus slips already unlocked (realized on the next leader income withdrawal). */
   pendingLeaderBonusAvailable: bigint;
   /** Leader bonus slips still inside their lock period. */
@@ -125,6 +127,8 @@ export type PlatformUser = {
   levelIncomeHarvestable: bigint;
   /** Reward pool cycles this user won and has not claimed yet (poolType 1 Neon, 2 Hydra, 3 Genosis). */
   rewardPoolWins: { poolType: 1 | 2 | 3; cycleId: bigint; amount: bigint }[];
+  /** Every reward pool win in the cycles looked at, claimed or not. */
+  rewardPoolEarned: bigint;
   /** Weekly rank salary streams (one per rank reached) and what can be claimed now. */
   rankSalary: {
     totalClaimable: bigint;
@@ -292,7 +296,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
       const currentRank = Number(u.currentRank);
 
       // Positions, downlines, pool wins, level income and rank salary only need `u`, so they run together
-      const [positions, directs, rewardPoolWins, levelIncomeHarvestable, rankSalary, rankRequirement] = await Promise.all([
+      const [positions, directs, poolWins, levelIncomeHarvestable, rankSalary, rankRequirement, directIncomeEarned] = await Promise.all([
         Promise.all(
           (u.positionIds ?? []).map(async (posId): Promise<EnhancedPosition> => {
             try {
@@ -358,6 +362,19 @@ export async function fetchPlatformData(account?: Address): Promise<{
           .catch(() => 0n),
         loadRankSalary(acct, currentRank),
         loadRankRequirement(targetRank(currentRank)),
+        // Released slips leave getPendingDirectBonus, so sum every slip for the lifetime total
+        // ponytail: one read per slip (batched by multicall); fine while a member has a few hundred slips
+        publicClient
+          .readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonusCount", args: [acct] })
+          .then((n) =>
+            Promise.all(
+              Array.from({ length: Number(n) }, (_, i) =>
+                publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonusItem", args: [acct, BigInt(i)] })
+              )
+            )
+          )
+          .then((items) => items.reduce((s, [amount]) => s + amount, 0n))
+          .catch(() => 0n),
       ]);
 
       return {
@@ -396,12 +413,14 @@ export async function fetchPlatformData(account?: Address): Promise<{
         pendingContestRewards: pContest,
         pendingDirectBonusAvailable: pDirectBonus[0],
         pendingDirectBonusLocked: pDirectBonus[1],
+        directIncomeEarned,
         pendingLeaderBonusAvailable: pLeaderBonus[0],
         pendingLeaderBonusLocked: pLeaderBonus[1],
         rankIncomePending: rankIncome,
         rankIncomeWithdrawn: rankWithdrawn,
         levelIncomeHarvestable,
-        rewardPoolWins,
+        rewardPoolWins: poolWins.filter((w) => !w.claimed),
+        rewardPoolEarned: poolWins.reduce((s, w) => s + w.amount, 0n),
         rankSalary,
         rankRequirement,
         powerLegBusiness: legBiz[0],
@@ -422,8 +441,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
     }
   }
 
-  // Reward pool cycles won by this user and not yet claimed (looks at the latest cycles of each pool)
-  async function loadRewardPoolWins(acct: Address): Promise<PlatformUser["rewardPoolWins"]> {
+  // Reward pool cycles won by this user, claimed or not (looks at the latest cycles of each pool)
+  async function loadRewardPoolWins(acct: Address): Promise<(PlatformUser["rewardPoolWins"][number] & { claimed: boolean })[]> {
     if (!poolEngine) return [];
     const engine = poolEngine;
     const cycleFns = { 1: "neonCycleId", 2: "hydraCycleId", 3: "genosisCycleId" } as const;
@@ -440,12 +459,11 @@ export async function fetchPlatformData(account?: Address): Promise<{
                 const winners = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "getPoolWinners", args: [poolType, cycleId] });
                 if (!winners.some((w) => w.toLowerCase() === acct.toLowerCase())) return undefined;
                 const claimed = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "poolClaimed", args: [poolType, cycleId, acct] });
-                if (claimed) return undefined;
                 let amount = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "poolWinnerReward", args: [poolType, cycleId, acct] });
                 if (amount === 0n) {
                   amount = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "poolRewardPerWinner", args: [poolType, cycleId] });
                 }
-                return { poolType, cycleId, amount };
+                return { poolType, cycleId, amount, claimed };
               } catch {
                 return undefined;
               }

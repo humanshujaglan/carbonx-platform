@@ -253,8 +253,6 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
           <RankBusinessCard user={user ?? undefined} onNavigateTab={setActiveTab} />
 
-          <CappingCard user={user ?? undefined} lhrTier={market.lhrTier} />
-
           {/* Home Page: All Income Streams with Live Streaming ROI, Booster & Level Yield */}
           <IncomesDashboard
             user={user}
@@ -268,6 +266,8 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
           <LeaderPrizeContestCard market={market} addresses={addresses} />
 
           <LeaderCodeCard user={user ?? undefined} addresses={addresses} onDone={refresh} />
+
+          <CappingCard user={user ?? undefined} lhrTier={market.lhrTier} />
 
           {/* Protocol & Market Overview */}
           <MarketRibbon market={market} addresses={addresses} />

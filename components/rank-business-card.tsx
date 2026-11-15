@@ -5,15 +5,7 @@ import { ArrowRight } from "iconsax-react";
 import type { PlatformUser } from "@/lib/platform";
 import { POWER_LEG_SHARE, WEAKER_LEGS_SHARE, targetRank } from "@/lib/rank";
 import type { NavTab } from "./header";
-
-const usdFull = (v: number) =>
-  `$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-
-function usdCompact(v: number) {
-  if (v >= 1e6) return `$${+(v / 1e6).toFixed(2)}M`;
-  if (v >= 1e3) return `$${+(v / 1e3).toFixed(1)}K`;
-  return `$${Math.round(v)}`;
-}
+import { money } from "@/lib/format";
 
 const usd = (v?: bigint) => (v === undefined ? 0 : Number(formatUnits(v, 18)));
 
@@ -42,17 +34,14 @@ export function RankBusinessCard({
   const powerCounted = isTopId ? power : Math.min(power, powerCap);
   const counted = weaker + powerCounted;
 
-  // Other requirements, which the Top ID is exempt from.
+  // Own active stake: a separate requirement the Top ID is exempt from. It shares the bar with the legs.
   const selfStake = user ? Number(formatUnits(user.activeDeposit, 18)) : 0;
-  const extras = isTopId
-    ? []
-    : [
-        { name: "Own active stake", value: selfStake, cap: usd(req?.selfStake), color: "linear-gradient(to bottom, #4dabf7, #1c5fd4)" },
-      ];
 
   const segments = [
     { name: "Weaker legs", share: "60%", value: weaker, cap: weakerCap, ratio: WEAKER_LEGS_SHARE, color: "linear-gradient(to bottom, #3bf857, #0a7a24)" },
     { name: "Power leg", share: "40%", value: powerCounted, cap: powerCap, ratio: POWER_LEG_SHARE, color: "linear-gradient(to bottom, #ffd166, #e8590c)" },
+    // ponytail: fixed visual width; the stake isn't part of the 60:40 team business, so its width is just display
+    { name: "Own active stake", share: "", value: selfStake, cap: usd(req?.selfStake), ratio: 0.2, color: "linear-gradient(to bottom, #4dabf7, #1c5fd4)" },
   ];
 
   return (
@@ -70,9 +59,9 @@ export function RankBusinessCard({
       </div>
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-3xl font-semibold text-white">{user ? usdFull(counted) : "—"}</span>
+        <span className="text-3xl font-semibold text-white">{user ? money(counted) : "—"}</span>
         <span className="text-xs text-muted">
-          of {hasReq ? usdFull(required) : "—"} for Rank {rank}
+          of {hasReq ? money(required) : "—"} for Rank {rank}
         </span>
       </div>
 
@@ -94,13 +83,13 @@ export function RankBusinessCard({
         </>
       ) : (
         <>
-      {/* 60:40 bar: weaker legs take 60% of the width, the power leg 40% */}
+      {/* One bar for every condition: weaker legs and power leg keep their 60:40 proportion, then own stake */}
       <div className="flex h-12 gap-2">
         {segments.map((seg) => (
           <div
             key={seg.name}
-            className="relative overflow-hidden rounded-xl bg-white/[0.06]"
-            style={{ width: `${seg.ratio * 100}%` }}
+            className="relative min-w-0 overflow-hidden rounded-xl bg-white/[0.06]"
+            style={{ flex: seg.ratio }}
           >
             <div
               className="absolute inset-y-0 left-0 rounded-xl transition-all duration-500"
@@ -118,44 +107,17 @@ export function RankBusinessCard({
           >
             <span className="size-3 shrink-0 rounded-full" style={{ background: seg.color }} />
             <dt className="min-w-0 flex-1 truncate text-white">
-              {seg.name} <span className="text-muted">{seg.share}</span>
+              {seg.name} {seg.share && <span className="text-muted">{seg.share}</span>}
             </dt>
             <dd className="shrink-0 font-semibold text-white">
-              {usdCompact(seg.value)}
-              <span className="font-normal text-muted"> / {hasReq ? usdCompact(seg.cap) : "—"}</span>
+              {money(seg.value)}
+              <span className="font-normal text-muted"> / {hasReq ? money(seg.cap) : "—"}</span>
             </dd>
             <dd className="w-10 shrink-0 text-right text-muted">{pct(seg.value, seg.cap)}%</dd>
           </div>
         ))}
       </dl>
 
-      {extras.map((row) => (
-        <div key={row.name} className="relative h-3 overflow-hidden rounded-full bg-white/[0.06]">
-          <div
-            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
-            style={{ width: `${pct(row.value, row.cap)}%`, background: row.color }}
-          />
-        </div>
-      ))}
-
-      {extras.length > 0 && (
-        <dl className="flex flex-col">
-          {extras.map((row) => (
-            <div
-              key={row.name}
-              className="flex items-center gap-3 border-t border-white/[0.08] py-3 text-sm first:border-t-0"
-            >
-              <span className="size-3 shrink-0 rounded-full" style={{ background: row.color }} />
-              <dt className="min-w-0 flex-1 truncate text-white">{row.name}</dt>
-              <dd className="shrink-0 font-semibold text-white">
-                {usdCompact(row.value)}
-                <span className="font-normal text-muted"> / {hasReq ? usdCompact(row.cap) : "—"}</span>
-              </dd>
-              <dd className="w-10 shrink-0 text-right text-muted">{pct(row.value, row.cap)}%</dd>
-            </div>
-          ))}
-        </dl>
-      )}
         </>
       )}
     </section>

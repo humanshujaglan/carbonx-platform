@@ -185,7 +185,8 @@ export function LiveStreamTicker({
   zeroRateMessage?: string;
 }) {
   const safeValue = Math.max(0, isNaN(value) ? 0 : value);
-  const formatted = safeValue.toFixed(5);
+  // Truncate, never round up (the epsilon absorbs float noise like 0.29 * 1e5 = 28999.999...)
+  const formatted = (Math.floor(safeValue * 1e5 + 1e-6) / 1e5).toFixed(5);
   const [intStr, decStr = "00000"] = formatted.split(".");
   const integerPart = Number(intStr).toLocaleString();
   const cents = decStr.slice(0, 2);
@@ -253,29 +254,7 @@ export function IncomesDashboard({
   const { liveLevel, levelPerSecUsd } = useLiveIncomeStreams(user, lhrTier);
   const isTopId = !!user?.isTopId;
 
-  const poolWins = user?.rewardPoolWins ?? [];
-  const poolWinTotal = poolWins.reduce((sum, w) => sum + w.amount, 0n);
-
-  // One claimRewardPool call per cycle won; they run back to back
-  async function claimRewardPools() {
-    if (!addresses || !account || poolWins.length === 0) return;
-    await tx.run(
-      "Claiming Reward Pool...",
-      async () => {
-        let hash: Awaited<ReturnType<typeof write>> | undefined;
-        for (const win of poolWins) {
-          hash = await write({
-            address: addresses.platform,
-            abi: platformAbi,
-            functionName: "claimRewardPool",
-            args: [win.poolType, win.cycleId],
-          });
-        }
-        return hash as Awaited<ReturnType<typeof write>>;
-      },
-      () => <span>Reward pool claimed!</span>
-    );
-  }
+  const poolWinTotal = (user?.rewardPoolWins ?? []).reduce((sum, w) => sum + w.amount, 0n);
 
   // Top ID deep match: levels 2-50 pay 3% (L2-30) / 2% (L31-50) of each downline's ROI. They settle when that
   // downline's ROI accrues; this settles the rest in batches of 50 (the contract's limit), walking the tree
@@ -318,22 +297,6 @@ export function IncomesDashboard({
         });
       },
       () => <span>Deep match settled for the next downlines.</span>
-    );
-  }
-
-  async function callPlatform(label: string, fnName: string, args: readonly unknown[] = []) {
-    if (!addresses || !account) return;
-    await tx.run(
-      label,
-      async () => {
-        return write({
-          address: addresses.platform,
-          abi: platformAbi,
-          functionName: fnName,
-          args,
-        });
-      },
-      () => <span>Action completed successfully!</span>
     );
   }
 
@@ -395,29 +358,14 @@ export function IncomesDashboard({
               </div>
             </div>
 
-            {!isHome && (
+            {/* Claiming happens on the Withdraw page; only the Top ID's deep match settle stays here */}
+            {!isHome && isTopId && (
               <div className="pt-3">
-                <button
-                  type="button"
-                  disabled={!user || user.levelIncomeHarvestable === 0n || !!tx.busy}
-                  onClick={() => callPlatform("Claiming Level Income...", "harvestLevelIncome")}
-                  className="btn btn-primary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
-                >
-                  {tx.busy === "Claiming Level Income..." ? (
-                    <Spinner />
-                  ) : (
-                    <>
-                      <Hierarchy size={16} />
-                      <span>Claim</span>
-                    </>
-                  )}
-                </button>
-                {isTopId && (
                   <button
                     type="button"
                     disabled={!user || !!tx.busy}
                     onClick={settleDeepMatch}
-                    className="btn w-full mt-2 py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
+                    className="btn w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
                   >
                     {tx.busy === "Settling Deep Match..." ? (
                       <Spinner />
@@ -428,7 +376,6 @@ export function IncomesDashboard({
                       </>
                     )}
                   </button>
-                )}
               </div>
             )}
           </section>
@@ -445,7 +392,8 @@ export function IncomesDashboard({
                   <InfoSheet title="Direct + Lock Income">
                     <p>
                       Referral bonuses earned directly from the members you sponsored. Each bonus is locked for 24 hours
-                      after it is earned. Once that time passes it becomes available to unlock.
+                      after it is earned. Once that time passes it moves into your working balance, which you
+                      withdraw on the Withdraw page. Total earned counts every bonus, including those already moved.
                     </p>
                     <SheetBlock title="Your directs">
                       <dl>
@@ -456,7 +404,13 @@ export function IncomesDashboard({
                   </InfoSheet>
                 }
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <div className="text-xs text-muted">Total earned</div>
+                  <div className="mt-0.5 text-base font-normal text-white">
+                    {user ? usd(user.directIncomeEarned) : "$0.00"}
+                  </div>
+                </div>
                 <div>
                   <div className="text-xs text-muted">Available</div>
                   <div className="mt-0.5 text-base font-normal text-white">
@@ -484,7 +438,7 @@ export function IncomesDashboard({
                 right={
                   <InfoSheet title="Leader Prize Contest">
                     <p>
-                      Prize contest paid on days when the CARB price falls 5% or more from its daily high. The pool goes to the top sponsors by new business that day.
+                      Prize contest paid only on days when the CARB price falls 5% or more below that day&apos;s high. The pool goes to the top 10 leaders by first-package business brought in with their leader code that day.
                     </p>
                     <SheetBlock title="Claim window">
                       <dl>
@@ -499,18 +453,6 @@ export function IncomesDashboard({
               </div>
             </div>
 
-            {!isHome && (
-              <div className="pt-3">
-                <button
-                  type="button"
-                  disabled={!user || user.pendingContestRewards === 0n || !!tx.busy}
-                  onClick={() => callPlatform("Claiming Contest Income...", "sweepContestRewards", [150n])}
-                  className="btn btn-primary w-full py-2.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming Contest Income..." ? <Spinner /> : "Claim Contest Income"}
-                </button>
-              </div>
-            )}
           </section>
         )}
 
@@ -526,6 +468,20 @@ export function IncomesDashboard({
                     <p>
                       Daily contest prize pool shared among the top leaders by newcomer business. It is paid every day, whatever the price does.
                     </p>
+                    <SheetBlock title="When is this income generated?">
+                      <p>
+                        Every day (UTC). Each new member&apos;s first package bought with a leader code adds to that day&apos;s
+                        pool. When the day ends, the pool is set at 2% of that business after the treasury fee (the rate can
+                        be set between 1% and 5%). Rewards can be claimed once the day has closed.
+                      </p>
+                    </SheetBlock>
+                    <SheetBlock title="Who gets this income?">
+                      <p>
+                        The top 50 leaders of the day, ranked by the first-package business their leader code brought in
+                        that day. The pool is split between them in proportion to that business. The Top ID does not take
+                        part. Rewards are credited to your working balance.
+                      </p>
+                    </SheetBlock>
                     <SheetBlock title="Claim window">
                       <dl>
                         <Row label="History window" value="Up to 50 days" />
@@ -543,18 +499,6 @@ export function IncomesDashboard({
               </div>
             </div>
 
-            {!isHome && (
-              <div className="pt-3">
-                <button
-                  type="button"
-                  disabled={!user || user.pendingLeaderContestRewards === 0n || !!tx.busy}
-                  onClick={() => callPlatform("Claiming Leader Contest Income...", "sweepLeaderContestRewards", [50n])}
-                  className="btn btn-secondary w-full py-2.5 text-xs font-semibold"
-                >
-                  {tx.busy === "Claiming Leader Contest Income..." ? <Spinner /> : "Claim Leader Contest Income"}
-                </button>
-              </div>
-            )}
           </section>
         )}
 
@@ -598,22 +542,16 @@ export function IncomesDashboard({
                   </InfoSheet>
                 }
               />
-              {/* Winnings from pool payouts that can be claimed now */}
+              {/* Lifetime winnings, and what can be claimed now */}
               <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs text-muted">Total earned</div>
+                  <div className="mt-0.5 text-base font-normal text-white">{user ? usd(user.rewardPoolEarned) : "$0.00"}</div>
+                </div>
                 <div>
                   <div className="text-xs text-muted">You can withdraw</div>
                   <div className="mt-0.5 text-base font-normal text-white">{usd(poolWinTotal)}</div>
                 </div>
-                {!isHome && (
-                  <button
-                    type="button"
-                    disabled={!user || poolWinTotal === 0n || !!tx.busy}
-                    onClick={claimRewardPools}
-                    className="btn btn-primary !rounded-lg whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold"
-                  >
-                    {tx.busy === "Claiming Reward Pool..." ? <Spinner /> : "Claim"}
-                  </button>
-                )}
               </div>
 
               {/* How full each pool is against its payout threshold */}
