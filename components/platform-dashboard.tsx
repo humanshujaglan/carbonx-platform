@@ -29,9 +29,11 @@ import { RegisterCard } from "./register-card";
 import { BoosterTiersCard } from "./booster-tiers-card";
 import { LeaderCodeCard } from "./leader-code-card";
 import { LeaderPrizeContestCard } from "./leader-prize-contest-card";
+import { ContestStartedModal, useContestSeenToday } from "./contest-started-modal";
 import { LockMixCard } from "./lock-mix-card";
 import { QuickActions } from "./quick-actions";
 import { UnlockScheduleCard } from "./unlock-schedule-card";
+import { CappingCard } from "./capping-card";
 import { RankBusinessCard } from "./rank-business-card";
 import { RoiCycleChart } from "./roi-cycle-chart";
 import { TeamPage } from "./team-page";
@@ -47,6 +49,10 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
   const { addresses, market, user, error, refresh, loading } = usePlatform(account);
   const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
   const isPartner = useIsPartner(account, addresses);
+  // Leader Prize Contest popup: once per UTC day (per browser) when today's contest has triggered on-chain
+  const [contestSeen, closeContest] = useContestSeenToday();
+  const contestOpen = !!market?.contestTriggered && !contestSeen;
+  // const contestOpen = !contestSeen;
 
   // The partner page is for active Top ID partners only
   useEffect(() => {
@@ -147,6 +153,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
   return (
     <div className="flex flex-col gap-6">
+      <ContestStartedModal open={contestOpen} onClose={closeContest} />
       {internalScreen ? (
         <div className="px-3 pt-3 sm:px-6">
           <button
@@ -175,7 +182,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
           <QuickActions onNavigateTab={openInternalScreen} />
 
-          <ClaimIncomeCards user={user} addresses={addresses} market={market} onDone={refresh} />
+          <ClaimIncomeCards user={user} market={market} />
 
           {/* Referral link */}
           <section className="card p-5 sm:p-6 flex flex-col gap-5" aria-label="Referral link">
@@ -266,6 +273,8 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
 
           <LeaderCodeCard user={user ?? undefined} addresses={addresses} onDone={refresh} />
 
+          <CappingCard user={user ?? undefined} lhrTier={market.lhrTier} />
+
           {/* Protocol & Market Overview */}
           <MarketRibbon market={market} addresses={addresses} />
         </div>
@@ -275,7 +284,7 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
       {activeTab === "invest" && (
         <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
           <InvestCard addresses={addresses} user={user} lhrTier={market.lhrTier} onDone={refresh} />
-          <PackagesList positions={user?.positions ?? []} user={user} lhrTier={market.lhrTier} />
+          <PackagesList positions={user?.positions ?? []} user={user} lhrTier={market.lhrTier} addresses={addresses} onDone={refresh} />
         </div>
       )}
 

@@ -798,7 +798,6 @@ export function AuthPortal({
                   <input
                     type="number"
                     min="0"
-                    placeholder=""
                     value={leaderCodeInput === "0" ? "" : leaderCodeInput}
                     onChange={(e) => setLeaderCodeInput(e.target.value || "0")}
                     className="w-full rounded-xl border border-white/10 bg-[#14171d] px-3.5 py-3 text-xs text-white outline-none placeholder:text-muted/60 focus:border-[#22c55e]"

@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { platformAbi } from "@/lib/abi";
 import { LOCK_DETAILS, LockType } from "@/lib/config";
 import { dateTime, usd } from "@/lib/format";
-import type { EnhancedPosition, PlatformUser } from "@/lib/platform";
+import type { EnhancedPosition, PlatformAddresses, PlatformUser } from "@/lib/platform";
 import { hybridHalves, packageLiveRoi } from "@/lib/roi";
 import { BottomSheet, SheetBlock } from "./info-sheet";
-import { Row } from "./ui";
+import { Notice, Row, Spinner, useTx } from "./ui";
+import { useWallet } from "./wallet";
 
 const GREEN = "linear-gradient(90deg, #17a83a, #3bf857)";
 const AMBER = "linear-gradient(90deg, #e8890c, #ffd166)";
 const RED = "linear-gradient(90deg, #b42347, #ff7a93)";
+// Mirrors PlatformEarnEngine.convertToFiftyFifty: a flexible package can turn 50/50 within 30 days of buying it
+const CONVERT_WINDOW_SEC = 30 * 86400;
+const convertLabel = (id: bigint) => `Converting #${id} to 50/50...`;
 
 /**
  * Bold progress bar with the earned value inside it. The value is light on the dark track and dark on the
@@ -42,11 +47,17 @@ export function PackagesList({
   positions,
   user,
   lhrTier = 0,
+  addresses,
+  onDone = () => {},
 }: {
   positions: EnhancedPosition[];
   user?: PlatformUser;
   lhrTier?: number;
+  addresses?: PlatformAddresses;
+  onDone?: () => void;
 }) {
+  const { account, write } = useWallet();
+  const tx = useTx(onDone);
   // Re-value packages every second so earned ROI ticks live
   const [now, setNow] = useState(() => Date.now() / 1000);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -71,6 +82,30 @@ export function PackagesList({
   const openLive = open ? packageLiveRoi(open, owner, lhrTier, now) : null;
   const openHalves = open && open.lockType === LockType.LOCKED_50 ? hybridHalves(open, owner, lhrTier, now) : null;
   const openLock = open ? LOCK_DETAILS[open.lockType] ?? LOCK_DETAILS[LockType.FLEXIBLE] : null;
+  // Seconds left to convert; 0 when the contract would reject it (the Top ID always earns linearly)
+  const convertLeft = (pos: EnhancedPosition) =>
+    pos.lockType === LockType.FLEXIBLE && pos.active && !pos.isCapped && pos.createdAt > 0 && !user?.isTopId
+      ? Math.max(0, pos.createdAt + CONVERT_WINDOW_SEC - now)
+      : 0;
+
+  async function handleConvert(pos: EnhancedPosition, idx: number) {
+    if (!addresses || !account) return;
+    const ok = window.confirm(
+      `Convert package #${idx + 1} to 50/50? Half keeps earning flexible, the other half locks for ${LOCK_DETAILS[LockType.LOCKED_50].lockDays} days at 0.33% daily compounding. This can't be undone.`
+    );
+    if (!ok) return;
+    await tx.run(
+      convertLabel(pos.id),
+      () =>
+        write({
+          address: addresses.platform,
+          abi: platformAbi,
+          functionName: "convertToFiftyFifty",
+          args: [pos.id],
+        }),
+      () => <span>Package converted to 50/50!</span>
+    );
+  }
 
   return (
     <section className="card flex flex-col gap-4 p-5 sm:p-6" aria-label="My packages">
@@ -78,6 +113,8 @@ export function PackagesList({
         <h3 className="text-sm font-medium text-text">My packages</h3>
         <span className="text-xs text-muted">{positions.filter((p) => p.active && !p.isCapped).length} active</span>
       </div>
+
+      {tx.result && <Notice tone={tx.result.tone}>{tx.result.text}</Notice>}
 
       <div className="grid grid-cols-2 gap-3">
         {positions.map((pos, idx) => {
@@ -120,29 +157,54 @@ export function PackagesList({
             );
           }
           const accent = pos.lockType === LockType.FLEXIBLE ? GREEN : AMBER;
+          const left = convertLeft(pos);
           return (
-            <button
+            // A div, not a button: the convert button can't sit inside the open-details button
+            <div
               key={pos.id.toString()}
-              type="button"
-              onClick={() => setOpenId(pos.id.toString())}
-              className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-white/[0.08] bg-panel-2 p-3.5 text-left transition hover:border-white/20 active:scale-[0.98]"
+              className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-panel-2 p-3.5 transition hover:border-white/20"
             >
-              <div className="flex items-center justify-between gap-2 text-xs text-muted">
-                <span>#{idx + 1}</span>
-                <span className="truncate">{lock.name}</span>
-              </div>
-              <div className="text-base text-white">{usd(pos.initialPrincipal)}</div>
-              <EarnBar
-                pct={capPct}
-                text={pos.isCapped ? "Capped out" : money(live.accruedUsd)}
-                fill={pos.isCapped ? RED : accent}
-              />
-            </button>
+              <button
+                type="button"
+                onClick={() => setOpenId(pos.id.toString())}
+                className="flex cursor-pointer flex-col gap-3 text-left active:scale-[0.98]"
+              >
+                <div className="flex w-full items-center justify-between gap-2 text-xs text-muted">
+                  <span>#{idx + 1}</span>
+                  <span className="truncate">{lock.name}</span>
+                </div>
+                <div className="text-base text-white">{usd(pos.initialPrincipal)}</div>
+                <EarnBar
+                  pct={capPct}
+                  text={pos.isCapped ? "Capped out" : money(live.accruedUsd)}
+                  fill={pos.isCapped ? RED : accent}
+                />
+              </button>
+              {left > 0 && (
+                <button
+                  type="button"
+                  disabled={Boolean(tx.busy) || !account || !addresses}
+                  onClick={() => handleConvert(pos, idx)}
+                  className="btn btn-primary w-full !rounded-lg py-2 text-xs font-semibold"
+                >
+                  {tx.busy === convertLabel(pos.id) ? (
+                    <Spinner />
+                  ) : (
+                    <span>Convert to 50/50</span>
+                  )}
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
 
-      <BottomSheet open={!!open} onClose={() => setOpenId(null)} title={open ? `Package #${positions.indexOf(open) + 1}` : ""}>
+      <BottomSheet
+        open={!!open}
+        onClose={() => {
+          setOpenId(null);
+          tx.clear();
+        }} title={open ? `Package #${positions.indexOf(open) + 1}` : ""}>
         {open && openLive && openLock && (
           <>
             <SheetBlock>

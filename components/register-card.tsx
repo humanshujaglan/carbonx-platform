@@ -152,7 +152,6 @@ export function RegisterCard({
           id="leader-input"
           type="number"
           min="0"
-          placeholder="e.g. 1111 (optional)"
           value={leaderCodeInput === "0" ? "" : leaderCodeInput}
           onChange={(e) => setLeaderCodeInput(e.target.value || "0")}
           className="well w-full px-4 py-3 text-xs text-text outline-none transition focus:border-neon/50"

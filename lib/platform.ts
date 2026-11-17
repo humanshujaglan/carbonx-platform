@@ -31,6 +31,7 @@ import {
   rpcUrl,
 } from "./config";
 import { targetRank } from "./rank";
+import { splitDirectSlips } from "./direct-income";
 
 export const publicClient = createPublicClient({
   chain,
@@ -110,19 +111,32 @@ export type PlatformUser = {
   workingCapConsumed: bigint;
   workingCapHeadroom: bigint;
   pendingLeaderContestRewards: bigint;
+  /** Lifetime daily (leader) contest income: days already claimed plus what is still pending. */
+  leaderContestEarned: bigint;
   pendingContestRewards: bigint;
+  /** Lifetime leader prize (price) contest income: days already claimed plus what is still pending. */
+  contestEarned: bigint;
   pendingDirectBonusAvailable: bigint;
   pendingDirectBonusLocked: bigint;
+  /** Lifetime direct (2%) and lock-in (2% of the locked part) income, including slips already released. */
+  directIncomeEarned: bigint;
+  lockIncomeEarned: bigint;
   /** Leader bonus slips already unlocked (realized on the next leader income withdrawal). */
   pendingLeaderBonusAvailable: bigint;
   /** Leader bonus slips still inside their lock period. */
   pendingLeaderBonusLocked: bigint;
   /** Rank salary already claimed and waiting to be withdrawn. */
   rankIncomePending: bigint;
+  /** Gross rank income paid out so far. */
+  rankIncomeWithdrawn: bigint;
   /** What `harvestLevelIncome` would credit to the working balance right now (previewed with eth_call). */
   levelIncomeHarvestable: bigint;
+  /** Lifetime level income: what is already settled into the working balance plus what a harvest would add now. */
+  levelIncomeEarned: bigint;
   /** Reward pool cycles this user won and has not claimed yet (poolType 1 Neon, 2 Hydra, 3 Genosis). */
   rewardPoolWins: { poolType: 1 | 2 | 3; cycleId: bigint; amount: bigint }[];
+  /** Every reward pool win in the cycles looked at, claimed or not. */
+  rewardPoolEarned: bigint;
   /** Weekly rank salary streams (one per rank reached) and what can be claimed now. */
   rankSalary: {
     totalClaimable: bigint;
@@ -215,6 +229,31 @@ function getEmptyMarket(): PlatformMarket {
 }
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
+/** Leader prize contest split by rank 1-10 (`shares` in PlatformEarnContests). */
+export const PRICE_CONTEST_SHARES_BPS = [3000n, 2000n, 1500n, 1000n, 500n, 500n, 500n, 500n, 300n, 200n];
+
+export type ContestToday = {
+  triggered: boolean;
+  /** 2% of today's first-package business after the treasury cut; keeps growing until the day closes (00:00 UTC). */
+  pool: bigint;
+  /** Current top 10 leaders by first-package business brought in with their leader code today, rank 1 first. */
+  leaders: { address: Address; volume: bigint }[];
+};
+
+/** Today's Leader Prize Contest, rebuilt like `_finalizeContestDay`: pool and current top 10. */
+export async function fetchContestToday(): Promise<ContestToday> {
+  const day = BigInt(Math.floor(Date.now() / 1000 / 86400));
+  const [[triggered, , volume, count, uplines, volumes], earn] = await Promise.all([
+    publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getContestDay", args: [day] }),
+    publicClient.readContract({ address: platformAddress, abi: platformAbi, functionName: "earnEngine" }),
+  ]);
+  const cut = await publicClient.readContract({ address: earn, abi: earnEngineAbi, functionName: "dailyLeaderDepositTreasuryCut", args: [day] });
+  return {
+    triggered,
+    pool: volume > cut ? ((volume - cut) * 200n) / 10000n : 0n,
+    leaders: uplines.slice(0, Number(count)).map((address, i) => ({ address, volume: volumes[i] })),
+  };
+}
 
 /** Cheap membership check (one eth_call), used to decide between Login and Register before any heavy fetch. */
 export async function fetchIsRegistered(account: Address): Promise<boolean> {
@@ -262,7 +301,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
   async function loadUser(acct: Address): Promise<PlatformUser | undefined> {
     try {
       const isTopId = topIdAddr !== ZERO && acct.toLowerCase() === topIdAddr.toLowerCase();
-      const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, pLeaderBonus, rankIncome, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode, activeDeposit, activeDirectBusiness] =
+      const [u, headroom, legBiz, pLeaderContest, pContest, pDirectBonus, pLeaderBonus, rankIncome, usdtBal, carbBal, usdtAllow, boosterCycles, boosterLastBps, topIdPrincipal, topIdLastCompounded, cleanLegBiz, leaderCode, activeDeposit, activeDirectBusiness, rankWithdrawn] =
         await Promise.all([
           publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUser", args: [acct] }),
           publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserWorkingCapHeadroom", args: [acct] }).catch(() => 0n),
@@ -283,13 +322,14 @@ export async function fetchPlatformData(account?: Address): Promise<{
           publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "leaderCodeOf", args: [acct] }).catch(() => 0n),
           publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "getUserActiveDeposit", args: [acct] }).catch(() => 0n),
           publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getUserActiveDirectBusiness", args: [acct] }).catch(() => 0n),
+          publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "rankIncomeWithdrawn", args: [acct] }).catch(() => 0n),
         ]);
 
       const isRegistered = u.registrationTime > 0n;
       const currentRank = Number(u.currentRank);
 
       // Positions, downlines, pool wins, level income and rank salary only need `u`, so they run together
-      const [positions, directs, rewardPoolWins, levelIncomeHarvestable, rankSalary, rankRequirement] = await Promise.all([
+      const [positions, directs, poolWins, levelIncomeHarvestable, rankSalary, rankRequirement, directSplit, levelIncomeSettled, contestsClaimed] = await Promise.all([
         Promise.all(
           (u.positionIds ?? []).map(async (posId): Promise<EnhancedPosition> => {
             try {
@@ -355,6 +395,9 @@ export async function fetchPlatformData(account?: Address): Promise<{
           .catch(() => 0n),
         loadRankSalary(acct, currentRank),
         loadRankRequirement(targetRank(currentRank)),
+        loadDirectIncome(acct),
+        loadLevelIncomeSettled(acct),
+        loadContestsClaimed(acct),
       ]);
 
       return {
@@ -390,14 +433,21 @@ export async function fetchPlatformData(account?: Address): Promise<{
         workingCapConsumed: u.workingCapConsumed,
         workingCapHeadroom: headroom,
         pendingLeaderContestRewards: pLeaderContest,
+        leaderContestEarned: contestsClaimed.leader + pLeaderContest,
         pendingContestRewards: pContest,
+        contestEarned: contestsClaimed.price + pContest,
         pendingDirectBonusAvailable: pDirectBonus[0],
         pendingDirectBonusLocked: pDirectBonus[1],
+        directIncomeEarned: directSplit.direct,
+        lockIncomeEarned: directSplit.lock,
         pendingLeaderBonusAvailable: pLeaderBonus[0],
         pendingLeaderBonusLocked: pLeaderBonus[1],
         rankIncomePending: rankIncome,
+        rankIncomeWithdrawn: rankWithdrawn,
         levelIncomeHarvestable,
-        rewardPoolWins,
+        levelIncomeEarned: levelIncomeSettled + levelIncomeHarvestable,
+        rewardPoolWins: poolWins.filter((w) => !w.claimed),
+        rewardPoolEarned: poolWins.reduce((s, w) => s + w.amount, 0n),
         rankSalary,
         rankRequirement,
         powerLegBusiness: legBiz[0],
@@ -418,8 +468,107 @@ export async function fetchPlatformData(account?: Address): Promise<{
     }
   }
 
-  // Reward pool cycles won by this user and not yet claimed (looks at the latest cycles of each pool)
-  async function loadRewardPoolWins(acct: Address): Promise<PlatformUser["rewardPoolWins"]> {
+  // Level income already paid: 10% of each direct's ROI basis up to the sponsor's checkpoint, minus forfeits
+  // (PlatformTeamSettlement._settleDirectDownlineWithTier). It is credited to the working balance automatically
+  // whenever the direct's ROI accrues, so the harvest preview alone is usually $0.
+  // ponytail: assumes the full 10% was credited; a sponsor at the working cap gets less, so this can read high then
+  async function loadLevelIncomeSettled(acct: Address): Promise<bigint> {
+    try {
+      const [teamEngine, directs] = await Promise.all([
+        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "teamEngine" }),
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getDirectDownlines", args: [acct] }),
+      ]);
+      const perDirect = await Promise.all(
+        directs.map(async (d) => {
+          const [settled, forfeited] = await Promise.all([
+            publicClient.readContract({ address: teamEngine, abi: teamEngineAbi, functionName: "sponsorSettledYieldCheckpoint", args: [acct, d] }),
+            publicClient.readContract({ address: teamEngine, abi: teamEngineAbi, functionName: "sponsorSettledForfeitCheckpoint", args: [acct, d] }),
+          ]);
+          return settled > forfeited ? ((settled - forfeited) * 1000n) / 10000n : 0n;
+        })
+      );
+      return perDirect.reduce((s, v) => s + v, 0n);
+    } catch {
+      return 0n;
+    }
+  }
+
+  // Contest income already claimed. A claimed day drops out of getPending(Leader)ContestRewards,
+  // so walk every day since launch and add this user's share of each claimed day's pool.
+  // ponytail: up to five reads per day since launch (batched by multicall); fine for a few hundred days
+  async function loadContestsClaimed(acct: Address): Promise<{ leader: bigint; price: bigint }> {
+    try {
+      const [start, earn] = await Promise.all([
+        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "deploymentStartTime" }),
+        publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "earnEngine" }),
+      ]);
+      const firstDay = Number(start / 86400n);
+      const today = Math.floor(Date.now() / 1000 / 86400);
+      const isMe = (a: Address) => a.toLowerCase() === acct.toLowerCase();
+      const perDay = await Promise.all(
+        Array.from({ length: Math.max(0, today - firstDay) }, async (_, i) => {
+          const dayId = BigInt(firstDay + i);
+          const [leaderClaimed, [pool, , total, count, leaders, volumes], priceClaimed, [, , depositVolume, top10Count, uplines]] = await Promise.all([
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "isLeaderContestClaimed", args: [dayId, acct] }),
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getLeaderContestDay", args: [dayId] }),
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "isContestClaimed", args: [dayId, acct] }),
+            publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getContestDay", args: [dayId] }),
+          ]);
+
+          const leaderRank = leaders.slice(0, count).findIndex(isMe);
+          const leader = leaderClaimed && leaderRank >= 0 && total > 0n ? (pool * volumes[leaderRank]) / total : 0n;
+
+          // getContestDay has no pool amount, so rebuild it like _finalizeContestDay: 2% of the day's volume after treasury cut
+          const priceRank = uplines.slice(0, Number(top10Count)).findIndex(isMe);
+          let price = 0n;
+          if (priceClaimed && priceRank >= 0) {
+            const cut = await publicClient.readContract({ address: earn, abi: earnEngineAbi, functionName: "dailyLeaderDepositTreasuryCut", args: [dayId] });
+            const pricePool = depositVolume > cut ? ((depositVolume - cut) * 200n) / 10000n : 0n;
+            price = (pricePool * PRICE_CONTEST_SHARES_BPS[priceRank]) / 10000n;
+          }
+          return { leader, price };
+        })
+      );
+      return perDay.reduce((s, d) => ({ leader: s.leader + d.leader, price: s.price + d.price }), { leader: 0n, price: 0n });
+    } catch {
+      return { leader: 0n, price: 0n };
+    }
+  }
+
+  // Lifetime direct and lock-in income. Released slips leave getPendingDirectBonus, so read every slip and
+  // split them by the directs' first packages (see splitDirectSlips).
+  // ponytail: one read per slip and two per direct (batched by multicall); fine for a few hundred of each
+  async function loadDirectIncome(acct: Address): Promise<{ direct: bigint; lock: bigint }> {
+    try {
+      const [count, directs] = await Promise.all([
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonusCount", args: [acct] }),
+        publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getDirectDownlines", args: [acct] }),
+      ]);
+      const [slips, packages] = await Promise.all([
+        Promise.all(
+          Array.from({ length: Number(count) }, (_, i) =>
+            publicClient
+              .readContract({ address: viewAddress, abi: platformAbi, functionName: "getPendingDirectBonusItem", args: [acct, BigInt(i)] })
+              .then(([amount, unlockTime]) => ({ amount, unlockTime: Number(unlockTime) }))
+          )
+        ),
+        Promise.all(
+          directs.map(async (d) => {
+            const { positionIds } = await publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getUser", args: [d] });
+            if (positionIds.length === 0) return undefined;
+            const pos = await publicClient.readContract({ address: viewAddress, abi: platformAbi, functionName: "getPosition", args: [positionIds[0]] });
+            return { createdAt: Number(pos.createdAt), locked: pos.lockType !== LockType.FLEXIBLE };
+          })
+        ),
+      ]);
+      return splitDirectSlips(slips, packages.filter((p) => !!p));
+    } catch {
+      return { direct: 0n, lock: 0n };
+    }
+  }
+
+  // Reward pool cycles won by this user, claimed or not (looks at the latest cycles of each pool)
+  async function loadRewardPoolWins(acct: Address): Promise<(PlatformUser["rewardPoolWins"][number] & { claimed: boolean })[]> {
     if (!poolEngine) return [];
     const engine = poolEngine;
     const cycleFns = { 1: "neonCycleId", 2: "hydraCycleId", 3: "genosisCycleId" } as const;
@@ -436,12 +585,11 @@ export async function fetchPlatformData(account?: Address): Promise<{
                 const winners = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "getPoolWinners", args: [poolType, cycleId] });
                 if (!winners.some((w) => w.toLowerCase() === acct.toLowerCase())) return undefined;
                 const claimed = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "poolClaimed", args: [poolType, cycleId, acct] });
-                if (claimed) return undefined;
                 let amount = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "poolWinnerReward", args: [poolType, cycleId, acct] });
                 if (amount === 0n) {
                   amount = await publicClient.readContract({ address: engine, abi: payoutPoolsAbi, functionName: "poolRewardPerWinner", args: [poolType, cycleId] });
                 }
-                return { poolType, cycleId, amount };
+                return { poolType, cycleId, amount, claimed };
               } catch {
                 return undefined;
               }

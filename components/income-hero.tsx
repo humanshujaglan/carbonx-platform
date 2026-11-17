@@ -6,10 +6,8 @@ import { formatUnits } from "viem";
 import { Copy, Eye, EyeSlash, TickCircle } from "iconsax-react";
 import type { PlatformUser } from "@/lib/platform";
 import { useLiveIncomeStreams } from "./incomes-dashboard";
+import { money } from "@/lib/format";
 import avatarImage from "@/public/new-icons/user.jpg";
-
-const fmt = (v: number) =>
-  v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Card-less hero: total claimable income, centred. */
 export function IncomeHero({ user, lhrTier }: { user?: PlatformUser; lhrTier: number }) {
@@ -33,7 +31,7 @@ export function IncomeHero({ user, lhrTier }: { user?: PlatformUser; lhrTier: nu
       settledBooster
     : 0;
 
-  const amount = `$${fmt(totalClaimable)}`;
+  const amount = money(totalClaimable);
 
   const copyAmount = () => {
     if (user && typeof navigator !== "undefined" && navigator.clipboard) {

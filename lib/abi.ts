@@ -4,9 +4,11 @@ export const platformAbi = parseAbi([
   // Core user functions
   "function register(address _sponsor, uint256 _leaderCode, uint256 amountUSDT, uint8 lockType)",
   "function invest(uint256 amountUSDT, uint8 lockType)",
+  "function convertToFiftyFifty(uint256 positionId)",
   "function withdrawROI()",
   "function teamEngine() view returns (address)",
   "function rankIncomePending(address user) view returns (uint256)",
+  "function rankIncomeWithdrawn(address user) view returns (uint256)",
   "function earnEngine() view returns (address)",
   "function getContestDay(uint256 dayId) view returns (bool isSLTriggered, uint256 dayHighPrice, uint256 dailyDepositVolume, uint256 top10Count, address[10] top10Uplines, uint256[10] top10Volumes)",
   "function claimRewardPool(uint8 poolType, uint256 cycleId)",
@@ -42,6 +44,8 @@ export const platformAbi = parseAbi([
   "function getUserVestingIds(address user) view returns (uint256[])",
   "function getVestingSchedule(uint256 vId) view returns (VestingSchedule)",
   "function getPendingDirectBonus(address user) view returns (uint256 availableToUnlock, uint256 pendingLocked)",
+  "function getPendingDirectBonusCount(address user) view returns (uint256)",
+  "function getPendingDirectBonusItem(address user, uint256 index) view returns (uint256 amount, uint256 unlockTime, bool claimed)",
   "function getPendingLeaderBonus(address user) view returns (uint256 availableToUnlock, uint256 pendingLocked)",
   "function getUserWorkingCapHeadroom(address user) view returns (uint256)",
   "function getUserPersonalDeposit(address user) view returns (uint256)",
@@ -65,6 +69,9 @@ export const platformAbi = parseAbi([
   "function deploymentStartTime() view returns (uint256)",
   "function getTotalActuarialLiabilities() view returns (uint256)",
   "function getPendingLeaderContestRewards(address user) view returns (uint256)",
+  "function getLeaderContestDay(uint256 dayId) view returns (uint256 poolAmount, uint256 netBusinessVolume, uint256 totalTop50Volume, uint32 top50Count, address[50] top50Leaders, uint256[50] top50Volumes, bool isDayFinalized)",
+  "function isLeaderContestClaimed(uint256 dayId, address user) view returns (bool)",
+  "function isContestClaimed(uint256 dayId, address user) view returns (bool)",
   "function getPendingContestRewards(address user) view returns (uint256)",
   "function positionLastAccruedCycleBps(uint256 posId) view returns (uint256)",
   "function positionCompletedCycles(uint256 posId) view returns (uint256)",
@@ -105,6 +112,7 @@ export const harvestPreviewAbi = parseAbi([
 /** Highest CARB price seen by the contest logic (`globalATHPrice`). */
 export const earnEngineAbi = parseAbi([
   "function globalATHPrice() view returns (uint256)",
+  "function dailyLeaderDepositTreasuryCut(uint256 dayId) view returns (uint256)",
 ]);
 
 /** Rank salary streams live on the team engine (`platform.teamEngine()`). */
@@ -115,6 +123,9 @@ export const teamEngineAbi = parseAbi([
   // Rank activation conditions, set by the contract owner and read live (never hardcode them)
   "function rankSalaryConfigs(uint256 rank) view returns (uint128 teamBusinessRequired, uint128 selfStakeRequired, uint16 durationWeeks, uint16 rewardPercentageBps)",
   "function rankDirectBusinessRequired(uint256 rank) view returns (uint256)",
+  // Level income settled per direct: downline ROI basis already paid on, and the forfeited part of it
+  "function sponsorSettledYieldCheckpoint(address sponsor, address downline) view returns (uint256)",
+  "function sponsorSettledForfeitCheckpoint(address sponsor, address downline) view returns (uint256)",
 ]);
 
 /** Top ID partner pool ledger on the payout engine (`platform.payoutEngine()`). */

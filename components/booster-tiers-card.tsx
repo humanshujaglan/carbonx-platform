@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { formatUnits } from "viem";
 import { BOOSTER_TIERS, BOOSTER_WINDOW_DAYS, DAY_SECONDS, boosterShare, cycleMaxBps } from "@/lib/roi";
 import type { PlatformUser } from "@/lib/platform";
+import { money } from "@/lib/format";
 
 const BAR_HEIGHT = 320;
 const MIN_SEGMENT_PX = 28;
@@ -13,8 +14,6 @@ const TIER_GRADIENTS: Record<number, readonly [string, string]> = {
   2: ["#3bf857", "#0a7a24"],
   3: ["#7dd3fc", "#4338ca"],
 };
-const usd0 = (v: number) =>
-  `$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 export function BoosterTiersCard({ user, lhrTier = 0 }: { user?: PlatformUser; lhrTier?: number }) {
   const [now] = useState(() => Math.floor(Date.now() / 1000));
@@ -49,7 +48,7 @@ export function BoosterTiersCard({ user, lhrTier = 0 }: { user?: PlatformUser; l
 
   const rows: [string, ReactNode][] = [
     ["Tier", tier > 0 ? `Tier ${tier}` : "No tier"],
-    ["Direct business", usd0(directUsd)],
+    ["Direct business", money(directUsd)],
     ["Qualify window", `${daysUsed} out of ${BOOSTER_WINDOW_DAYS} days`],
     boost,
   ];
@@ -64,7 +63,7 @@ export function BoosterTiersCard({ user, lhrTier = 0 }: { user?: PlatformUser; l
           {segments.map((seg) => (
             <div
               key={seg.tier}
-              aria-label={`Tier ${seg.tier}: ${usd0(seg.thresholdUsd)} direct business needed`}
+              aria-label={`Tier ${seg.tier}: ${money(seg.thresholdUsd)} direct business needed`}
               className="relative rounded-xl bg-white/[0.06]"
               style={{ flexGrow: seg.span, flexBasis: 0, minHeight: MIN_SEGMENT_PX }}
             >
@@ -81,7 +80,7 @@ export function BoosterTiersCard({ user, lhrTier = 0 }: { user?: PlatformUser; l
               {/* What the tier needs, not what it pays */}
               <span className="absolute inset-0 z-10 flex items-center justify-center">
                 <span className="text-sm font-semibold text-white">
-                  {usd0(seg.thresholdUsd)}
+                  {money(seg.thresholdUsd)}
                 </span>
               </span>
             </div>

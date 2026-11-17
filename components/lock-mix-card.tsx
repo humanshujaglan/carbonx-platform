@@ -5,12 +5,7 @@ import { ArrowRight } from "iconsax-react";
 import { LockType } from "@/lib/config";
 import type { PlatformUser } from "@/lib/platform";
 import type { NavTab } from "./header";
-
-const usdFull = (v: number) =>
-  `$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-
-const usdShort = (v: number) =>
-  `$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+import { money } from "@/lib/format";
 
 export function LockMixCard({
   user,
@@ -59,7 +54,7 @@ export function LockMixCard({
       </div>
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-3xl font-semibold text-white">{user ? usdFull(total) : "—"}</span>
+        <span className="text-3xl font-semibold text-white">{user ? money(total) : "—"}</span>
         <span className="text-xs text-muted">
           across {active.length} {active.length === 1 ? "package" : "packages"}
         </span>
@@ -88,7 +83,7 @@ export function LockMixCard({
           >
             <span className="size-3 shrink-0 rounded-full" style={{ background: seg.color }} />
             <dt className="min-w-0 flex-1 truncate text-white">{seg.name}</dt>
-            <dd className="shrink-0 font-semibold text-white">{user ? usdShort(seg.value) : "—"}</dd>
+            <dd className="shrink-0 font-semibold text-white">{user ? money(seg.value) : "—"}</dd>
             <dd className="w-10 shrink-0 text-right text-muted">{pct(seg.value)}%</dd>
           </div>
         ))}
