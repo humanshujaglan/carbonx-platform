@@ -7,6 +7,7 @@ export const platformAbi = parseAbi([
   "function convertToFiftyFifty(uint256 positionId)",
   "function withdrawROI()",
   "function teamEngine() view returns (address)",
+  "function twapOracle() view returns (address)",
   "function rankIncomePending(address user) view returns (uint256)",
   "function rankIncomeWithdrawn(address user) view returns (uint256)",
   "function earnEngine() view returns (address)",
@@ -118,7 +119,7 @@ export const earnEngineAbi = parseAbi([
 /** Rank salary streams live on the team engine (`platform.teamEngine()`). */
 export const teamEngineAbi = parseAbi([
   "function monthlyNewBusiness(uint256 monthId, address user) view returns (uint256)",
-  "function getClaimableWeeklySalaryBonus(address user) view returns (uint256 totalClaimableUSDT, uint256[15] claimableWeeksPerRank, uint256[15] remainingWeeksPerRank)",
+  "function getClaimableWeeklySalaryBonus(address user) view returns (uint256 totalClaimableUSDT, uint256[20] claimableWeeksPerRank, uint256[20] remainingWeeksPerRank)",
   "function getUserRankStream(address user, uint256 rank) view returns (uint128 weeklyPayout, uint256 startTime, uint256 durationWeeks, uint256 weeksClaimed, uint256 totalClaimedAmount, uint256 remainingWeeks)",
   // Rank activation conditions, set by the contract owner and read live (never hardcode them)
   "function rankSalaryConfigs(uint256 rank) view returns (uint128 teamBusinessRequired, uint128 selfStakeRequired, uint16 durationWeeks, uint16 rewardPercentageBps)",

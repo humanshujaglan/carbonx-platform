@@ -29,7 +29,7 @@ export function formatWorkingCapHeadroom(user?: { workingCapHeadroom: bigint }):
   if (user.workingCapHeadroom >= 10n ** 30n) return "No cap (Top ID)";
   return usd(user.workingCapHeadroom);
 }
-/** On-chain rank index (0-15) -> "Rank 3"; rank names are not defined by the contract. */
+/** On-chain rank index (0-20) -> "Rank 3"; rank names are not defined by the contract. */
 export const rankLabel = (rank: number | bigint | undefined) => {
   const n = Number(rank ?? 0);
   return n > 0 ? `Rank ${n}` : "No rank";

@@ -213,7 +213,7 @@ export function ClaimIncomeCards({ user, market }: { user?: PlatformUser; market
                 right={
                   <InfoSheet title="Rank Income">
                     <p>
-                      Weekly salary for qualifying career ranks (Rank 1 to Rank 15), based on your team leg business.
+                      Weekly salary for qualifying career ranks (Rank 1 to Rank 20), based on your team leg business.
                     </p>
                     <SheetBlock title="Your legs">
                       <dl>

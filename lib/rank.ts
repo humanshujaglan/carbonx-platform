@@ -6,7 +6,7 @@
  * most 40% of it (`totalReq * 4000 / 10000` in the contract), so at least 60% has to come from the weaker legs.
  * The Top ID is exempt: it only needs the team business (no 60:40 split, no self stake, no direct business).
  */
-export const MAX_RANK = 15;
+export const MAX_RANK = 20;
 export const POWER_LEG_SHARE = 0.4;
 export const WEAKER_LEGS_SHARE = 0.6;
 

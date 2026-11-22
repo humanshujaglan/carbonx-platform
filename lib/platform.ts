@@ -30,7 +30,7 @@ import {
   refreshInterval,
   rpcUrl,
 } from "./config";
-import { targetRank } from "./rank";
+import { MAX_RANK, targetRank } from "./rank";
 import { splitDirectSlips } from "./direct-income";
 
 export const publicClient = createPublicClient({
@@ -631,7 +631,7 @@ export async function fetchPlatformData(account?: Address): Promise<{
         args: [acct],
       });
       rankSalary.totalClaimable = claimable;
-      const ranks = Array.from({ length: Math.min(currentRank, 15) }, (_, i) => i + 1);
+      const ranks = Array.from({ length: Math.min(currentRank, MAX_RANK) }, (_, i) => i + 1);
       rankSalary.streams = await Promise.all(
         ranks.map(async (rank) => {
           const [weeklyPayout, startTime, durationWeeks, weeksClaimed, , remainingWeeks] = await publicClient.readContract({
@@ -659,7 +659,8 @@ export async function fetchPlatformData(account?: Address): Promise<{
   const [tokenLinks, pools, athPrice, contest, blockTimestamp] = await Promise.all([
     Promise.all([
       publicClient.readContract({ address: carbAddr, abi: tokenContractAbi, functionName: "dexPair" }).catch(() => pairAddr),
-      publicClient.readContract({ address: carbAddr, abi: tokenContractAbi, functionName: "twapOracle" }).catch(() => oracleAddr),
+      // token.twapOracle() is the sell-sync target (the DEX router), so the oracle comes from the hub
+      publicClient.readContract({ address: pAddr, abi: platformAbi, functionName: "twapOracle" }).catch(() => oracleAddr),
     ]),
     // Reward pools are a ledger inside the payout engine; the USDT itself sits in the platform contract.
     // (rewardPoolWallet() returns the admin/Top ID wallet, so its USDT balance is NOT the pool.)
