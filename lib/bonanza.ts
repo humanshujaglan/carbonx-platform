@@ -6,8 +6,8 @@ import { chain, platformAddress, rpcUrl } from "./config";
 
 /** Active direct business of at least this much (USDT, 18 decimals) makes the sponsor a bonanza winner. Any number of sponsors can win. */
 export const BONANZA_TARGET = 1000n * 10n ** 18n;
-/** Qualification period (unix seconds): packages bought in [start, end) count. Defaults to 26 Nov – 15 Dec 2026, IST. */
-export const BONANZA_START = Number(process.env.BONANZA_START ?? 1795631400);
+/** Qualification period (unix seconds): packages bought in [start, end) count. Defaults to 27 Nov – 15 Dec 2026, IST. */
+export const BONANZA_START = Number(process.env.BONANZA_START ?? 1795717800);
 export const BONANZA_END = Number(process.env.BONANZA_END ?? 1797359400);
 /** JSON file that keeps the winning sponsors. Must be on a writable, persistent disk. */
 const FILE = process.env.BONANZA_FILE || path.join(process.cwd(), "data", "bonanza-winners.json");
