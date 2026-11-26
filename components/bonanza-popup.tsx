@@ -7,9 +7,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CloseCircle, Cup } from "iconsax-react";
 import { usd } from "@/lib/format";
 import { useWallet } from "./wallet";
+import { BonanzaProgressBar, type BonanzaProgress } from "./bonanza-progress";
 
 type Winner = { sponsor: string; amount: string };
-type Progress = { business: bigint; target: bigint; start: number };
 
 const congratsKey = (account: string) => `cx_bonanza_congrats_${account.toLowerCase()}`;
 function congratsSeen(account: string) {
@@ -33,7 +33,7 @@ export function BonanzaPopup() {
   );
   const [posterOpen, setPosterOpen] = useState(true);
   const [winner, setWinner] = useState<Winner>();
-  const [progress, setProgress] = useState<Progress>();
+  const [progress, setProgress] = useState<BonanzaProgress>();
 
   useEffect(() => {
     if (!ready || !account) return;
@@ -114,7 +114,11 @@ export function BonanzaPopup() {
                   priority
                   className={`h-auto w-full rounded-[2rem] object-contain ${progress ? "max-h-[72vh]" : "max-h-[88vh]"}`}
                 />
-                {progress && <ProgressBar {...progress} />}
+                {progress && (
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-[#0a0f0c]/95 px-4 py-3 text-text">
+                    <BonanzaProgressBar {...progress} />
+                  </div>
+                )}
               </>
             ) : (
               winner && (
@@ -148,34 +152,3 @@ export function BonanzaPopup() {
   );
 }
 
-/** Active direct business bought since the bonanza started, against the target. */
-function ProgressBar({ business, target, start }: Progress) {
-  const pct = target > 0n ? Math.min(100, Number((business * 10000n) / target) / 100) : 0;
-  const done = business >= target;
-  return (
-    <div className="mt-3 rounded-2xl border border-white/10 bg-[#0a0f0c]/95 px-4 py-3 text-text">
-      <div className="flex items-baseline justify-between gap-3 text-sm">
-        <span className="text-muted">Your active direct business</span>
-        <span className="font-semibold text-white">
-          {usd(business)} <span className="font-normal text-muted">/ {usd(target)}</span>
-        </span>
-      </div>
-      <div
-        role="progressbar"
-        aria-label="Bonanza progress"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(pct)}
-        className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/[0.08]"
-      >
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-neon-bright to-neon transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <p className="mt-2 text-xs text-muted">
-        {done ? "Target reached: you qualify for the reward." : `${usd(target - business)} more to qualify. Counts packages your directs buy from ${new Date(start * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.`}
-      </p>
-    </div>
-  );
-}

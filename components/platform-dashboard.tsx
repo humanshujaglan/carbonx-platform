@@ -27,6 +27,7 @@ import { MarketRibbon } from "./market-ribbon";
 import { PackagesList } from "./packages-list";
 import { RegisterCard } from "./register-card";
 import { BoosterTiersCard } from "./booster-tiers-card";
+import { BonanzaProgressCard } from "./bonanza-progress";
 import { LeaderCodeCard } from "./leader-code-card";
 import { LeaderPrizeContestCard } from "./leader-prize-contest-card";
 import { ContestStartedModal, useContestSeenToday } from "./contest-started-modal";
@@ -181,6 +182,8 @@ export function PlatformDashboard({ initialTab = "dashboard" }: { initialTab?: N
           <IncomeHero user={user ?? undefined} lhrTier={market?.lhrTier ?? 0} />
 
           <QuickActions onNavigateTab={openInternalScreen} />
+
+          <BonanzaProgressCard />
 
           <ClaimIncomeCards user={user} market={market} />
 
