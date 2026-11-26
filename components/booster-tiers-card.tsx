@@ -24,6 +24,9 @@ export function BoosterTiersCard({ user, lhrTier = 0 }: { user?: PlatformUser; l
     ? Math.min(BOOSTER_WINDOW_DAYS, Math.max(0, Math.floor((now - user.registrationTime) / DAY_SECONDS)))
     : 0;
 
+  // Window over without reaching a tier: booster can no longer be activated
+  if (user && tier === 0 && now - user.registrationTime >= BOOSTER_WINDOW_DAYS * DAY_SECONDS) return null;
+
   // Dashed lines: top (tier 3), then tiers 2 and 1 evenly spaced below it; none at the bottom
   // One block per tier, top = highest. A block's size follows the extra direct business that tier needs
   // ($1,000 / $4,000 / $5,000), and it fills with progress; reached tiers are full.
