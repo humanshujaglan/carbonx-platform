@@ -4,23 +4,18 @@ import { type Address, createPublicClient, getAddress, http } from "viem";
 import { platformAbi } from "./abi";
 import { chain, platformAddress, rpcUrl } from "./config";
 
-/** A direct's package of at least this much (USDT, 18 decimals) makes the sponsor a bonanza winner. */
-export const BONANZA_MIN_PACKAGE = 1000n * 10n ** 18n;
-/** Qualification period (unix seconds): packages bought in [start, end) count. Defaults to 27 Nov – 15 Dec 2026, IST. */
-export const BONANZA_START = Number(process.env.BONANZA_START ?? 1795717800);
+/** Active direct business of at least this much (USDT, 18 decimals) makes the sponsor a bonanza winner. Any number of sponsors can win. */
+export const BONANZA_TARGET = 1000n * 10n ** 18n;
+/** Qualification period (unix seconds): packages bought in [start, end) count. Defaults to 26 Nov – 15 Dec 2026, IST. */
+export const BONANZA_START = Number(process.env.BONANZA_START ?? 1795631400);
 export const BONANZA_END = Number(process.env.BONANZA_END ?? 1797359400);
 /** JSON file that keeps the winning sponsors. Must be on a writable, persistent disk. */
 const FILE = process.env.BONANZA_FILE || path.join(process.cwd(), "data", "bonanza-winners.json");
 
 export type BonanzaWinner = {
   sponsor: Address;
-  /** The direct whose package qualified the sponsor */
-  direct: Address;
-  positionId: string;
-  /** Package amount in USDT wei, as a string so it survives JSON */
+  /** Active direct business when the sponsor qualified, in USDT wei, as a string so it survives JSON */
   amount: string;
-  /** When the package was bought (unix seconds) */
-  packageTime: number;
   /** When the sponsor was saved (ISO) */
   savedAt: string;
 };
@@ -28,8 +23,11 @@ export type BonanzaWinner = {
 // Separate from lib/platform.ts, which is a client module
 const client = createPublicClient({ chain, transport: http(rpcUrl), batch: { multicall: true } });
 
-/** First package of 1k+ bought by one of the sponsor's directs during the qualification period, if any. */
-async function findQualifyingPackage(sponsor: Address) {
+/**
+ * Sum of the sponsor's directs' active packages bought during the qualification period.
+ * Every `invest` (first package or retopup) opens its own position, so both count.
+ */
+async function activeDirectBusiness(sponsor: Address): Promise<bigint> {
   const directs = await client.readContract({ address: platformAddress, abi: platformAbi, functionName: "getDirectDownlines", args: [sponsor] });
   const idsPerDirect = await Promise.all(
     directs.map((d) => client.readContract({ address: platformAddress, abi: platformAbi, functionName: "getUserPositions", args: [d] }))
@@ -38,10 +36,9 @@ async function findQualifyingPackage(sponsor: Address) {
   const positions = await Promise.all(
     ids.map((id) => client.readContract({ address: platformAddress, abi: platformAbi, functionName: "getPosition", args: [id] }))
   );
-  return positions.find(
-    (p) =>
-      p.initialPrincipal >= BONANZA_MIN_PACKAGE && Number(p.createdAt) >= BONANZA_START && Number(p.createdAt) < BONANZA_END
-  );
+  return positions
+    .filter((p) => p.active && Number(p.createdAt) >= BONANZA_START && Number(p.createdAt) < BONANZA_END)
+    .reduce((sum, p) => sum + p.initialPrincipal, 0n);
 }
 
 async function readWinners(): Promise<BonanzaWinner[]> {
@@ -74,26 +71,22 @@ export async function listWinners(): Promise<BonanzaWinner[]> {
   return readWinners();
 }
 
-/** The saved winner for this sponsor. Checks the chain when not saved yet and saves the sponsor once they qualify. */
-export async function checkSponsor(address: string): Promise<BonanzaWinner | undefined> {
+/**
+ * The sponsor's current active direct business for the bonanza, plus their saved winner entry.
+ * Saves the sponsor once the business reaches the target; a saved sponsor stays a winner.
+ */
+export async function checkSponsor(address: string): Promise<{ business: bigint; winner?: BonanzaWinner }> {
   const sponsor = getAddress(address);
+  const business = await activeDirectBusiness(sponsor);
   const saved = (await readWinners()).find((w) => same(w.sponsor, sponsor));
-  if (saved) return saved;
+  if (saved || business < BONANZA_TARGET) return { business, winner: saved };
 
-  const p = await findQualifyingPackage(sponsor);
-  if (!p) return undefined;
-  const winner: BonanzaWinner = {
-    sponsor,
-    direct: p.user,
-    positionId: p.id.toString(),
-    amount: p.initialPrincipal.toString(),
-    packageTime: Number(p.createdAt),
-    savedAt: new Date().toISOString(),
-  };
-  return updateWinners((winners) => {
+  const winner: BonanzaWinner = { sponsor, amount: business.toString(), savedAt: new Date().toISOString() };
+  const result = await updateWinners((winners) => {
     const existing = winners.find((w) => same(w.sponsor, sponsor));
     return existing ? { winners, result: existing } : { winners: [...winners, winner], result: winner };
   });
+  return { business, winner: result };
 }
 
 /** Removes a sponsor from the file. True when one was removed. */

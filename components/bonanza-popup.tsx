@@ -5,10 +5,11 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { CloseCircle, Cup } from "iconsax-react";
-import { shortAddr, usd } from "@/lib/format";
+import { usd } from "@/lib/format";
 import { useWallet } from "./wallet";
 
-type Winner = { sponsor: string; direct: string; amount: string };
+type Winner = { sponsor: string; amount: string };
+type Progress = { business: bigint; target: bigint; start: number };
 
 const congratsKey = (account: string) => `cx_bonanza_congrats_${account.toLowerCase()}`;
 function congratsSeen(account: string) {
@@ -19,7 +20,10 @@ function congratsSeen(account: string) {
   }
 }
 
-/** Bonanza poster on every page load, then a one-time congratulations for sponsors who won the bonanza. */
+/**
+ * Bonanza poster on every page load, with the account's progress towards the target,
+ * then a one-time congratulations for sponsors who won the bonanza.
+ */
 export function BonanzaPopup() {
   const { account, ready } = useWallet();
   const mounted = useSyncExternalStore(
@@ -29,13 +33,18 @@ export function BonanzaPopup() {
   );
   const [posterOpen, setPosterOpen] = useState(true);
   const [winner, setWinner] = useState<Winner>();
+  const [progress, setProgress] = useState<Progress>();
 
   useEffect(() => {
-    if (!ready || !account || congratsSeen(account)) return;
+    if (!ready || !account) return;
     let cancelled = false;
     fetch(`/api/bonanza?address=${account}`)
       .then((r) => (r.ok ? r.json() : undefined))
-      .then((d) => !cancelled && d?.eligible && setWinner(d.winner))
+      .then((d) => {
+        if (cancelled || !d) return;
+        setProgress({ business: BigInt(d.business), target: BigInt(d.target), start: d.start });
+        if (d.eligible && !congratsSeen(account)) setWinner(d.winner);
+      })
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -96,14 +105,17 @@ export function BonanzaPopup() {
             </button>
 
             {posterOpen ? (
-              <Image
-                src="/bonanza.png"
-                alt="CarbonX Business Achiever Rewards: Jim Corbett Reward"
-                width={1092}
-                height={1440}
-                priority
-                className="h-auto max-h-[88vh] w-full rounded-[2rem] object-contain"
-              />
+              <>
+                <Image
+                  src="/bonanza.png"
+                  alt="CarbonX Business Achiever Rewards: Jim Corbett Reward"
+                  width={1092}
+                  height={1440}
+                  priority
+                  className={`h-auto w-full rounded-[2rem] object-contain ${progress ? "max-h-[72vh]" : "max-h-[88vh]"}`}
+                />
+                {progress && <ProgressBar {...progress} />}
+              </>
             ) : (
               winner && (
                 <div className="rounded-[2rem] border border-neon/30 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(31,224,58,0.18),transparent_60%),linear-gradient(180deg,#0f1712,#0a0f0c)] px-6 pb-6 pt-8 text-center text-text shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
@@ -115,8 +127,8 @@ export function BonanzaPopup() {
                   </h3>
                   <p className="mt-2 text-base font-semibold text-white">You won the Jim Corbett Reward 🎉</p>
                   <p className="mt-2 text-sm text-muted">
-                    Your direct {shortAddr(winner.direct)} took a {usd(BigInt(winner.amount))} package, so you are
-                    eligible for 2 nights / 3 days in Jim Corbett.
+                    Your directs brought {usd(BigInt(winner.amount))} of active business, so you are eligible for
+                    2 nights / 3 days in Jim Corbett.
                   </p>
                   <button
                     type="button"
@@ -133,5 +145,37 @@ export function BonanzaPopup() {
       )}
     </AnimatePresence>,
     document.body
+  );
+}
+
+/** Active direct business bought since the bonanza started, against the target. */
+function ProgressBar({ business, target, start }: Progress) {
+  const pct = target > 0n ? Math.min(100, Number((business * 10000n) / target) / 100) : 0;
+  const done = business >= target;
+  return (
+    <div className="mt-3 rounded-2xl border border-white/10 bg-[#0a0f0c]/95 px-4 py-3 text-text">
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span className="text-muted">Your active direct business</span>
+        <span className="font-semibold text-white">
+          {usd(business)} <span className="font-normal text-muted">/ {usd(target)}</span>
+        </span>
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Bonanza progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pct)}
+        className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/[0.08]"
+      >
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-neon-bright to-neon transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="mt-2 text-xs text-muted">
+        {done ? "Target reached: you qualify for the reward." : `${usd(target - business)} more to qualify. Counts packages your directs buy from ${new Date(start * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.`}
+      </p>
+    </div>
   );
 }

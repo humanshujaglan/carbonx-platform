@@ -1,12 +1,12 @@
 import type { NextRequest } from "next/server";
 import { isAddress } from "viem";
-import { checkSponsor, listWinners, removeWinner } from "@/lib/bonanza";
+import { BONANZA_START, BONANZA_TARGET, checkSponsor, listWinners, removeWinner } from "@/lib/bonanza";
 
 // Listing and removing sponsors needs this key in the x-admin-key header
 const isAdmin = (req: NextRequest) => !!process.env.BONANZA_ADMIN_KEY && req.headers.get("x-admin-key") === process.env.BONANZA_ADMIN_KEY;
 
 /**
- * GET /api/bonanza?address=0x…  whether this sponsor won the bonanza (checks the chain and saves new winners)
+ * GET /api/bonanza?address=0x…  this sponsor's active direct business and whether they won (checks the chain and saves new winners)
  * GET /api/bonanza              every saved winner (admin)
  */
 export async function GET(req: NextRequest) {
@@ -17,8 +17,14 @@ export async function GET(req: NextRequest) {
   }
   if (!isAddress(address)) return Response.json({ error: "Invalid address" }, { status: 400 });
   try {
-    const winner = await checkSponsor(address);
-    return Response.json({ eligible: !!winner, winner: winner ?? null });
+    const { business, winner } = await checkSponsor(address);
+    return Response.json({
+      eligible: !!winner,
+      winner: winner ?? null,
+      business: business.toString(),
+      target: BONANZA_TARGET.toString(),
+      start: BONANZA_START,
+    });
   } catch (e) {
     console.error("[bonanza] check failed", e);
     return Response.json({ error: "Could not check the chain" }, { status: 502 });
